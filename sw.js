@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open("assignment-app-v4").then((cache) => {
+    caches.open("assignment-app-v5").then((cache) => {
       return cache.addAll([
         "./",
         "./index.html",
@@ -15,11 +15,14 @@ self.addEventListener("install", (event) => {
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => response || fetch(event.request))
-  );
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
 });
+
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || "SNU 과제 알림";
