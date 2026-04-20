@@ -216,3 +216,63 @@ function sendTestNotification() {
 
 // 앱 시작할 때 알림 권한 요청
 requestNotificationPermission();
+
+function checkDeadlines() {
+  // localStorage에서 과제 목록 꺼내오기
+  const tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  
+  tasks.forEach((task) => {
+    const dueDate = parseDateValue(task.dueDate);
+    if (!dueDate) return;
+    
+    const now = new Date();
+    const diffHours = (dueDate - now) / (1000 * 60 * 60);
+    
+    // 이미 지난 과제는 무시
+    if (diffHours < 0) return;
+    
+    // 24시간 이내
+    if (diffHours <= 24) {
+      const key = `notified_24h_${task.id}`;
+      if (!localStorage.getItem(key)) {
+        sendDeadlineNotification(task.title, "24시간 이내에 마감!");
+        localStorage.setItem(key, "true");
+      }
+    }
+    
+    // 5시간 이내
+    if (diffHours <= 5) {
+      const key = `notified_5h_${task.id}`;
+      if (!localStorage.getItem(key)) {
+        sendDeadlineNotification(task.title, "5시간 이내에 마감!");
+        localStorage.setItem(key, "true");
+      }
+    }
+    
+    // 1시간 이내
+    if (diffHours <= 1) {
+      const key = `notified_1h_${task.id}`;
+      if (!localStorage.getItem(key)) {
+        sendDeadlineNotification(task.title, "1시간 이내에 마감!");
+        localStorage.setItem(key, "true");
+      }
+    }
+  });
+}
+
+function sendDeadlineNotification(title, message) {
+  if (Notification.permission === "granted") {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.showNotification("⚠️ " + title, {
+        body: message,
+        icon: "./icon-192.png"
+      });
+    });
+  }
+}
+
+// 1분마다 마감 확인
+setInterval(checkDeadlines, 60000);
+
+// 앱 열자마자 한 번 바로 확인
+checkDeadlines();
