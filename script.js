@@ -205,9 +205,11 @@ async function requestNotificationPermission() {
 // 테스트 알림 보내기
 function sendTestNotification() {
   if (Notification.permission === "granted") {
-    new Notification("SNU 과제 알림 테스트", {
-      body: "알림이 정상적으로 작동하고 있어요!",
-      icon: "./icon-192.png"
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.showNotification("SNU 과제 알림 테스트", {
+        body: "알림이 정상적으로 작동하고 있어요!",
+        icon: "./icon-192.png"
+      });
     });
   }
 }
