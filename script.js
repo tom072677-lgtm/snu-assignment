@@ -174,6 +174,7 @@ taskForm.addEventListener("submit", (event) => {
   tasks.push(newTask);
   saveTasks();
   renderTasks();
+  checkDeadlines();
 
   taskForm.reset();
   taskInput.focus();
