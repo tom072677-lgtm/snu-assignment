@@ -1,6 +1,7 @@
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open("assignment-app-v2").then((cache) => {
+    caches.open("assignment-app-v3").then((cache) => {
       return cache.addAll([
         "./",
         "./index.html",
