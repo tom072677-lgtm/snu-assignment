@@ -136,8 +136,8 @@ function renderTasks() {
 
     taskList.appendChild(li);
   });
+  activeCount.textContent = tasks.length;
 
-  updateCounts();
 }
 
 taskForm.addEventListener("submit", (event) => {
