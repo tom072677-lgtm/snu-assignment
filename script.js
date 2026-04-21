@@ -233,7 +233,7 @@ function checkDeadlines() {
     if (diffHours < 0) return;
     
     // 24시간 이내
-    if (diffHours <= 24) {
+    if (diffHours <= 24 && diffHours > 5) {
       const key = `notified_24h_${task.id}`;
       if (!localStorage.getItem(key)) {
         sendDeadlineNotification(task.title, "24시간 이내에 마감!");
@@ -242,7 +242,7 @@ function checkDeadlines() {
     }
     
     // 5시간 이내
-    if (diffHours <= 5) {
+    if (diffHours <= 5 && diffHours > 1) {
       const key = `notified_5h_${task.id}`;
       if (!localStorage.getItem(key)) {
         sendDeadlineNotification(task.title, "5시간 이내에 마감!");
