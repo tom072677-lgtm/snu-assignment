@@ -3,26 +3,19 @@ const taskInput = document.getElementById("taskInput");
 const dueDateInput = document.getElementById("dueDateInput");
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
-const totalCount = document.getElementById("totalCount");
 const activeCount = document.getElementById("activeCount");
-const completedCount = document.getElementById("completedCount");
 const sortBtn = document.getElementById("sortBtn");
 const testAlertBtn = document.getElementById("testAlertBtn");
 testAlertBtn.addEventListener("click", sendTestNotification);
 
 const STORAGE_KEY = "snu_assignment_app_tasks";
-const COMPLETED_COUNT_KEY = "snu_assignment_app_completed_count";
 
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-let completedCounter = Number(localStorage.getItem(COMPLETED_COUNT_KEY)) || 0;
 
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
-function saveCompletedCounter() {
-  localStorage.setItem(COMPLETED_COUNT_KEY, String(completedCounter));
-}
 
 function parseDateValue(value) {
   const date = new Date(value);
@@ -92,11 +85,6 @@ function getBadgeInfo(dateString) {
   };
 }
 
-function updateCounts() {
-  totalCount.textContent = tasks.length + completedCounter;
-  activeCount.textContent = tasks.length;
-  completedCount.textContent = completedCounter;
-}
 
 function sortTasks() {
   tasks.sort((a, b) => {
@@ -139,14 +127,12 @@ function renderTasks() {
     `;
 
     const completeBtn = li.querySelector(".complete-btn");
-    completeBtn.addEventListener("click", () => {
-      tasks = tasks.filter((item) => item.id !== task.id);
-      completedCounter += 1;
+   completeBtn.addEventListener("click", () => {
+  tasks = tasks.filter((item) => item.id !== task.id);
 
-      saveTasks();
-      saveCompletedCounter();
-      renderTasks();
-    });
+  saveTasks();
+  renderTasks();
+});
 
     taskList.appendChild(li);
   });
