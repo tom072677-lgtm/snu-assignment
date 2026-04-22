@@ -263,3 +263,29 @@ setInterval(checkDeadlines, 60000);
 
 // 앱 열자마자 한 번 바로 확인
 checkDeadlines();
+
+async function getWeather() {
+  // 1. GPS로 위치 받아오기
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    // 2. 위치로 날씨 API 호출
+    const API_KEY = "868302e2f990e4c0346ec380667d8053";
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+    
+    const response = await fetch(url);  // API 호출, 응답 기다리기
+    const data = await response.json(); // 응답을 JSON으로 변환, 기다리기
+
+    // 3. 데이터에서 온도랑 날씨 상태 꺼내기
+    const temp = data.main.temp;
+    const description = data.weather[0].description;
+
+    // 4. 화면에 표시
+    const weatherInfo = document.getElementById("weatherInfo");
+    weatherInfo.textContent = `현재 날씨: ${temp}°C, ${description}`;
+  });
+}
+
+// 앱 열자마자 날씨 불러오기
+getWeather();
