@@ -283,7 +283,11 @@ async function getWeather() {
 
     // 4. 화면에 표시
     const weatherInfo = document.getElementById("weatherInfo");
-    weatherInfo.textContent = `현재 날씨: ${temp}°C, ${description}`;
+    const weatherText = document.getElementById("weatherText");
+const weatherIcon = document.getElementById("weatherIcon");
+
+weatherText.textContent = `${temp}°C, ${description}`;
+weatherIcon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
   });
 }
 
