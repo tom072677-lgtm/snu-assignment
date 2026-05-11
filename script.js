@@ -206,20 +206,22 @@ function renderTasks() {
     li.className = "task-item";
 
     const memo = memos[task.id] || "";
-    const courseLabel = task.courseName
-      ? `<span class="course-label">${escapeHtml(task.courseName)}</span>`
-      : "";
+    const mainLabel = task.courseName || task.title;
+    const subLabel = task.courseName ? task.title : "";
     const sourceTag = task.source === "etl"
       ? `<span class="source-tag etl-tag">eTL</span>`
       : "";
-    const titleLink = task.url
-      ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(task.title)}</a>`
-      : `<p class="task-title">${escapeHtml(task.title)}</p>`;
+    const mainLink = task.url
+      ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(mainLabel)}</a>`
+      : `<p class="task-title">${escapeHtml(mainLabel)}</p>`;
+    const subLabelHtml = subLabel
+      ? `<span class="course-label">${escapeHtml(subLabel)}</span>`
+      : "";
 
     li.innerHTML = `
       <div class="task-main">
-        <div class="task-title-row">${sourceTag}${titleLink}</div>
-        ${courseLabel}
+        <div class="task-title-row">${sourceTag}${mainLink}</div>
+        ${subLabelHtml}
         <div class="task-meta">
           <span class="due-date-text">마감일: ${formatDateTime(task.dueDate, task.dateOnly)}</span>
           <span class="due-badge ${badge.className}">${badge.text}</span>
@@ -289,17 +291,19 @@ function renderCompleted() {
     const li = document.createElement("li");
     li.className = "task-item completed-task-item";
 
-    const courseLabel = task.courseName
-      ? `<span class="course-label">${escapeHtml(task.courseName)}</span>`
-      : "";
+    const mainLabel = task.courseName || task.title;
+    const subLabel = task.courseName ? task.title : "";
     const titleDisplay = task.url
-      ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(task.title)}</a>`
-      : `<p class="task-title">${escapeHtml(task.title)}</p>`;
+      ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(mainLabel)}</a>`
+      : `<p class="task-title">${escapeHtml(mainLabel)}</p>`;
+    const subLabelHtml = subLabel
+      ? `<span class="course-label">${escapeHtml(subLabel)}</span>`
+      : "";
 
     li.innerHTML = `
       <div class="task-main">
         <div class="task-title-row">${titleDisplay}</div>
-        ${courseLabel}
+        ${subLabelHtml}
         <div class="task-meta">
           <span class="due-date-text">완료: ${formatDateTime(task.completedAt)}</span>
         </div>
