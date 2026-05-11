@@ -123,7 +123,7 @@ app.post("/api/sync-ical", async (req, res) => {
       if (!dueDate || isNaN(dueDate.getTime())) continue;
 
       const diffDays = (dueDate - now) / (1000 * 60 * 60 * 24);
-      if (diffDays < 0) continue;
+      if (diffDays < 0 || diffDays > 7) continue;
 
       const { title, courseName } = parseSummary(ev.summary);
       if (!title) continue;
