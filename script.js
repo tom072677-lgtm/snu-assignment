@@ -7,7 +7,6 @@ const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
-const testAlertBtn = document.getElementById("testAlertBtn");
 
 // eTL DOM
 const etlToggle = document.getElementById("etlToggle");
@@ -133,7 +132,6 @@ function renderTasks() {
   });
 }
 
-testAlertBtn.addEventListener("click", sendTestNotification);
 
 // ──────────────────────────────────────────
 // eTL 섹션 토글
@@ -309,18 +307,6 @@ async function requestNotificationPermission() {
   await Notification.requestPermission();
 }
 
-function sendTestNotification() {
-  if (Notification.permission !== "granted") {
-    alert("알림 권한이 없습니다. 브라우저에서 알림을 허용해주세요.");
-    return;
-  }
-  navigator.serviceWorker.ready.then((reg) => {
-    reg.showNotification("SNU 과제 알림 테스트", {
-      body: "알림이 정상적으로 작동하고 있어요!",
-      icon: "./icon-192.png",
-    });
-  });
-}
 
 function sendDeadlineNotification(title, message) {
   if (Notification.permission !== "granted") return;
