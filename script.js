@@ -404,7 +404,9 @@ setInterval(checkDeadlines, 60000);
 // iCal URL이 저장돼 있으면 연동 상태 복원 + 자동 동기화
 if (icalUrl) {
   setConnectedUI();
-  if (canvasToken) apiTokenInput.value = canvasToken;
+  etlBody.classList.add("collapsed");
+  etlToggleIcon.textContent = "▶";
+  if (canvasToken && apiTokenInput) apiTokenInput.value = canvasToken;
   syncIcal();
 }
 
