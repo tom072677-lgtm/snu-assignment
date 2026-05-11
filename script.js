@@ -1,295 +1,383 @@
+const SERVER_URL = "http://localhost:3001";
+const STORAGE_KEY = "snu_assignment_app_tasks";
+const ICAL_URL_KEY = "snu_etl_ical_url";
+
+// DOM
 const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
 const dueDateInput = document.getElementById("dueDateInput");
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
+const etlCount = document.getElementById("etlCount");
 const sortBtn = document.getElementById("sortBtn");
 const testAlertBtn = document.getElementById("testAlertBtn");
-testAlertBtn.addEventListener("click", sendTestNotification);
 
-const STORAGE_KEY = "snu_assignment_app_tasks";
+// eTL DOM
+const etlToggle = document.getElementById("etlToggle");
+const etlBody = document.getElementById("etlBody");
+const etlToggleIcon = document.getElementById("etlToggleIcon");
+const icalForm = document.getElementById("icalForm");
+const icalUrlInput = document.getElementById("icalUrlInput");
+const icalSaveBtn = document.getElementById("icalSaveBtn");
+const etlSetupForm = document.getElementById("etlSetupForm");
+const etlConnected = document.getElementById("etlConnected");
+const etlSyncBtn = document.getElementById("etlSyncBtn");
+const etlDisconnectBtn = document.getElementById("etlDisconnectBtn");
+const etlSyncStatus = document.getElementById("etlSyncStatus");
+const etlError = document.getElementById("etlError");
 
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+let icalUrl = localStorage.getItem(ICAL_URL_KEY) || null;
+
+// ──────────────────────────────────────────
+// 날짜 유틸
+// ──────────────────────────────────────────
+
+function parseDateValue(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateTime(value, dateOnly = false) {
+  const date = parseDateValue(value);
+  if (!date) return value;
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  if (dateOnly) return `${y}.${mo}.${d}`;
+  const h = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  return `${y}.${mo}.${d} ${h}:${mi}`;
+}
+
+function getBadgeInfo(dateString) {
+  const dueDate = parseDateValue(dateString);
+  if (!dueDate) return { text: "날짜 확인", className: "due-blue" };
+  const diffMs = dueDate - new Date();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffMs < 0) return { text: "마감 지남", className: "due-black" };
+  if (diffHours <= 24) return { text: "24시간 이하", className: "due-red" };
+  if (diffDays <= 3) return { text: "1~3일 남음", className: "due-green" };
+  return { text: "3일 초과", className: "due-blue" };
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ──────────────────────────────────────────
+// 저장 / 렌더링
+// ──────────────────────────────────────────
 
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
-
-function parseDateValue(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
-}
-
-function formatDateTime(value) {
-  const date = parseDateValue(value);
-
-  if (!date) {
-    return value;
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}.${month}.${day} ${hour}:${minute}`;
-}
-
-function getBadgeInfo(dateString) {
-  const dueDate = parseDateValue(dateString);
-
-  if (!dueDate) {
-    return {
-      text: "날짜 확인",
-      className: "due-blue"
-    };
-  }
-
-  const now = new Date();
-  const diffMs = dueDate - now;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  if (diffMs < 0) {
-    return {
-      text: "마감 지남",
-      className: "due-black"
-    };
-  }
-
-  if (diffHours <= 24) {
-    return {
-      text: "24시간 이하",
-      className: "due-red"
-    };
-  }
-
-  if (diffDays <= 3) {
-    return {
-      text: "1~3일 남음",
-      className: "due-green"
-    };
-  }
-
-  return {
-    text: "3일 초과",
-    className: "due-blue"
-  };
-}
-
-
 function sortTasks() {
   tasks.sort((a, b) => {
-    const dateA = parseDateValue(a.dueDate);
-    const dateB = parseDateValue(b.dueDate);
-
-    if (!dateA && !dateB) return 0;
-    if (!dateA) return 1;
-    if (!dateB) return -1;
-
-    return dateA - dateB;
+    const da = parseDateValue(a.dueDate);
+    const db = parseDateValue(b.dueDate);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
   });
 }
 
 function renderTasks() {
   sortTasks();
   taskList.innerHTML = "";
+  emptyMessage.classList.toggle("hidden", tasks.length > 0);
 
-  if (tasks.length === 0) {
-    emptyMessage.classList.remove("hidden");
-  } else {
-    emptyMessage.classList.add("hidden");
-  }
+  activeCount.textContent = tasks.length;
+  etlCount.textContent = tasks.filter((t) => t.source === "etl").length;
 
   tasks.forEach((task) => {
     const badge = getBadgeInfo(task.dueDate);
-
     const li = document.createElement("li");
     li.className = "task-item";
 
+    const courseLabel = task.courseName
+      ? `<span class="course-label">${escapeHtml(task.courseName)}</span>`
+      : "";
+    const sourceTag = task.source === "etl"
+      ? `<span class="source-tag etl-tag">eTL</span>`
+      : "";
+    const titleLink = task.url
+      ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(task.title)}</a>`
+      : `<p class="task-title">${escapeHtml(task.title)}</p>`;
+
     li.innerHTML = `
       <div class="task-main">
-        <p class="task-title">${task.title}</p>
+        <div class="task-title-row">${sourceTag}${titleLink}</div>
+        ${courseLabel}
         <div class="task-meta">
-          <span class="due-date-text">마감일: ${formatDateTime(task.dueDate)}</span>
+          <span class="due-date-text">마감일: ${formatDateTime(task.dueDate, task.dateOnly)}</span>
           <span class="due-badge ${badge.className}">${badge.text}</span>
         </div>
       </div>
       <button class="complete-btn" data-id="${task.id}">완료</button>
     `;
 
-    const completeBtn = li.querySelector(".complete-btn");
-   completeBtn.addEventListener("click", () => {
-  tasks = tasks.filter((item) => item.id !== task.id);
-
-  saveTasks();
-  renderTasks();
-});
+    li.querySelector(".complete-btn").addEventListener("click", () => {
+      tasks = tasks.filter((item) => item.id !== task.id);
+      saveTasks();
+      renderTasks();
+    });
 
     taskList.appendChild(li);
   });
-  activeCount.textContent = tasks.length;
-
 }
 
-taskForm.addEventListener("submit", (event) => {
-  event.preventDefault();
+// ──────────────────────────────────────────
+// 수동 과제 추가
+// ──────────────────────────────────────────
 
+taskForm.addEventListener("submit", (e) => {
+  e.preventDefault();
   const title = taskInput.value.trim();
   const dueDate = dueDateInput.value;
+  if (!title || !dueDate) return;
 
-  if (!title || !dueDate) {
-    alert("과제 이름과 마감 날짜/시간을 모두 입력해줘.");
-    return;
-  }
-
-  const newTask = {
-    id: Date.now(),
-    title,
-    dueDate
-  };
-
-  tasks.push(newTask);
+  tasks.push({ id: Date.now(), title, dueDate, source: "manual" });
   saveTasks();
   renderTasks();
   checkDeadlines();
-
   taskForm.reset();
   taskInput.focus();
 });
 
-sortBtn.addEventListener("click", () => {
-  sortTasks();
-  renderTasks();
+sortBtn.addEventListener("click", renderTasks);
+testAlertBtn.addEventListener("click", sendTestNotification);
+
+// ──────────────────────────────────────────
+// eTL 섹션 토글
+// ──────────────────────────────────────────
+
+etlToggle.addEventListener("click", () => {
+  const isOpen = !etlBody.classList.contains("collapsed");
+  etlBody.classList.toggle("collapsed", isOpen);
+  etlToggleIcon.textContent = isOpen ? "▶" : "▼";
 });
 
-renderTasks();
+// ──────────────────────────────────────────
+// iCal 연동
+// ──────────────────────────────────────────
 
-// 알림 권한 요청
-async function requestNotificationPermission() {
-  if (!("Notification" in window)) {
-    alert("이 브라우저는 알림을 지원하지 않아요.");
+function showEtlError(msg) {
+  etlError.textContent = msg;
+  etlError.classList.remove("hidden");
+}
+
+function hideEtlError() {
+  etlError.classList.add("hidden");
+}
+
+function setConnectedUI() {
+  etlSetupForm.classList.add("hidden");
+  etlConnected.classList.remove("hidden");
+}
+
+function setDisconnectedUI() {
+  etlSetupForm.classList.remove("hidden");
+  etlConnected.classList.add("hidden");
+  etlSyncStatus.textContent = "";
+}
+
+icalForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideEtlError();
+
+  const url = icalUrlInput.value.trim();
+  if (!url) {
+    showEtlError("URL을 입력해주세요.");
+    return;
+  }
+  if (!url.startsWith("webcal://") && !url.startsWith("https://")) {
+    showEtlError("webcal:// 또는 https:// 로 시작하는 URL을 입력해주세요.");
+    return;
+  }
+  if (!url.includes("etl.snu.ac.kr") && !url.includes("myetl.snu.ac.kr")) {
+    showEtlError("eTL 캘린더 URL이 맞는지 확인해주세요.");
     return;
   }
 
-  const permission = await Notification.requestPermission();
+  icalSaveBtn.disabled = true;
+  icalSaveBtn.textContent = "가져오는 중...";
 
-  if (permission === "granted") {
-    console.log("알림 허용됨!");
-  } else {
-    console.log("알림 거부됨");
-  }
-}
+  icalUrl = url;
+  localStorage.setItem(ICAL_URL_KEY, url);
 
-// 테스트 알림 보내기
-function sendTestNotification() {
-  if (Notification.permission === "granted") {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.showNotification("SNU 과제 알림 테스트", {
-        body: "알림이 정상적으로 작동하고 있어요!",
-        icon: "./icon-192.png"
+  const ok = await syncIcal();
+  if (ok) setConnectedUI();
+
+  icalSaveBtn.disabled = false;
+  icalSaveBtn.textContent = "저장 & 과제 가져오기";
+});
+
+etlSyncBtn.addEventListener("click", async () => {
+  hideEtlError();
+  etlSyncBtn.disabled = true;
+  etlSyncBtn.textContent = "새로고침 중...";
+  await syncIcal();
+  etlSyncBtn.disabled = false;
+  etlSyncBtn.textContent = "지금 새로고침";
+});
+
+etlDisconnectBtn.addEventListener("click", () => {
+  icalUrl = null;
+  localStorage.removeItem(ICAL_URL_KEY);
+  tasks = tasks.filter((t) => t.source !== "etl");
+  saveTasks();
+  renderTasks();
+  setDisconnectedUI();
+  hideEtlError();
+  icalUrlInput.value = "";
+});
+
+async function syncIcal() {
+  if (!icalUrl) return false;
+
+  try {
+    // 서버가 직접 iCal URL 가져오기 (서버 사이드 fetch)
+    const res = await fetch(`${SERVER_URL}/api/sync-ical`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ icalUrl }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showEtlError(data.error || "과제 불러오기 실패");
+      etlSyncStatus.textContent = "동기화 실패";
+      return false;
+    }
+
+    // 기존 eTL 과제 제거 후 새 데이터로 교체
+    tasks = tasks.filter((t) => t.source !== "etl");
+    data.forEach((a) => {
+      tasks.push({
+        id: `etl_${a.etlId}`,
+        etlId: a.etlId,
+        title: a.title,
+        courseName: a.courseName,
+        dueDate: a.dueDate,
+        dateOnly: a.dateOnly || false,
+        url: a.url || null,
+        source: "etl",
       });
     });
+
+    saveTasks();
+    renderTasks();
+    checkDeadlines();
+
+    const now = new Date();
+    const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    etlSyncStatus.textContent = `마지막 동기화: ${t} (${data.length}개)`;
+    return true;
+  } catch {
+    showEtlError("서버에 연결할 수 없습니다. 로컬 서버(server/)가 실행 중인지 확인하세요.");
+    etlSyncStatus.textContent = "동기화 실패";
+    return false;
   }
 }
 
-// 앱 시작할 때 알림 권한 요청
-requestNotificationPermission();
+// ──────────────────────────────────────────
+// 알림
+// ──────────────────────────────────────────
 
-function checkDeadlines() {
-  // localStorage에서 과제 목록 꺼내오기
-  const tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  
-  tasks.forEach((task) => {
-    const dueDate = parseDateValue(task.dueDate);
-    if (!dueDate) return;
-    
-    const now = new Date();
-    const diffHours = (dueDate - now) / (1000 * 60 * 60);
-    
-    // 이미 지난 과제는 무시
-    if (diffHours < 0) return;
-    
-    // 24시간 이내
-    if (diffHours <= 24 && diffHours > 5) {
-      const key = `notified_24h_${task.id}`;
-      if (!localStorage.getItem(key)) {
-        sendDeadlineNotification(task.title, "24시간 이내에 마감!");
-        localStorage.setItem(key, "true");
-      }
-    }
-    
-    // 5시간 이내
-    if (diffHours <= 5 && diffHours > 1) {
-      const key = `notified_5h_${task.id}`;
-      if (!localStorage.getItem(key)) {
-        sendDeadlineNotification(task.title, "5시간 이내에 마감!");
-        localStorage.setItem(key, "true");
-      }
-    }
-    
-    // 1시간 이내
-    if (diffHours <= 1) {
-      const key = `notified_1h_${task.id}`;
-      if (!localStorage.getItem(key)) {
-        sendDeadlineNotification(task.title, "1시간 이내에 마감!");
-        localStorage.setItem(key, "true");
-      }
-    }
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) return;
+  await Notification.requestPermission();
+}
+
+function sendTestNotification() {
+  if (Notification.permission !== "granted") {
+    alert("알림 권한이 없습니다. 브라우저에서 알림을 허용해주세요.");
+    return;
+  }
+  navigator.serviceWorker.ready.then((reg) => {
+    reg.showNotification("SNU 과제 알림 테스트", {
+      body: "알림이 정상적으로 작동하고 있어요!",
+      icon: "./icon-192.png",
+    });
   });
 }
 
 function sendDeadlineNotification(title, message) {
-  if (Notification.permission === "granted") {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.showNotification("⚠️ " + title, {
-        body: message,
-        icon: "./icon-192.png"
-      });
-    });
-  }
-}
-
-// 1분마다 마감 확인
-setInterval(checkDeadlines, 60000);
-
-// 앱 열자마자 한 번 바로 확인
-checkDeadlines();
-
-async function getWeather() {
-  // 1. GPS로 위치 받아오기
-  navigator.geolocation.getCurrentPosition(async (position) => {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-
-    // 2. 위치로 날씨 API 호출
-    const API_KEY = "868302e2f990e4c0346ec380667d8053";
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-    
-    const response = await fetch(url);  // API 호출, 응답 기다리기
-    const data = await response.json(); // 응답을 JSON으로 변환, 기다리기
-
-    // 3. 데이터에서 온도랑 날씨 상태 꺼내기
-    const temp = data.main.temp;
-    const description = data.weather[0].description;
-
-    // 4. 화면에 표시
-    const weatherInfo = document.getElementById("weatherInfo");
-    const weatherText = document.getElementById("weatherText");
-const weatherIcon = document.getElementById("weatherIcon");
-
-weatherText.textContent = `${temp}°C, ${description}`;
-weatherIcon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+  if (Notification.permission !== "granted") return;
+  navigator.serviceWorker.ready.then((reg) => {
+    reg.showNotification(`⚠️ ${title}`, { body: message, icon: "./icon-192.png" });
   });
 }
 
-// 앱 열자마자 날씨 불러오기
+function checkDeadlines() {
+  const current = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  current.forEach((task) => {
+    const dueDate = parseDateValue(task.dueDate);
+    if (!dueDate) return;
+    const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
+    if (diffHours < 0) return;
+
+    [
+      { max: 24, min: 5,  key: `notified_24h_${task.id}`, msg: "24시간 이내에 마감!" },
+      { max: 5,  min: 1,  key: `notified_5h_${task.id}`,  msg: "5시간 이내에 마감!" },
+      { max: 1,  min: -1, key: `notified_1h_${task.id}`,  msg: "1시간 이내에 마감!" },
+    ].forEach(({ max, min, key, msg }) => {
+      if (diffHours <= max && diffHours > min && !localStorage.getItem(key)) {
+        sendDeadlineNotification(task.title, msg);
+        localStorage.setItem(key, "true");
+      }
+    });
+  });
+}
+
+// ──────────────────────────────────────────
+// 날씨
+// ──────────────────────────────────────────
+
+function getWeather() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    try {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      const KEY = "868302e2f990e4c0346ec380667d8053";
+      const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${KEY}&units=metric`);
+      const data = await res.json();
+      document.getElementById("weatherText").textContent = `${Math.round(data.main.temp)}°C, ${data.weather[0].description}`;
+      document.getElementById("weatherIcon").src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+    } catch {
+      document.getElementById("weatherText").textContent = "날씨 불러오기 실패";
+    }
+  }, () => {
+    document.getElementById("weatherText").textContent = "위치 권한 없음";
+  });
+}
+
+// ──────────────────────────────────────────
+// 초기화
+// ──────────────────────────────────────────
+
+requestNotificationPermission();
+renderTasks();
 getWeather();
+checkDeadlines();
+setInterval(checkDeadlines, 60000);
+
+// iCal URL이 저장돼 있으면 연동 상태 복원 + 자동 동기화
+if (icalUrl) {
+  setConnectedUI();
+  syncIcal();
+}
+
+// 10분마다 자동 동기화
+setInterval(() => {
+  if (icalUrl) syncIcal();
+}, 10 * 60 * 1000);
