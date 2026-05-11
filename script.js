@@ -46,6 +46,7 @@ const ACADEMIC_SCHEDULE = [
   { id: "ac_4", title: "수강취소 기간", startDate: "2026-04-27", endDate: "2026-05-01" },
   { id: "ac_5", title: "기말고사", startDate: "2026-06-15", endDate: "2026-06-20" },
   { id: "ac_6", title: "봄학기 종강", date: "2026-06-19" },
+  { id: "ac_7", title: "관악제", startDate: "2026-05-12", endDate: "2026-05-14" },
 ];
 
 // DOM - 과제
