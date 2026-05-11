@@ -907,7 +907,7 @@ const darkModeBtn = document.getElementById("darkModeBtn");
 
 function applyDarkMode(dark) {
   document.body.classList.toggle("dark", dark);
-  darkModeBtn.textContent = dark ? "☀️" : "🌙";
+  darkModeBtn.textContent = dark ? "☀️ 라이트 모드" : "🌙 다크 모드";
 }
 
 const savedDark = localStorage.getItem("darkMode") === "true"

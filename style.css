@@ -472,19 +472,16 @@ a.news-title:hover { text-decoration: underline; color: #4f46e5; }
 .news-loading, .news-error, .news-empty { font-size: 13px; color: #9ca3af; margin: 8px 0; }
 .news-error { color: #b91c1c; }
 
-/* 다크 모드 버튼 */
-#darkModeBtn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-  color: #9ca3af;
-  transform: none;
+/* 다크 모드 행 */
+.dark-mode-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
 }
-#darkModeBtn:hover { background: #f3f4f6; transform: none; }
-body.dark #darkModeBtn:hover { background: #334155; }
+body.dark .dark-mode-row { border-color: #334155; }
 
 /* 다크 모드 오버라이드 */
 body.dark .app { background: #1e293b; }
