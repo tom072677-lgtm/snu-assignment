@@ -10,7 +10,6 @@ const dueDateInput = document.getElementById("dueDateInput");
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
-const etlCount = document.getElementById("etlCount");
 const sortBtn = document.getElementById("sortBtn");
 const testAlertBtn = document.getElementById("testAlertBtn");
 
@@ -100,7 +99,6 @@ function renderTasks() {
   emptyMessage.classList.toggle("hidden", tasks.length > 0);
 
   activeCount.textContent = tasks.length;
-  etlCount.textContent = tasks.filter((t) => t.source === "etl").length;
 
   tasks.forEach((task) => {
     const badge = getBadgeInfo(task.dueDate);
