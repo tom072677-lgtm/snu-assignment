@@ -1,19 +1,63 @@
 * { box-sizing: border-box; }
 
+:root {
+  --bg: #f3f6fb;
+  --app-bg: #ffffff;
+  --text: #1f2937;
+  --text-sub: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --tab-bg: #f3f4f6;
+  --tab-active-bg: #ffffff;
+  --tab-active-color: #2563eb;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --card-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  --settings-bg: #f9fafb;
+  --settings-border: #e5e7eb;
+  --shadow: 0 10px 30px rgba(0,0,0,0.08);
+  --news-bg: #f9fafb;
+}
+
+body.dark {
+  --bg: #0f172a;
+  --app-bg: #1e293b;
+  --text: #f1f5f9;
+  --text-sub: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
+  --tab-bg: #0f172a;
+  --tab-active-bg: #1e293b;
+  --tab-active-color: #60a5fa;
+  --input-bg: #1e293b;
+  --input-border: #475569;
+  --card-bg: #1e293b;
+  --card-border: #334155;
+  --card-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  --settings-bg: #0f172a;
+  --settings-border: #334155;
+  --shadow: 0 10px 30px rgba(0,0,0,0.4);
+  --news-bg: #0f172a;
+}
+
 body {
   margin: 0;
   font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  background: #f3f6fb;
-  color: #1f2937;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.2s, color 0.2s;
 }
 
 .app {
   max-width: 760px;
   margin: 40px auto;
   padding: 24px;
-  background: #ffffff;
+  background: var(--app-bg);
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow);
+  transition: background 0.2s;
 }
 
 /* 헤더 */
@@ -427,6 +471,73 @@ a.news-title:hover { text-decoration: underline; color: #4f46e5; }
 .news-date { font-size: 12px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
 .news-loading, .news-error, .news-empty { font-size: 13px; color: #9ca3af; margin: 8px 0; }
 .news-error { color: #b91c1c; }
+
+/* 다크 모드 버튼 */
+#darkModeBtn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #9ca3af;
+  transform: none;
+}
+#darkModeBtn:hover { background: #f3f4f6; transform: none; }
+body.dark #darkModeBtn:hover { background: #334155; }
+
+/* 다크 모드 오버라이드 */
+body.dark .app { background: #1e293b; }
+body.dark .settings-panel,
+body.dark .how-to { background: #0f172a; border-color: #334155; }
+body.dark .how-to-title { color: #f1f5f9; }
+body.dark .how-to ol { color: #94a3b8; }
+body.dark .tab-bar { background: #0f172a; }
+body.dark .tab-btn { color: #94a3b8; }
+body.dark .tab-btn.active { background: #1e293b; color: #60a5fa; }
+body.dark .task-item { background: #0f172a; border-color: #334155; }
+body.dark input[type="text"],
+body.dark input[type="password"],
+body.dark input[type="date"] { background: #0f172a; border-color: #475569; color: #f1f5f9; }
+body.dark .btn-secondary { background: #334155; color: #f1f5f9; }
+body.dark #settingsBtn { color: #64748b; }
+body.dark #settingsBtn:hover { background: #334155; color: #f1f5f9; }
+body.dark .due-date-text { color: #94a3b8; }
+body.dark .empty-message { color: #64748b; }
+body.dark .sync-status { color: #94a3b8; }
+body.dark .token-label { color: #f1f5f9; }
+body.dark .token-hint { color: #64748b; }
+body.dark .etl-error { background: #450a0a; color: #fca5a5; }
+body.dark .token-section { border-color: #334155; }
+body.dark .completed-header,
+body.dark .news-header { border-color: #334155; }
+body.dark .cal-nav { background: #0f172a; border-color: #334155; }
+body.dark .cal-title { color: #f1f5f9; }
+body.dark .cal-nav-btn { color: #94a3b8; }
+body.dark .cal-nav-btn:hover { background: #334155; }
+body.dark .cal-weekdays { color: #64748b; }
+body.dark .cal-day { border-color: #334155; }
+body.dark .cal-day.today { background: #1e3a5f; }
+body.dark .cal-day.selected { background: #1e3a5f; }
+body.dark .cal-day-num.sunday { color: #f87171; }
+body.dark .cal-day-detail { background: #0f172a; border-color: #334155; }
+body.dark .cal-detail-header { border-color: #334155; }
+body.dark .cal-selected-label { color: #f1f5f9; }
+body.dark .cal-event-item { border-color: #334155; }
+body.dark .cal-event-title { color: #f1f5f9; }
+body.dark .cal-modal-box { background: #1e293b; }
+body.dark .cal-modal-title { color: #f1f5f9; }
+body.dark .news-section { border-color: #334155; }
+body.dark .news-tabs { background: #0f172a; }
+body.dark .news-tab { color: #94a3b8; }
+body.dark .news-tab:hover { background: #334155; }
+body.dark .news-item { border-color: #334155; }
+body.dark .news-title { color: #f1f5f9; }
+body.dark .news-date { color: #64748b; }
+body.dark .news-loading,
+body.dark .news-empty { color: #64748b; }
+body.dark .memo-input { background: #0f172a; border-color: #334155; color: #f1f5f9; }
+body.dark .completed-task-item { opacity: 0.7; }
 
 /* 유틸 */
 .hidden { display: none; }

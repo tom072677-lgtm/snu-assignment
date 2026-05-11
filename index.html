@@ -7,7 +7,7 @@
   <link rel="manifest" href="app.webmanifest" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <div class="app">
@@ -15,6 +15,7 @@
     <header class="app-header">
       <div class="header-row">
         <h1>서울대</h1>
+        <button type="button" id="darkModeBtn" title="다크 모드">🌙</button>
         <button type="button" id="settingsBtn" title="설정">⚙</button>
       </div>
     </header>
@@ -159,7 +160,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
