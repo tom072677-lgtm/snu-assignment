@@ -203,33 +203,14 @@ body {
   line-height: 1.5;
 }
 
-/* 입력 레이아웃 */
-.input-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-#taskForm {
-  display: grid;
-  gap: 0;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
+/* 입력 공통 */
 label {
   font-weight: 700;
   font-size: 14px;
 }
 
 input[type="text"],
-input[type="password"],
-input[type="datetime-local"] {
+input[type="password"] {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid #d1d5db;
@@ -240,8 +221,7 @@ input[type="datetime-local"] {
 }
 
 input[type="text"]:focus,
-input[type="password"]:focus,
-input[type="datetime-local"]:focus {
+input[type="password"]:focus {
   outline: none;
   border-color: #4f46e5;
   box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
@@ -274,9 +254,7 @@ button:disabled {
   transform: none;
 }
 
-#addBtn,
 #sortBtn,
-#etlLoginBtn,
 #etlSyncBtn,
 .complete-btn {
   background: #4f46e5;
@@ -286,10 +264,6 @@ button:disabled {
 .btn-secondary {
   background: #f3f4f6;
   color: #374151;
-}
-
-#addBtn {
-  width: 120px;
 }
 
 /* 요약 카드 */
@@ -454,10 +428,6 @@ a.task-title:hover {
     font-size: 26px;
   }
 
-  .input-row {
-    grid-template-columns: 1fr;
-  }
-
   .summary-section {
     grid-template-columns: 1fr;
   }
@@ -472,9 +442,7 @@ a.task-title:hover {
     flex-direction: column;
   }
 
-  #addBtn,
   #sortBtn,
-  #etlLoginBtn,
   #etlSyncBtn,
   .complete-btn {
     width: 100%;
