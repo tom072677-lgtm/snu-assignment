@@ -29,6 +29,22 @@ const etlError = document.getElementById("etlError");
 const apiTokenInput = document.getElementById("apiTokenInput");
 const apiTokenSaveBtn = document.getElementById("apiTokenSaveBtn");
 
+if (apiTokenSaveBtn) {
+  apiTokenSaveBtn.addEventListener("click", async () => {
+    const token = apiTokenInput.value.trim();
+    canvasToken = token || null;
+    if (token) {
+      localStorage.setItem(CANVAS_TOKEN_KEY, token);
+      apiTokenSaveBtn.textContent = "저장됨 ✓";
+    } else {
+      localStorage.removeItem(CANVAS_TOKEN_KEY);
+      apiTokenSaveBtn.textContent = "삭제됨";
+    }
+    setTimeout(() => { apiTokenSaveBtn.textContent = "저장"; }, 2000);
+    if (icalUrl) await syncIcal();
+  });
+}
+
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 let icalUrl = localStorage.getItem(ICAL_URL_KEY) || null;
 let canvasToken = localStorage.getItem(CANVAS_TOKEN_KEY) || null;
@@ -241,20 +257,6 @@ etlDisconnectBtn.addEventListener("click", () => {
   setDisconnectedUI();
   hideEtlError();
   icalUrlInput.value = "";
-});
-
-apiTokenSaveBtn.addEventListener("click", async () => {
-  const token = apiTokenInput.value.trim();
-  canvasToken = token || null;
-  if (token) {
-    localStorage.setItem(CANVAS_TOKEN_KEY, token);
-    apiTokenSaveBtn.textContent = "저장됨 ✓";
-  } else {
-    localStorage.removeItem(CANVAS_TOKEN_KEY);
-    apiTokenSaveBtn.textContent = "삭제됨";
-  }
-  setTimeout(() => { apiTokenSaveBtn.textContent = "저장"; }, 2000);
-  if (icalUrl) await syncIcal();
 });
 
 async function syncIcal(retrying = false) {
