@@ -112,9 +112,9 @@ app.post("/api/sync-ical", async (req, res) => {
       const { date: dueDate, dateOnly } = parseEventDate(ev);
       if (!dueDate || isNaN(dueDate.getTime())) continue;
 
-      // 7일 이상 지난 과제는 제외
+      // 마감 지난 과제는 제외
       const diffDays = (dueDate - now) / (1000 * 60 * 60 * 24);
-      if (diffDays < -7) continue;
+      if (diffDays < 0) continue;
 
       const { title, courseName } = parseSummary(ev.summary);
       if (!title) continue;
