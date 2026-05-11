@@ -175,6 +175,8 @@ app.post("/api/sync-ical", async (req, res) => {
   }
 });
 
+app.get("/health", (req, res) => res.json({ ok: true }));
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });

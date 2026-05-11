@@ -259,8 +259,12 @@ apiTokenSaveBtn.addEventListener("click", async () => {
   if (icalUrl) await syncIcal();
 });
 
-async function syncIcal() {
+async function syncIcal(retrying = false) {
   if (!icalUrl) return false;
+
+  if (retrying) {
+    etlSyncStatus.textContent = "서버 준비 중... 재시도 중";
+  }
 
   try {
     const res = await fetch(`${SERVER_URL}/api/sync-ical`, {
@@ -300,7 +304,14 @@ async function syncIcal() {
     etlSyncStatus.textContent = `마지막 동기화: ${t} (${data.length}개)`;
     return true;
   } catch {
-    showEtlError("서버에 연결할 수 없습니다. 로컬 서버(server/)가 실행 중인지 확인하세요.");
+    if (!retrying) {
+      // cold start 대응: 10초 후 1회 자동 재시도
+      etlSyncStatus.textContent = "서버 깨우는 중... (최대 30초)";
+      hideEtlError();
+      setTimeout(() => syncIcal(true), 10000);
+      return false;
+    }
+    showEtlError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
     etlSyncStatus.textContent = "동기화 실패";
     return false;
   }
@@ -372,9 +383,11 @@ function getWeather() {
       document.getElementById("weatherIcon").src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
     } catch {
       document.getElementById("weatherText").textContent = "날씨 불러오기 실패";
+      document.getElementById("weatherIcon").style.display = "none";
     }
   }, () => {
     document.getElementById("weatherText").textContent = "위치 권한 없음";
+    document.getElementById("weatherIcon").style.display = "none";
   });
 }
 
@@ -399,3 +412,8 @@ if (icalUrl) {
 setInterval(() => {
   if (icalUrl) syncIcal();
 }, 10 * 60 * 1000);
+
+// 14분마다 서버 ping (Render free tier cold start 방지)
+setInterval(() => {
+  fetch(`${SERVER_URL}/health`).catch(() => {});
+}, 14 * 60 * 1000);
