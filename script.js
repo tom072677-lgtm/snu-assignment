@@ -346,29 +346,6 @@ function checkDeadlines() {
   });
 }
 
-// ──────────────────────────────────────────
-// 날씨
-// ──────────────────────────────────────────
-
-function getWeather() {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    try {
-      const { latitude: lat, longitude: lon } = pos.coords;
-      const KEY = "868302e2f990e4c0346ec380667d8053";
-      const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${KEY}&units=metric`);
-      const data = await res.json();
-      document.getElementById("weatherText").textContent = `${Math.round(data.main.temp)}°C, ${data.weather[0].description}`;
-      document.getElementById("weatherIcon").src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
-    } catch {
-      document.getElementById("weatherText").textContent = "날씨 불러오기 실패";
-      document.getElementById("weatherIcon").style.display = "none";
-    }
-  }, () => {
-    document.getElementById("weatherText").textContent = "위치 권한 없음";
-    document.getElementById("weatherIcon").style.display = "none";
-  });
-}
 
 // ──────────────────────────────────────────
 // 초기화
@@ -376,7 +353,6 @@ function getWeather() {
 
 requestNotificationPermission();
 renderTasks();
-getWeather();
 checkDeadlines();
 setInterval(checkDeadlines, 60000);
 
