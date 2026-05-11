@@ -960,7 +960,7 @@ function checkDeadlines() {
   if (Notification.permission !== "granted") return;
 
   // ETL 과제: 24h / 5h / 1h (±6분 창에 들어올 때만 발송)
-  const WINDOW_H = 6 / 60;
+  const WINDOW_H = 1 / 60;
   const etlTasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   etlTasks.forEach((task) => {
     const dueDate = parseDateValue(task.dueDate);
@@ -986,7 +986,7 @@ function checkDeadlines() {
   });
 
   // 사용자 직접 추가 일정: 24h / 5h (±6분 창에 들어올 때만 발송)
-  const WINDOW_H = 6 / 60;
+  const WINDOW_H = 1 / 60;
   const userEvents = JSON.parse(localStorage.getItem(CALENDAR_KEY)) || [];
   userEvents.filter((e) => e.time).forEach((ev) => {
     const dueDate = parseDateValue(ev.time);
