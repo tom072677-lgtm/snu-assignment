@@ -1,6 +1,11 @@
 const SERVER_URL = location.hostname === "localhost"
   ? "http://localhost:3001"
   : "https://snu-assignment-server.onrender.com";
+
+// Render 무료 플랜 cold start 방지: 10분마다 서버 핑
+if (location.hostname !== "localhost") {
+  setInterval(() => fetch(`${SERVER_URL}/health`).catch(() => {}), 10 * 60 * 1000);
+}
 const STORAGE_KEY = "snu_assignment_app_tasks";
 const ICAL_URL_KEY = "snu_etl_ical_url";
 const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
