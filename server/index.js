@@ -197,6 +197,7 @@ const academicSchedule = [
   { title: "수강취소 기간", date: "2026-04-27", endDate: "2026-05-01", source: "snu" },
   { title: "기말고사", date: "2026-06-15", endDate: "2026-06-20", source: "snu" },
   { title: "봄학기 종강", date: "2026-06-19", source: "snu" },
+  { title: "관악제", date: "2026-05-12", endDate: "2026-05-14", source: "snu" },
 ];
 
 function parseRSS(xml) {
