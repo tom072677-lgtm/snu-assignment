@@ -7,7 +7,7 @@
   <link rel="manifest" href="app.webmanifest" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <div class="app">
@@ -161,8 +161,23 @@
         <input type="text" id="calModalTitle" placeholder="일정 제목" />
       </div>
       <div class="cal-modal-field">
-        <label>날짜</label>
-        <input type="date" id="calModalDate" />
+        <label id="calModalDateLabel"></label>
+        <div class="time-picker">
+          <div class="time-picker-highlight"></div>
+          <div class="time-scroll-col" id="ampmCol">
+            <div class="time-scroll-inner">
+              <div class="time-item" data-val="오전">오전</div>
+              <div class="time-item" data-val="오후">오후</div>
+            </div>
+          </div>
+          <div class="time-scroll-col" id="hourCol">
+            <div class="time-scroll-inner" id="hourInner"></div>
+          </div>
+          <div class="time-colon">:</div>
+          <div class="time-scroll-col" id="minCol">
+            <div class="time-scroll-inner" id="minInner"></div>
+          </div>
+        </div>
       </div>
       <div class="cal-modal-actions">
         <button id="calModalSave">저장</button>
@@ -171,7 +186,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=11"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

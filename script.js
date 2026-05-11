@@ -524,9 +524,11 @@ function renderDayDetail(dateStr) {
   userEvts.forEach((ev) => {
     const li = document.createElement("li");
     li.className = "cal-event-item";
+    const timeLabel = ev.time ? `<span class="due-date-text" style="font-size:12px">${formatDateTime(ev.time)}</span>` : "";
     li.innerHTML = `
       <span class="cal-event-dot user"></span>
       <span class="cal-event-title">${escapeHtml(ev.title)}</span>
+      ${timeLabel}
       <button class="cal-delete-btn" data-id="${ev.id}">✕</button>
     `;
     li.querySelector(".cal-delete-btn").addEventListener("click", () => {
@@ -558,13 +560,57 @@ document.getElementById("calNext").addEventListener("click", () => {
 
 // 일정 추가 모달
 const calModal = document.getElementById("calModal");
+let calModalSelectedDate = null;
+
+// 시간 피커 초기화
+(function initTimePicker() {
+  const hourInner = document.getElementById("hourInner");
+  const minInner = document.getElementById("minInner");
+  for (let h = 1; h <= 12; h++) {
+    const el = document.createElement("div");
+    el.className = "time-item";
+    el.dataset.val = String(h);
+    el.textContent = String(h);
+    hourInner.appendChild(el);
+  }
+  for (let m = 0; m < 60; m += 5) {
+    const el = document.createElement("div");
+    el.className = "time-item";
+    el.dataset.val = String(m).padStart(2, "0");
+    el.textContent = String(m).padStart(2, "0");
+    minInner.appendChild(el);
+  }
+})();
+
+function scrollPickerTo(colId, index) {
+  const col = document.getElementById(colId);
+  col.scrollTop = index * 44;
+}
+
+function getPickerIndex(colId) {
+  const col = document.getElementById(colId);
+  const items = col.querySelectorAll(".time-item").length;
+  return Math.max(0, Math.min(Math.round(col.scrollTop / 44), items - 1));
+}
+
+function openCalModal(date) {
+  calModalSelectedDate = date;
+  const [y, mo, d] = date.split("-").map(Number);
+  document.getElementById("calModalDateLabel").textContent = `${mo}월 ${d}일`;
+  document.getElementById("calModalTitle").value = "";
+  calModal.classList.remove("hidden");
+  // hidden 해제 후에 scrollTop 적용 (display:none 상태에서는 무시됨)
+  requestAnimationFrame(() => {
+    scrollPickerTo("ampmCol", 1); // 오후
+    scrollPickerTo("hourCol", 5); // index 5 = 6시
+    scrollPickerTo("minCol", 0);  // index 0 = 00분
+  });
+  document.getElementById("calModalTitle").focus();
+}
 
 document.getElementById("calAddBtn").addEventListener("click", () => {
   const date = document.getElementById("calAddBtn").dataset.date || toDateStr(calYear, calMonth, new Date().getDate());
-  document.getElementById("calModalDate").value = date;
-  document.getElementById("calModalTitle").value = "";
-  calModal.classList.remove("hidden");
-  document.getElementById("calModalTitle").focus();
+  openCalModal(date);
 });
 
 document.getElementById("calModalCancel").addEventListener("click", () => {
@@ -577,19 +623,36 @@ document.getElementById("calModalOverlay").addEventListener("click", () => {
 
 document.getElementById("calModalSave").addEventListener("click", () => {
   const title = document.getElementById("calModalTitle").value.trim();
-  const date = document.getElementById("calModalDate").value;
-  if (!title || !date) return;
+  if (!title || !calModalSelectedDate) return;
+
+  const ampmIdx = getPickerIndex("ampmCol");
+  const hourIdx = getPickerIndex("hourCol");
+  const minIdx = getPickerIndex("minCol");
+  const isAm = ampmIdx === 0;
+  const hour12 = hourIdx + 1;
+  const min = minIdx * 5;
+  let hour24;
+  if (isAm) {
+    hour24 = hour12 === 12 ? 0 : hour12;
+  } else {
+    hour24 = hour12 === 12 ? 12 : hour12 + 12;
+  }
+
+  const [y, mo, d] = calModalSelectedDate.split("-").map(Number);
+  const dt = new Date(y, mo - 1, d, hour24, min);
 
   calendarEvents.push({
     id: `user_${Date.now()}`,
     title,
-    date,
+    date: calModalSelectedDate,
+    time: dt.toISOString(),
   });
   saveCalendarEvents();
+  subscribePush();
   calModal.classList.add("hidden");
-  calSelectedDate = date;
+  calSelectedDate = calModalSelectedDate;
   renderCalendar();
-  renderDayDetail(date);
+  renderDayDetail(calModalSelectedDate);
 });
 
 document.getElementById("calModalTitle").addEventListener("keydown", (e) => {
@@ -866,10 +929,20 @@ async function subscribePush() {
       courseName: cleanCourseName(t.courseName),
     }));
 
+    const userEventTasks = calendarEvents
+      .filter((e) => e.time)
+      .map((e) => ({
+        etlId: e.id,
+        dueDate: e.time,
+        title: e.title,
+        courseName: null,
+        targets: [24, 5],
+      }));
+
     await fetch(`${SERVER_URL}/api/push/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription: sub, tasks: etlTasks }),
+      body: JSON.stringify({ subscription: sub, tasks: [...etlTasks, ...userEventTasks] }),
     });
   } catch (err) {
     console.warn("[push] 구독 실패:", err.message);
