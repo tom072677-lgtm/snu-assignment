@@ -4,7 +4,7 @@ const ical = require("node-ical");
 const https = require("https");
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
