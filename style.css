@@ -295,7 +295,7 @@ button:disabled {
 /* 요약 카드 */
 .summary-section {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
