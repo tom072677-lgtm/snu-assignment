@@ -19,16 +19,41 @@ body {
 }
 
 /* 헤더 */
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .app-header h1 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 36px;
   font-weight: 800;
 }
 
-.subtitle {
-  margin: 0 0 16px;
-  color: #6b7280;
-  font-size: 16px;
+#settingsBtn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+#settingsBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* 설정 패널 */
+.settings-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
 }
 
 

@@ -8,10 +8,9 @@ const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
 
-// eTL DOM
-const etlToggle = document.getElementById("etlToggle");
-const etlBody = document.getElementById("etlBody");
-const etlToggleIcon = document.getElementById("etlToggleIcon");
+// 설정 DOM
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
 const icalForm = document.getElementById("icalForm");
 const icalUrlInput = document.getElementById("icalUrlInput");
 const icalSaveBtn = document.getElementById("icalSaveBtn");
@@ -134,13 +133,11 @@ function renderTasks() {
 
 
 // ──────────────────────────────────────────
-// eTL 섹션 토글
+// 설정 패널 토글
 // ──────────────────────────────────────────
 
-etlToggle.addEventListener("click", () => {
-  const isOpen = !etlBody.classList.contains("collapsed");
-  etlBody.classList.toggle("collapsed", isOpen);
-  etlToggleIcon.textContent = isOpen ? "▶" : "▼";
+settingsBtn.addEventListener("click", () => {
+  settingsPanel.classList.toggle("hidden");
 });
 
 // ──────────────────────────────────────────
@@ -194,7 +191,7 @@ icalForm.addEventListener("submit", async (e) => {
   const ok = await syncIcal();
   if (ok) {
     setConnectedUI();
-    document.querySelector(".etl-section").classList.add("hidden");
+    settingsPanel.classList.add("hidden");
   }
 
   icalSaveBtn.disabled = false;
@@ -219,9 +216,7 @@ etlDisconnectBtn.addEventListener("click", () => {
   setDisconnectedUI();
   hideEtlError();
   icalUrlInput.value = "";
-  document.querySelector(".etl-section").classList.remove("hidden");
-  etlBody.classList.remove("collapsed");
-  etlToggleIcon.textContent = "▼";
+  settingsPanel.classList.remove("hidden");
 });
 
 if (apiTokenSaveBtn) {
@@ -348,9 +343,11 @@ setInterval(checkDeadlines, 60000);
 
 // iCal URL이 저장돼 있으면 연동 상태 복원 + 자동 동기화
 if (icalUrl) {
-  document.querySelector(".etl-section").classList.add("hidden");
+  setConnectedUI();
   if (canvasToken && apiTokenInput) apiTokenInput.value = canvasToken;
   syncIcal();
+} else {
+  settingsPanel.classList.remove("hidden");
 }
 
 // 10분마다 자동 동기화

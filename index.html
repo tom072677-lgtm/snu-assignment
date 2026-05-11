@@ -13,74 +13,64 @@
   <div class="app">
 
     <header class="app-header">
-      <h1>서울대 과제 알림</h1>
-      <p class="subtitle">과제를 추가하고 마감기한별로 관리해보자</p>
+      <div class="header-row">
+        <h1>서울대 과제 알림</h1>
+        <button type="button" id="settingsBtn" title="설정">⚙</button>
+      </div>
     </header>
 
+    <!-- 설정 패널 (평소엔 숨김) -->
+    <div id="settingsPanel" class="settings-panel hidden">
+      <div id="etlSetupForm">
+        <div class="how-to">
+          <p class="how-to-title">📋 eTL 캘린더 URL 가져오는 방법</p>
+          <ol>
+            <li>eTL 로그인 후 상단 <strong>캘린더</strong> 클릭</li>
+            <li>좌측 하단 <strong>"캘린더 내보내기"</strong> 클릭</li>
+            <li><strong>"모든 과목"</strong> + <strong>"최근 및 다음 60일"</strong> 선택</li>
+            <li><strong>"캘린더 URL 가져오기"</strong> 클릭 → URL 복사</li>
+            <li>아래에 붙여넣기</li>
+          </ol>
+        </div>
+        <form id="icalForm">
+          <div class="input-group">
+            <label for="icalUrlInput">eTL 캘린더 URL</label>
+            <input
+              type="text"
+              id="icalUrlInput"
+              placeholder="webcal://myetl.snu.ac.kr/feeds/calendars/user_..."
+            />
+          </div>
+          <div class="etl-actions">
+            <button type="submit" id="icalSaveBtn">저장 &amp; 과제 가져오기</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="etlConnected" class="hidden">
+        <div class="etl-status">
+          <span class="status-dot"></span>
+          <span>eTL 연동됨</span>
+          <span id="etlSyncStatus" class="sync-status"></span>
+        </div>
+        <div class="etl-actions">
+          <button type="button" id="etlSyncBtn">지금 새로고침</button>
+          <button type="button" id="etlDisconnectBtn" class="btn-secondary">연동 해제</button>
+        </div>
+        <div class="token-section">
+          <p class="token-label">제출한 과제 자동 제외 <span class="token-optional">(선택)</span></p>
+          <div class="token-input-row">
+            <input type="password" id="apiTokenInput" placeholder="eTL API 토큰 입력..." />
+            <button type="button" id="apiTokenSaveBtn" class="btn-secondary">저장</button>
+          </div>
+          <p class="token-hint">eTL → 우측 상단 프로필 → 설정 → 스크롤 하단 "승인된 통합" → 새 액세스 토큰</p>
+        </div>
+      </div>
+
+      <p id="etlError" class="etl-error hidden"></p>
+    </div>
 
     <main>
-
-      <!-- eTL iCal 연동 섹션 -->
-      <section class="etl-section">
-        <div class="etl-header" id="etlToggle">
-          <h2>eTL 과제 자동 가져오기</h2>
-          <span id="etlToggleIcon">▼</span>
-        </div>
-
-        <div id="etlBody" class="etl-body">
-
-          <!-- URL 미등록 상태 -->
-          <div id="etlSetupForm">
-            <div class="how-to">
-              <p class="how-to-title">📋 eTL 캘린더 URL 가져오는 방법</p>
-              <ol>
-                <li>eTL 로그인 후 상단 <strong>캘린더</strong> 클릭</li>
-                <li>좌측 하단 <strong>"캘린더 내보내기"</strong> 클릭</li>
-                <li><strong>"모든 과목"</strong> + <strong>"최근 및 다음 60일"</strong> 선택</li>
-                <li><strong>"캘린더 URL 가져오기"</strong> 클릭 → URL 복사</li>
-                <li>아래에 붙여넣기</li>
-              </ol>
-            </div>
-            <form id="icalForm">
-              <div class="input-group">
-                <label for="icalUrlInput">eTL 캘린더 URL</label>
-                <input
-                  type="text"
-                  id="icalUrlInput"
-                  placeholder="webcal://myetl.snu.ac.kr/feeds/calendars/user_..."
-                />
-              </div>
-              <div class="etl-actions">
-                <button type="submit" id="icalSaveBtn">저장 &amp; 과제 가져오기</button>
-              </div>
-            </form>
-          </div>
-
-          <!-- URL 등록 후 상태 -->
-          <div id="etlConnected" class="hidden">
-            <div class="etl-status">
-              <span class="status-dot"></span>
-              <span>eTL 연동됨</span>
-              <span id="etlSyncStatus" class="sync-status"></span>
-            </div>
-            <div class="etl-actions">
-              <button type="button" id="etlSyncBtn">지금 새로고침</button>
-              <button type="button" id="etlDisconnectBtn" class="btn-secondary">연동 해제</button>
-            </div>
-            <div class="token-section">
-              <p class="token-label">제출한 과제 자동 제외 <span class="token-optional">(선택)</span></p>
-              <div class="token-input-row">
-                <input type="password" id="apiTokenInput" placeholder="eTL API 토큰 입력..." />
-                <button type="button" id="apiTokenSaveBtn" class="btn-secondary">저장</button>
-              </div>
-              <p class="token-hint">eTL → 우측 상단 프로필 → 설정 → 스크롤 하단 "승인된 통합" → 새 액세스 토큰</p>
-            </div>
-          </div>
-
-          <p id="etlError" class="etl-error hidden"></p>
-        </div>
-      </section>
-
 
       <!-- 요약 -->
       <section class="summary-section">
