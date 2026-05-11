@@ -189,8 +189,8 @@ app.post("/api/sync-ical", async (req, res) => {
 
 const cheerio = require("cheerio");
 
-// 2026년 1학기 학사일정 (snu.ac.kr WAF 차단으로 하드코딩)
-const academicSchedule = [
+// 학사일정 기본값 (공식 사이트 크롤링 실패 시 사용)
+const fallbackSchedule = [
   { title: "봄학기 개강", date: "2026-03-02", source: "snu" },
   { title: "수강변경 기간", date: "2026-03-02", endDate: "2026-03-13", source: "snu" },
   { title: "중간고사", date: "2026-04-20", endDate: "2026-04-25", source: "snu" },
@@ -199,6 +199,36 @@ const academicSchedule = [
   { title: "봄학기 종강", date: "2026-06-19", source: "snu" },
   { title: "관악제", date: "2026-05-12", endDate: "2026-05-14", source: "snu" },
 ];
+
+// SNU 공식 이벤트 페이지 크롤링 (YYYY.MM.DD 형식 파싱)
+function parseSnuDate(str) {
+  const m = str.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+  if (!m) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+async function fetchSnuEvents() {
+  try {
+    const html = await fetchText("https://www.snu.ac.kr/snunow/events", 0, { "User-Agent": "Mozilla/5.0" });
+    const $ = cheerio.load(html);
+    const items = [];
+    $("span.texts").each((i, el) => {
+      const title = $(el).find("span.title").text().trim();
+      const pointText = $(el).find("span.point").text().trim();
+      if (!title || !pointText) return;
+      const dates = pointText.match(/\d{4}\.\d{2}\.\d{2}/g) || [];
+      const startDate = parseSnuDate(dates[0]);
+      const endDate = dates[1] ? parseSnuDate(dates[1]) : null;
+      if (!startDate) return;
+      items.push({ title, date: startDate, ...(endDate ? { endDate } : {}), source: "snu_events" });
+    });
+    console.log(`[events] SNU 공식 이벤트 ${items.length}개 크롤링 완료`);
+    return items;
+  } catch (err) {
+    console.error("[events] SNU 이벤트 크롤링 오류:", err.message);
+    return [];
+  }
+}
 
 function parseRSS(xml) {
   const items = [];
@@ -263,7 +293,11 @@ async function fetchDongariNotices() {
 }
 
 app.get("/api/events", async (req, res) => {
-  const [wesnu, dongari] = await Promise.all([fetchWeSnuRSS(), fetchDongariNotices()]);
+  const [wesnu, dongari, snuEvents] = await Promise.all([
+    fetchWeSnuRSS(),
+    fetchDongariNotices(),
+    fetchSnuEvents(),
+  ]);
 
   const notices = [...wesnu, ...dongari].sort((a, b) => {
     if (!a.date) return 1;
@@ -271,7 +305,12 @@ app.get("/api/events", async (req, res) => {
     return new Date(b.date) - new Date(a.date);
   });
 
-  res.json({ schedule: academicSchedule, notices });
+  // SNU 공식 이벤트가 있으면 사용, 없으면 fallback
+  const schedule = snuEvents.length > 0
+    ? [...fallbackSchedule, ...snuEvents]
+    : fallbackSchedule;
+
+  res.json({ schedule, notices });
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
