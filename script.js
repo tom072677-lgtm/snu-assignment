@@ -4,9 +4,6 @@ const ICAL_URL_KEY = "snu_etl_ical_url";
 const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 
 // DOM
-const taskForm = document.getElementById("taskForm");
-const taskInput = document.getElementById("taskInput");
-const dueDateInput = document.getElementById("dueDateInput");
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
@@ -136,24 +133,6 @@ function renderTasks() {
     taskList.appendChild(li);
   });
 }
-
-// ──────────────────────────────────────────
-// 수동 과제 추가
-// ──────────────────────────────────────────
-
-taskForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const title = taskInput.value.trim();
-  const dueDate = dueDateInput.value;
-  if (!title || !dueDate) return;
-
-  tasks.push({ id: Date.now(), title, dueDate, source: "manual" });
-  saveTasks();
-  renderTasks();
-  checkDeadlines();
-  taskForm.reset();
-  taskInput.focus();
-});
 
 sortBtn.addEventListener("click", renderTasks);
 testAlertBtn.addEventListener("click", sendTestNotification);
