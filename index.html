@@ -71,6 +71,14 @@
               <button type="button" id="etlSyncBtn">지금 새로고침</button>
               <button type="button" id="etlDisconnectBtn" class="btn-secondary">연동 해제</button>
             </div>
+            <div class="token-section">
+              <p class="token-label">제출한 과제 자동 제외 <span class="token-optional">(선택)</span></p>
+              <div class="token-input-row">
+                <input type="password" id="apiTokenInput" placeholder="eTL API 토큰 입력..." />
+                <button type="button" id="apiTokenSaveBtn" class="btn-secondary">저장</button>
+              </div>
+              <p class="token-hint">eTL → 우측 상단 프로필 → 설정 → 스크롤 하단 "승인된 통합" → 새 액세스 토큰</p>
+            </div>
           </div>
 
           <p id="etlError" class="etl-error hidden"></p>
