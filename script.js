@@ -131,6 +131,14 @@ function getBadgeInfo(dateString) {
   return { text: `D-${d}`, className: "due-blue" };
 }
 
+function cleanCourseName(name) {
+  if (!name) return name;
+  return name
+    .replace(/^\d{4}-\d+/g, "")   // 앞의 2026-1 제거
+    .replace(/\(\d+\)$/g, "")     // 뒤의 (001) 제거
+    .trim();
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -206,8 +214,8 @@ function renderTasks() {
     li.className = "task-item";
 
     const memo = memos[task.id] || "";
-    const mainLabel = task.courseName || task.title;
-    const subLabel = task.courseName ? task.title : "";
+    const mainLabel = cleanCourseName(task.courseName) || task.title;
+    const subLabel = task.courseName ? task.title : ""  // subLabel은 원본 title 유지;
     const sourceTag = task.source === "etl"
       ? `<span class="source-tag etl-tag">eTL</span>`
       : "";
@@ -291,8 +299,8 @@ function renderCompleted() {
     const li = document.createElement("li");
     li.className = "task-item completed-task-item";
 
-    const mainLabel = task.courseName || task.title;
-    const subLabel = task.courseName ? task.title : "";
+    const mainLabel = cleanCourseName(task.courseName) || task.title;
+    const subLabel = task.courseName ? task.title : ""  // subLabel은 원본 title 유지;
     const titleDisplay = task.url
       ? `<a class="task-title" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(mainLabel)}</a>`
       : `<p class="task-title">${escapeHtml(mainLabel)}</p>`;
@@ -422,7 +430,7 @@ function renderCalendar() {
     const allEvents = [
       ...holidays.map((e) => ({ text: e.title, type: "holiday" })),
       ...academic.map((e) => ({ text: e.title, type: "academic" })),
-      ...assignments.map((e) => ({ text: e.courseName || e.title, type: "assignment" })),
+      ...assignments.map((e) => ({ text: cleanCourseName(e.courseName) || e.title, type: "assignment" })),
       ...userEvts.map((e) => ({ text: e.title, type: "user" })),
     ];
 
@@ -499,7 +507,7 @@ function renderDayDetail(dateStr) {
     const li = document.createElement("li");
     li.className = "cal-event-item";
     const badge = getBadgeInfo(task.dueDate);
-    const calLabel = task.courseName || task.title;
+    const calLabel = cleanCourseName(task.courseName) || task.title;
     const titleEl = task.url
       ? `<a class="cal-event-title link" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(calLabel)}</a>`
       : `<span class="cal-event-title">${escapeHtml(calLabel)}</span>`;
