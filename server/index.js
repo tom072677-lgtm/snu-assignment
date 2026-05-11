@@ -85,10 +85,12 @@ function parseEventDate(ev) {
   if (start instanceof Date) {
     const isDateOnly = ev.start.dateOnly === true || (ev.dtstart && ev.dtstart.includes("VALUE=DATE"));
     if (isDateOnly) {
-      // VALUE=DATE는 시간 없음 → Canvas/eTL 기본 마감인 23:59 KST(= 14:59 UTC)로 설정
-      const y = start.getUTCFullYear();
-      const m = start.getUTCMonth();
-      const d = start.getUTCDate();
+      // node-ical은 VALUE=DATE를 서버 로컬 자정으로 파싱함
+      // eTL은 KST 기준이므로 +9h 보정으로 서버 시간대 무관하게 KST 날짜 추출
+      const kst = new Date(start.getTime() + 9 * 60 * 60 * 1000);
+      const y = kst.getUTCFullYear();
+      const m = kst.getUTCMonth();
+      const d = kst.getUTCDate();
       const deadline = new Date(Date.UTC(y, m, d, 14, 59, 0));
       return { date: deadline, dateOnly: false };
     }
