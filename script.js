@@ -649,6 +649,7 @@ document.getElementById("calModalSave").addEventListener("click", () => {
   });
   saveCalendarEvents();
   subscribePush();
+  checkDeadlines();
   calModal.classList.add("hidden");
   calSelectedDate = calModalSelectedDate;
   renderCalendar();
@@ -956,10 +957,11 @@ async function requestNotificationPermission() {
 }
 
 function checkDeadlines() {
-  // 앱이 열려있을 때 로컬 알림 (백업용)
   if (Notification.permission !== "granted") return;
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  current.forEach((task) => {
+
+  // ETL 과제: 24h / 5h / 1h
+  const etlTasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  etlTasks.forEach((task) => {
     const dueDate = parseDateValue(task.dueDate);
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
@@ -974,6 +976,29 @@ function checkDeadlines() {
           const name = cleanCourseName(task.courseName) || task.title;
           reg.showNotification(`📚 마감 ${h}시간 전`, {
             body: `${name} 과제 마감이 ${h}시간 후입니다.`,
+            icon: "./icon-192.png",
+          });
+        });
+        localStorage.setItem(key, "true");
+      }
+    });
+  });
+
+  // 사용자 직접 추가 일정: 24h / 5h
+  const userEvents = JSON.parse(localStorage.getItem(CALENDAR_KEY)) || [];
+  userEvents.filter((e) => e.time).forEach((ev) => {
+    const dueDate = parseDateValue(ev.time);
+    if (!dueDate) return;
+    const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
+    if (diffHours < 0 || diffHours > 24) return;
+    [
+      { h: 24, key: `notified_24h_${ev.id}` },
+      { h: 5,  key: `notified_5h_${ev.id}` },
+    ].forEach(({ h, key }) => {
+      if (diffHours <= h && !localStorage.getItem(key)) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification(`📅 일정 ${h}시간 전`, {
+            body: `"${ev.title}" 일정이 ${h}시간 후입니다.`,
             icon: "./icon-192.png",
           });
         });
@@ -1009,6 +1034,8 @@ darkModeBtn.addEventListener("click", () => {
 // ──────────────────────────────────────────
 
 requestNotificationPermission();
+// 권한이 이미 있으면 서버 재시작 후 구독 복구
+if (Notification.permission === "granted") subscribePush();
 renderTasks();
 renderCompleted();
 checkDeadlines();
