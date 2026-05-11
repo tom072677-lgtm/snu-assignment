@@ -1,6 +1,7 @@
 const SERVER_URL = "https://snu-assignment-server.onrender.com";
 const STORAGE_KEY = "snu_assignment_app_tasks";
 const ICAL_URL_KEY = "snu_etl_ical_url";
+const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 
 // DOM
 const taskForm = document.getElementById("taskForm");
@@ -26,9 +27,12 @@ const etlSyncBtn = document.getElementById("etlSyncBtn");
 const etlDisconnectBtn = document.getElementById("etlDisconnectBtn");
 const etlSyncStatus = document.getElementById("etlSyncStatus");
 const etlError = document.getElementById("etlError");
+const apiTokenInput = document.getElementById("apiTokenInput");
+const apiTokenSaveBtn = document.getElementById("apiTokenSaveBtn");
 
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 let icalUrl = localStorage.getItem(ICAL_URL_KEY) || null;
+let canvasToken = localStorage.getItem(CANVAS_TOKEN_KEY) || null;
 
 // ──────────────────────────────────────────
 // 날짜 유틸
@@ -241,15 +245,28 @@ etlDisconnectBtn.addEventListener("click", () => {
   icalUrlInput.value = "";
 });
 
+apiTokenSaveBtn.addEventListener("click", async () => {
+  const token = apiTokenInput.value.trim();
+  canvasToken = token || null;
+  if (token) {
+    localStorage.setItem(CANVAS_TOKEN_KEY, token);
+    apiTokenSaveBtn.textContent = "저장됨 ✓";
+  } else {
+    localStorage.removeItem(CANVAS_TOKEN_KEY);
+    apiTokenSaveBtn.textContent = "삭제됨";
+  }
+  setTimeout(() => { apiTokenSaveBtn.textContent = "저장"; }, 2000);
+  if (icalUrl) await syncIcal();
+});
+
 async function syncIcal() {
   if (!icalUrl) return false;
 
   try {
-    // 서버가 직접 iCal URL 가져오기 (서버 사이드 fetch)
     const res = await fetch(`${SERVER_URL}/api/sync-ical`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ icalUrl }),
+      body: JSON.stringify({ icalUrl, apiToken: canvasToken || undefined }),
     });
     const data = await res.json();
 
@@ -374,6 +391,7 @@ setInterval(checkDeadlines, 60000);
 // iCal URL이 저장돼 있으면 연동 상태 복원 + 자동 동기화
 if (icalUrl) {
   setConnectedUI();
+  if (canvasToken) apiTokenInput.value = canvasToken;
   syncIcal();
 }
 

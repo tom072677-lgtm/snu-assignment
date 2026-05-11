@@ -167,6 +167,42 @@ body {
   font-size: 14px;
 }
 
+.token-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.token-label {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.token-optional {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.token-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.token-input-row input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.token-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
 /* 입력 레이아웃 */
 .input-row {
   display: grid;
