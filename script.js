@@ -805,6 +805,7 @@ async function syncIcal(retrying = false) {
     renderTasks();
     if (!calendarTab.classList.contains("hidden")) renderCalendar();
     checkDeadlines();
+    subscribePush();
     const now = new Date();
     const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     etlSyncStatus.textContent = `마지막 동기화: ${t} (${data.length}개)`;
@@ -823,40 +824,101 @@ async function syncIcal(retrying = false) {
 }
 
 // ──────────────────────────────────────────
-// 알림
+// 알림 (Web Push)
 // ──────────────────────────────────────────
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function subscribePush() {
+  if (!("PushManager" in window) || !("serviceWorker" in navigator)) return;
+  if (Notification.permission !== "granted") return;
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const keyRes = await fetch(`${SERVER_URL}/api/push/vapid-public-key`);
+    const { key } = await keyRes.json();
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+
+    const etlTasks = tasks.filter((t) => t.source === "etl").map((t) => ({
+      etlId: t.etlId || t.id,
+      dueDate: t.dueDate,
+      title: t.title,
+      courseName: cleanCourseName(t.courseName),
+    }));
+
+    await fetch(`${SERVER_URL}/api/push/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: sub, tasks: etlTasks }),
+    });
+  } catch (err) {
+    console.warn("[push] 구독 실패:", err.message);
+  }
+}
 
 async function requestNotificationPermission() {
   if (!("Notification" in window)) return;
-  await Notification.requestPermission();
-}
-
-function sendDeadlineNotification(title, message) {
-  if (Notification.permission !== "granted") return;
-  navigator.serviceWorker.ready.then((reg) => {
-    reg.showNotification(`⚠️ ${title}`, { body: message, icon: "./icon-192.png" });
-  });
+  const result = await Notification.requestPermission();
+  if (result === "granted") await subscribePush();
 }
 
 function checkDeadlines() {
+  // 앱이 열려있을 때 로컬 알림 (백업용)
+  if (Notification.permission !== "granted") return;
   const current = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   current.forEach((task) => {
     const dueDate = parseDateValue(task.dueDate);
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
-    if (diffHours < 0) return;
+    if (diffHours < 0 || diffHours > 24) return;
     [
-      { max: 24, min: 5,  key: `notified_24h_${task.id}`, msg: "24시간 이내에 마감!" },
-      { max: 5,  min: 1,  key: `notified_5h_${task.id}`,  msg: "5시간 이내에 마감!" },
-      { max: 1,  min: -1, key: `notified_1h_${task.id}`,  msg: "1시간 이내에 마감!" },
-    ].forEach(({ max, min, key, msg }) => {
-      if (diffHours <= max && diffHours > min && !localStorage.getItem(key)) {
-        sendDeadlineNotification(task.title, msg);
+      { h: 24, key: `notified_24h_${task.id}` },
+      { h: 5,  key: `notified_5h_${task.id}` },
+      { h: 1,  key: `notified_1h_${task.id}` },
+    ].forEach(({ h, key }) => {
+      if (diffHours <= h && !localStorage.getItem(key)) {
+        navigator.serviceWorker.ready.then((reg) => {
+          const name = cleanCourseName(task.courseName) || task.title;
+          reg.showNotification(`📚 마감 ${h}시간 전`, {
+            body: `${name} 과제 마감이 ${h}시간 후입니다.`,
+            icon: "./icon-192.png",
+          });
+        });
         localStorage.setItem(key, "true");
       }
     });
   });
 }
+
+// ──────────────────────────────────────────
+// 다크 모드
+// ──────────────────────────────────────────
+
+const darkModeBtn = document.getElementById("darkModeBtn");
+
+function applyDarkMode(dark) {
+  document.body.classList.toggle("dark", dark);
+  darkModeBtn.textContent = dark ? "☀️" : "🌙";
+}
+
+const savedDark = localStorage.getItem("darkMode") === "true"
+  || (localStorage.getItem("darkMode") === null && window.matchMedia("(prefers-color-scheme: dark)").matches);
+applyDarkMode(savedDark);
+
+darkModeBtn.addEventListener("click", () => {
+  const isDark = !document.body.classList.contains("dark");
+  applyDarkMode(isDark);
+  localStorage.setItem("darkMode", isDark);
+});
 
 // ──────────────────────────────────────────
 // 초기화

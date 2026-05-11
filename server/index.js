@@ -2,6 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const ical = require("node-ical");
 const https = require("https");
+const webpush = require("web-push");
+
+// VAPID 설정
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC || "BNHX2y_hSe3MDv1TelFE8LSK6Kg2DY8Aa7gFAjvX9OAIyJu72OerTOMA7PNW3dVf-6lM9DNUFkI9FOoAh_TTZOg";
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE || "zf1hxNgT-YzntEwS5CycYS9oynMTZeDIqmPlWUMrbU0";
+webpush.setVapidDetails("mailto:admin@snu-app.com", VAPID_PUBLIC, VAPID_PRIVATE);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -314,6 +320,62 @@ app.get("/api/events", async (req, res) => {
 
   res.json({ schedule, notices });
 });
+
+// ──────────────────────────────────────────
+// 푸시 알림
+// ──────────────────────────────────────────
+
+// { endpoint → { subscription, tasks: [{etlId, dueDate, title, courseName}] } }
+const pushStore = new Map();
+const sentKeys = new Set(); // "endpoint:etlId:Nh" - 중복 발송 방지
+
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ key: VAPID_PUBLIC });
+});
+
+app.post("/api/push/subscribe", (req, res) => {
+  const { subscription, tasks } = req.body;
+  if (!subscription?.endpoint) return res.status(400).json({ error: "subscription 필요" });
+  pushStore.set(subscription.endpoint, { subscription, tasks: tasks || [] });
+  console.log(`[push] 구독 등록: ${pushStore.size}개`);
+  res.json({ ok: true });
+});
+
+// 5분마다 마감 24h/5h/1h 알림 체크
+setInterval(async () => {
+  const now = new Date();
+  const TARGETS = [24, 5, 1];
+  const WINDOW = 6 / 60; // ±6분 허용
+
+  for (const [endpoint, { subscription, tasks }] of pushStore) {
+    for (const task of tasks) {
+      const due = new Date(task.dueDate);
+      const diffH = (due - now) / (1000 * 60 * 60);
+      if (diffH < 0) continue;
+
+      for (const h of TARGETS) {
+        if (diffH <= h + WINDOW && diffH > h - WINDOW) {
+          const key = `${endpoint}:${task.etlId}:${h}`;
+          if (sentKeys.has(key)) continue;
+          sentKeys.add(key);
+
+          const label = h === 1 ? "1시간" : h === 5 ? "5시간" : "24시간";
+          const name = task.courseName || task.title;
+          try {
+            await webpush.sendNotification(subscription, JSON.stringify({
+              title: `📚 마감 ${label} 전`,
+              body: `${name} 과제 마감이 ${label} 후입니다.`,
+            }));
+            console.log(`[push] 알림 발송: ${name} (${h}h)`);
+          } catch (err) {
+            console.error(`[push] 발송 실패:`, err.message);
+            if (err.statusCode === 410) pushStore.delete(endpoint); // 만료된 구독 삭제
+          }
+        }
+      }
+    }
+  }
+}, 5 * 60 * 1000);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
