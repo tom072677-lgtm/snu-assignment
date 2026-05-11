@@ -14,12 +14,12 @@
 
     <header class="app-header">
       <div class="header-row">
-        <h1>서울대 과제 알림</h1>
+        <h1>서울대</h1>
         <button type="button" id="settingsBtn" title="설정">⚙</button>
       </div>
     </header>
 
-    <!-- 설정 패널 (평소엔 숨김) -->
+    <!-- 설정 패널 -->
     <div id="settingsPanel" class="settings-panel hidden">
       <div id="etlSetupForm">
         <div class="how-to">
@@ -35,11 +35,7 @@
         <form id="icalForm">
           <div class="input-group">
             <label for="icalUrlInput">eTL 캘린더 URL</label>
-            <input
-              type="text"
-              id="icalUrlInput"
-              placeholder="webcal://myetl.snu.ac.kr/feeds/calendars/user_..."
-            />
+            <input type="text" id="icalUrlInput" placeholder="webcal://myetl.snu.ac.kr/feeds/calendars/user_..." />
           </div>
           <div class="etl-actions">
             <button type="submit" id="icalSaveBtn">저장 &amp; 과제 가져오기</button>
@@ -70,17 +66,14 @@
       <p id="etlError" class="etl-error hidden"></p>
     </div>
 
-    <main>
+    <!-- 탭 바 -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="alerts">과제 알림</button>
+      <button class="tab-btn" data-tab="calendar">달력</button>
+    </div>
 
-      <!-- 요약 -->
-      <section class="summary-section">
-        <div class="summary-card">
-          <h2>전체 과제</h2>
-          <p id="activeCount">0</p>
-        </div>
-      </section>
-
-      <!-- 과제 목록 -->
+    <!-- 과제 알림 탭 -->
+    <div id="alertsTab">
       <section class="list-section">
         <div class="list-header">
           <h2>과제 목록</h2>
@@ -89,7 +82,81 @@
         <p id="emptyMessage" class="empty-message">아직 등록된 과제가 없습니다.</p>
       </section>
 
-    </main>
+      <section id="completedSection" class="list-section hidden">
+        <div class="list-header completed-header" id="completedToggle">
+          <h2>최근 완료한 과제</h2>
+          <span id="completedToggleIcon">▲</span>
+        </div>
+        <ul id="completedList" class="task-list"></ul>
+      </section>
+    </div>
+
+    <!-- 달력 탭 -->
+    <div id="calendarTab" class="hidden">
+
+      <!-- 월 네비게이션 -->
+      <div class="cal-nav">
+        <button id="calPrev" class="cal-nav-btn">‹</button>
+        <span id="calTitle" class="cal-title"></span>
+        <button id="calNext" class="cal-nav-btn">›</button>
+      </div>
+
+      <!-- 요일 헤더 -->
+      <div class="cal-weekdays">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+      </div>
+
+      <!-- 날짜 그리드 -->
+      <div id="calDays" class="cal-days"></div>
+
+      <!-- 날짜 상세 -->
+      <div id="calDayDetail" class="cal-day-detail hidden">
+        <div class="cal-detail-header">
+          <span id="calSelectedDate" class="cal-selected-label"></span>
+          <button id="calAddBtn" class="cal-add-btn">+ 추가</button>
+        </div>
+        <ul id="calEventList" class="cal-event-list"></ul>
+      </div>
+
+      <!-- 학교 소식 -->
+      <section class="news-section list-section">
+        <div class="list-header news-header" id="newsToggle">
+          <h2>학교 소식</h2>
+          <span id="newsToggleIcon">▲</span>
+        </div>
+        <div id="newsBody">
+          <div class="news-tabs">
+            <button class="news-tab active" data-tab="schedule">학사일정</button>
+            <button class="news-tab" data-tab="notices">공지사항</button>
+          </div>
+          <div id="newsSchedule" class="news-panel"></div>
+          <div id="newsNotices" class="news-panel hidden"></div>
+          <p id="newsLoading" class="news-loading">불러오는 중...</p>
+          <p id="newsError" class="news-error hidden"></p>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <!-- 일정 추가 모달 -->
+  <div id="calModal" class="cal-modal hidden">
+    <div class="cal-modal-overlay" id="calModalOverlay"></div>
+    <div class="cal-modal-box">
+      <h3 class="cal-modal-title">일정 추가</h3>
+      <div class="cal-modal-field">
+        <label>제목</label>
+        <input type="text" id="calModalTitle" placeholder="일정 제목" />
+      </div>
+      <div class="cal-modal-field">
+        <label>날짜</label>
+        <input type="date" id="calModalDate" />
+      </div>
+      <div class="cal-modal-actions">
+        <button id="calModalSave">저장</button>
+        <button id="calModalCancel" class="btn-secondary">취소</button>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
