@@ -1,0 +1,15 @@
+{
+  "name": "snu-assignment-server",
+  "version": "1.0.0",
+  "description": "SNU eTL 과제 알림 앱 프록시 서버",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-ical": "^0.26.1",
+    "web-push": "^3.6.7"
+  }
+}
