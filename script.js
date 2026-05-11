@@ -7,7 +7,6 @@ const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 const taskList = document.getElementById("taskList");
 const emptyMessage = document.getElementById("emptyMessage");
 const activeCount = document.getElementById("activeCount");
-const sortBtn = document.getElementById("sortBtn");
 const testAlertBtn = document.getElementById("testAlertBtn");
 
 // eTL DOM
@@ -134,7 +133,6 @@ function renderTasks() {
   });
 }
 
-sortBtn.addEventListener("click", renderTasks);
 testAlertBtn.addEventListener("click", sendTestNotification);
 
 // ──────────────────────────────────────────
@@ -196,7 +194,10 @@ icalForm.addEventListener("submit", async (e) => {
   localStorage.setItem(ICAL_URL_KEY, url);
 
   const ok = await syncIcal();
-  if (ok) setConnectedUI();
+  if (ok) {
+    setConnectedUI();
+    document.querySelector(".etl-section").classList.add("hidden");
+  }
 
   icalSaveBtn.disabled = false;
   icalSaveBtn.textContent = "저장 & 과제 가져오기";
@@ -220,6 +221,9 @@ etlDisconnectBtn.addEventListener("click", () => {
   setDisconnectedUI();
   hideEtlError();
   icalUrlInput.value = "";
+  document.querySelector(".etl-section").classList.remove("hidden");
+  etlBody.classList.remove("collapsed");
+  etlToggleIcon.textContent = "▼";
 });
 
 if (apiTokenSaveBtn) {
@@ -358,9 +362,7 @@ setInterval(checkDeadlines, 60000);
 
 // iCal URL이 저장돼 있으면 연동 상태 복원 + 자동 동기화
 if (icalUrl) {
-  setConnectedUI();
-  etlBody.classList.add("collapsed");
-  etlToggleIcon.textContent = "▶";
+  document.querySelector(".etl-section").classList.add("hidden");
   if (canvasToken && apiTokenInput) apiTokenInput.value = canvasToken;
   syncIcal();
 }
