@@ -84,7 +84,15 @@ function parseEventDate(ev) {
   if (!start) return { date: null, dateOnly: false };
   if (start instanceof Date) {
     const isDateOnly = ev.start.dateOnly === true || (ev.dtstart && ev.dtstart.includes("VALUE=DATE"));
-    return { date: start, dateOnly: isDateOnly };
+    if (isDateOnly) {
+      // VALUE=DATE는 시간 없음 → Canvas/eTL 기본 마감인 23:59 KST(= 14:59 UTC)로 설정
+      const y = start.getUTCFullYear();
+      const m = start.getUTCMonth();
+      const d = start.getUTCDate();
+      const deadline = new Date(Date.UTC(y, m, d, 14, 59, 0));
+      return { date: deadline, dateOnly: false };
+    }
+    return { date: start, dateOnly: false };
   }
   return { date: null, dateOnly: false };
 }
@@ -173,6 +181,96 @@ app.post("/api/sync-ical", async (req, res) => {
     console.error(`[sync] 오류: ${err.message}`);
     res.status(500).json({ error: `iCal 불러오기 실패: ${err.message}` });
   }
+});
+
+// ──────────────────────────────────────────
+// 학교 소식 크롤링
+// ──────────────────────────────────────────
+
+const cheerio = require("cheerio");
+
+// 2026년 1학기 학사일정 (snu.ac.kr WAF 차단으로 하드코딩)
+const academicSchedule = [
+  { title: "봄학기 개강", date: "2026-03-02", source: "snu" },
+  { title: "수강변경 기간", date: "2026-03-02", endDate: "2026-03-13", source: "snu" },
+  { title: "중간고사", date: "2026-04-20", endDate: "2026-04-25", source: "snu" },
+  { title: "수강취소 기간", date: "2026-04-27", endDate: "2026-05-01", source: "snu" },
+  { title: "기말고사", date: "2026-06-15", endDate: "2026-06-20", source: "snu" },
+  { title: "봄학기 종강", date: "2026-06-19", source: "snu" },
+];
+
+function parseRSS(xml) {
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const getTag = (tag) => {
+      const m = block.match(new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`));
+      return m ? m[1].trim() : "";
+    };
+    const title = getTag("title");
+    const link = getTag("link") || block.match(/<link\s*\/?>(.*?)<\/link>/)?.[1]?.trim() || "";
+    const pubDate = getTag("pubDate");
+    const category = getTag("category");
+    if (title) items.push({ title, link, pubDate, category });
+  }
+  return items;
+}
+
+async function fetchWeSnuRSS() {
+  try {
+    const xml = await fetchText("https://we.snu.ac.kr/feed/");
+    const items = parseRSS(xml);
+    return items.slice(0, 10).map((item) => ({
+      title: item.title,
+      url: item.link,
+      date: item.pubDate ? new Date(item.pubDate).toISOString() : null,
+      category: item.category || "총학생회",
+      source: "wesnu",
+    }));
+  } catch (err) {
+    console.error("[events] 총학 RSS 오류:", err.message);
+    return [];
+  }
+}
+
+async function fetchDongariNotices() {
+  try {
+    const html = await fetchText("https://dongari.snu.ac.kr/%EA%B3%B5%EC%A7%80%EC%82%AC%ED%95%AD/?mod=list");
+    const $ = cheerio.load(html);
+    const items = [];
+    $("ul.board_body li").each((i, el) => {
+      const title = $(el).find("div.cut-strings").text().trim();
+      const href = $(el).find("div.subject a").attr("href");
+      const date = $(el).find("span.date").text().trim();
+      if (title && date) {
+        items.push({
+          title,
+          url: href ? `https://dongari.snu.ac.kr${href}` : null,
+          date: new Date(date).toISOString(),
+          category: "동아리연합회",
+          source: "dongari",
+        });
+      }
+    });
+    return items.slice(0, 10);
+  } catch (err) {
+    console.error("[events] 동아리연합회 오류:", err.message);
+    return [];
+  }
+}
+
+app.get("/api/events", async (req, res) => {
+  const [wesnu, dongari] = await Promise.all([fetchWeSnuRSS(), fetchDongariNotices()]);
+
+  const notices = [...wesnu, ...dongari].sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  res.json({ schedule: academicSchedule, notices });
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
