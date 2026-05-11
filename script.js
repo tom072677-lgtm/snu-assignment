@@ -422,7 +422,7 @@ function renderCalendar() {
     const allEvents = [
       ...holidays.map((e) => ({ text: e.title, type: "holiday" })),
       ...academic.map((e) => ({ text: e.title, type: "academic" })),
-      ...assignments.map((e) => ({ text: e.title, type: "assignment" })),
+      ...assignments.map((e) => ({ text: e.courseName || e.title, type: "assignment" })),
       ...userEvts.map((e) => ({ text: e.title, type: "user" })),
     ];
 
@@ -499,9 +499,10 @@ function renderDayDetail(dateStr) {
     const li = document.createElement("li");
     li.className = "cal-event-item";
     const badge = getBadgeInfo(task.dueDate);
+    const calLabel = task.courseName || task.title;
     const titleEl = task.url
-      ? `<a class="cal-event-title link" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(task.title)}</a>`
-      : `<span class="cal-event-title">${escapeHtml(task.title)}</span>`;
+      ? `<a class="cal-event-title link" href="${escapeHtml(task.url)}" target="_blank">${escapeHtml(calLabel)}</a>`
+      : `<span class="cal-event-title">${escapeHtml(calLabel)}</span>`;
     li.innerHTML = `
       <span class="cal-event-dot assignment"></span>
       ${titleEl}
