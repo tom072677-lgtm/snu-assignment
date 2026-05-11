@@ -92,11 +92,19 @@ function sortTasks() {
 function renderTasks() {
   sortTasks();
   taskList.innerHTML = "";
-  emptyMessage.classList.toggle("hidden", tasks.length > 0);
 
-  activeCount.textContent = tasks.length;
+  const now = new Date();
+  const visible = tasks.filter((t) => {
+    const due = parseDateValue(t.dueDate);
+    if (!due) return true;
+    const diffDays = (due - now) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 7;
+  });
 
-  tasks.forEach((task) => {
+  emptyMessage.classList.toggle("hidden", visible.length > 0);
+  activeCount.textContent = visible.length;
+
+  visible.forEach((task) => {
     const badge = getBadgeInfo(task.dueDate);
     const li = document.createElement("li");
     li.className = "task-item";
