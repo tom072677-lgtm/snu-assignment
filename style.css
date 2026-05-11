@@ -111,14 +111,59 @@ body {
   box-shadow: 0 1px 6px rgba(0,0,0,0.1);
 }
 
-/* 설정 패널 */
-.settings-panel {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 16px;
+/* 설정 드로어 오버레이 */
+.settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  backdrop-filter: blur(2px);
 }
+.settings-overlay.open { display: block; }
+
+/* 설정 패널 (오른쪽 드로어) */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 320px;
+  max-width: 90vw;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+  padding: 24px 20px;
+  overflow-y: auto;
+  z-index: 101;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+}
+.settings-panel.open {
+  transform: translateX(0);
+}
+.settings-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.settings-panel-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+#settingsCloseBtn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transform: none;
+}
+#settingsCloseBtn:hover { background: #f3f4f6; transform: none; }
 .how-to {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -485,7 +530,10 @@ body.dark .dark-mode-row { border-color: #334155; }
 
 /* 다크 모드 오버라이드 */
 body.dark .app { background: #1e293b; }
-body.dark .settings-panel,
+body.dark .settings-panel { background: #1e293b; border-color: #334155; }
+body.dark .settings-overlay { background: rgba(0,0,0,0.5); }
+body.dark #settingsCloseBtn { color: #64748b; }
+body.dark #settingsCloseBtn:hover { background: #334155; }
 body.dark .how-to { background: #0f172a; border-color: #334155; }
 body.dark .how-to-title { color: #f1f5f9; }
 body.dark .how-to ol { color: #94a3b8; }

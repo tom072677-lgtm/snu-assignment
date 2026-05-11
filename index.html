@@ -19,8 +19,15 @@
       </div>
     </header>
 
+    <!-- 설정 드로어 오버레이 -->
+    <div id="settingsOverlay" class="settings-overlay"></div>
+
     <!-- 설정 패널 -->
-    <div id="settingsPanel" class="settings-panel hidden">
+    <div id="settingsPanel" class="settings-panel">
+      <div class="settings-panel-header">
+        <p class="settings-panel-title">설정</p>
+        <button type="button" id="settingsCloseBtn">✕</button>
+      </div>
       <div id="etlSetupForm">
         <div class="how-to">
           <p class="how-to-title">📋 eTL 캘린더 URL 가져오는 방법</p>

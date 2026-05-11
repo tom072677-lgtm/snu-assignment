@@ -60,6 +60,8 @@ const completedToggleIcon = document.getElementById("completedToggleIcon");
 // DOM - 설정
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsPanel = document.getElementById("settingsPanel");
+const settingsOverlay = document.getElementById("settingsOverlay");
+const settingsCloseBtn = document.getElementById("settingsCloseBtn");
 const icalForm = document.getElementById("icalForm");
 const icalUrlInput = document.getElementById("icalUrlInput");
 const icalSaveBtn = document.getElementById("icalSaveBtn");
@@ -694,9 +696,18 @@ async function loadEvents() {
 // 설정 패널
 // ──────────────────────────────────────────
 
-settingsBtn.addEventListener("click", () => {
-  settingsPanel.classList.toggle("hidden");
-});
+function openSettings() {
+  settingsPanel.classList.add("open");
+  settingsOverlay.classList.add("open");
+}
+function closeSettings() {
+  settingsPanel.classList.remove("open");
+  settingsOverlay.classList.remove("open");
+}
+
+settingsBtn.addEventListener("click", openSettings);
+settingsCloseBtn.addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", closeSettings);
 
 function showEtlError(msg) {
   etlError.textContent = msg;
@@ -731,7 +742,7 @@ icalForm.addEventListener("submit", async (e) => {
   icalUrl = url;
   localStorage.setItem(ICAL_URL_KEY, url);
   const ok = await syncIcal();
-  if (ok) { setConnectedUI(); settingsPanel.classList.add("hidden"); }
+  if (ok) { setConnectedUI(); closeSettings(); }
   icalSaveBtn.disabled = false;
   icalSaveBtn.textContent = "저장 & 과제 가져오기";
 });
@@ -754,7 +765,7 @@ etlDisconnectBtn.addEventListener("click", () => {
   setDisconnectedUI();
   hideEtlError();
   icalUrlInput.value = "";
-  settingsPanel.classList.remove("hidden");
+  openSettings();
 });
 
 if (apiTokenSaveBtn) {
@@ -935,7 +946,7 @@ if (icalUrl) {
   if (canvasToken && apiTokenInput) apiTokenInput.value = canvasToken;
   syncIcal();
 } else {
-  settingsPanel.classList.remove("hidden");
+  openSettings();
 }
 
 setInterval(() => { if (icalUrl) syncIcal(); }, 10 * 60 * 1000);
