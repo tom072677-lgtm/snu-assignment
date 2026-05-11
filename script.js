@@ -1,4 +1,4 @@
-const SERVER_URL = "http://localhost:3001";
+const SERVER_URL = "https://snu-assignment-server.onrender.com";
 const STORAGE_KEY = "snu_assignment_app_tasks";
 const ICAL_URL_KEY = "snu_etl_ical_url";
 
