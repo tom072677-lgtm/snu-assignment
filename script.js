@@ -959,19 +959,20 @@ async function requestNotificationPermission() {
 function checkDeadlines() {
   if (Notification.permission !== "granted") return;
 
-  // ETL 과제: 24h / 5h / 1h
+  // ETL 과제: 24h / 5h / 1h (±6분 창에 들어올 때만 발송)
+  const WINDOW_H = 6 / 60;
   const etlTasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   etlTasks.forEach((task) => {
     const dueDate = parseDateValue(task.dueDate);
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
-    if (diffHours < 0 || diffHours > 24) return;
+    if (diffHours < 0) return;
     [
       { h: 24, key: `notified_24h_${task.id}` },
       { h: 5,  key: `notified_5h_${task.id}` },
       { h: 1,  key: `notified_1h_${task.id}` },
     ].forEach(({ h, key }) => {
-      if (diffHours <= h && !localStorage.getItem(key)) {
+      if (diffHours <= h + WINDOW_H && diffHours > h - WINDOW_H && !localStorage.getItem(key)) {
         navigator.serviceWorker.ready.then((reg) => {
           const name = cleanCourseName(task.courseName) || task.title;
           reg.showNotification(`📚 마감 ${h}시간 전`, {
@@ -984,18 +985,19 @@ function checkDeadlines() {
     });
   });
 
-  // 사용자 직접 추가 일정: 24h / 5h
+  // 사용자 직접 추가 일정: 24h / 5h (±6분 창에 들어올 때만 발송)
+  const WINDOW_H = 6 / 60;
   const userEvents = JSON.parse(localStorage.getItem(CALENDAR_KEY)) || [];
   userEvents.filter((e) => e.time).forEach((ev) => {
     const dueDate = parseDateValue(ev.time);
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
-    if (diffHours < 0 || diffHours > 24) return;
+    if (diffHours < 0) return;
     [
       { h: 24, key: `notified_24h_${ev.id}` },
       { h: 5,  key: `notified_5h_${ev.id}` },
     ].forEach(({ h, key }) => {
-      if (diffHours <= h && !localStorage.getItem(key)) {
+      if (diffHours <= h + WINDOW_H && diffHours > h - WINDOW_H && !localStorage.getItem(key)) {
         navigator.serviceWorker.ready.then((reg) => {
           reg.showNotification(`📅 일정 ${h}시간 전`, {
             body: `"${ev.title}" 일정이 ${h}시간 후입니다.`,
