@@ -1188,10 +1188,58 @@ let onOrientationHandler = null;
 let latestPosition = null;
 let routePolyline = null;
 let destOverlay = null;
+let mapLoadRetryTimer = null;
+let mapPlaceMarkers = [];
+
+function isKakaoMapsReady() {
+  return !!(window.kakao && kakao.maps && kakao.maps.Map);
+}
+
+function getMapStatusEl() {
+  const container = document.getElementById("mapContainer");
+  if (!container) return null;
+  let el = document.getElementById("mapStatus");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "mapStatus";
+    container.appendChild(el);
+  }
+  return el;
+}
+
+function showMapStatus(msg) {
+  const el = getMapStatusEl();
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+
+function hideMapStatus() {
+  const el = document.getElementById("mapStatus");
+  if (el) {
+    el.textContent = "";
+    el.style.display = "none";
+  }
+}
 
 function renderMapTab() {
+  const container = document.getElementById("mapContainer");
+  if (!container) return;
+
+  if (!isKakaoMapsReady()) {
+    showMapStatus("지도를 불러오지 못했습니다. 네트워크 또는 카카오 지도 도메인 설정을 확인해주세요.");
+    if (!mapLoadRetryTimer) {
+      mapLoadRetryTimer = setTimeout(() => {
+        mapLoadRetryTimer = null;
+        if (!mapTab.classList.contains("hidden")) renderMapTab();
+      }, 1200);
+    }
+    return;
+  }
+
+  hideMapStatus();
+
   if (!kakaoMap) {
-    const container = document.getElementById("mapContainer");
     const saved = JSON.parse(localStorage.getItem("map_last_pos") || "null");
     const initCenter = saved
       ? new kakao.maps.LatLng(saved.lat, saved.lng)
@@ -1201,6 +1249,7 @@ function renderMapTab() {
       level: 3,
     });
 
+    renderMapPlaces();
     startLocationWatch();
 
     const btn = document.createElement("button");
@@ -1216,10 +1265,50 @@ function renderMapTab() {
     });
     container.appendChild(btn);
   }
+
+  setTimeout(() => {
+    if (!kakaoMap) return;
+    const center = kakaoMap.getCenter();
+    kakaoMap.relayout();
+    kakaoMap.setCenter(center);
+  }, 80);
+}
+
+function renderMapPlaces() {
+  if (!kakaoMap || mapPlaceMarkers.length > 0) return;
+
+  SNU_LOCATIONS.forEach((loc) => {
+    const marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(loc.lat, loc.lng),
+      map: kakaoMap,
+    });
+    const typeLabel = loc.type === "restaurant" ? "식당"
+      : loc.type === "cafe" ? "카페"
+      : "건물";
+    const info = new kakao.maps.InfoWindow({
+      content: `
+        <div class="map-info-window">
+          <strong>${escapeHtml(loc.name)}</strong>
+          <span>${typeLabel}${loc.note ? ` · ${escapeHtml(loc.note)}` : ""}</span>
+        </div>
+      `,
+    });
+    kakao.maps.event.addListener(marker, "click", () => {
+      info.open(kakaoMap, marker);
+    });
+    mapPlaceMarkers.push(marker);
+  });
 }
 
 function startLocationWatch() {
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) {
+    showMapMessage("이 브라우저에서는 위치 권한을 사용할 수 없습니다.");
+    return;
+  }
+  if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    showMapMessage("현재 위치는 HTTPS에서만 사용할 수 있습니다.");
+    return;
+  }
 
   let firstFix = true;
 
@@ -1268,8 +1357,13 @@ function startLocationWatch() {
         firstFix = false;
       }
     },
-    () => {},
-    { enableHighAccuracy: true, maximumAge: 5000 }
+    (err) => {
+      const denied = err && err.code === err.PERMISSION_DENIED;
+      showMapMessage(denied
+        ? "위치 권한이 꺼져 있어 현재 위치 없이 지도를 표시합니다."
+        : "현재 위치를 가져오지 못했습니다.");
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
   );
 
   onOrientationHandler = function (e) {
@@ -1380,8 +1474,14 @@ async function showRestaurantRoute(loc) {
 }
 
 function showMapMessage(msg) {
-  const el = document.getElementById("mapMessage");
-  if (!el) return;
+  const container = document.getElementById("mapContainer");
+  if (!container) return;
+  let el = document.getElementById("mapMessage");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "mapMessage";
+    container.appendChild(el);
+  }
   el.textContent = msg;
   el.style.display = msg ? "block" : "none";
 }

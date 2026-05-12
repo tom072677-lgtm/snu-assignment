@@ -1003,6 +1003,46 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   min-height: 380px;
   position: relative;
   z-index: 0;
+  background: #eef2f7;
+}
+
+#mapStatus {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  width: min(320px, calc(100% - 48px));
+  transform: translate(-50%, -50%);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--app-bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.map-info-window {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 130px;
+  padding: 8px 10px;
+  color: #111827;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+.map-info-window strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+.map-info-window span {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 /* Leaflet 팝업 커스텀 */
