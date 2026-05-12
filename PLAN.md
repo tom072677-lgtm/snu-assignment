@@ -1,26 +1,27 @@
-﻿# PLAN: 카카오 지도 SDK 실패 원인 구체화
+﻿# PLAN: 카카오 인증 실패 시 지도 fallback 추가
 
 ## 목표
-모바일에서 카카오 지도 SDK가 준비되지 않을 때 네트워크 오해를 줄이고, 실제 조치해야 할 도메인/API 활성화 문제를 화면에 명확히 표시한다.
+카카오 JavaScript 키 도메인 인증이 실패해도 모바일 지도 탭이 빈 화면/오류 화면에 머물지 않고 지도를 표시한다.
 
 ## 가정
-- 사용자의 네트워크는 정상이다.
-- `kakao.maps.Map` 미준비 원인은 JavaScript 키의 도메인 등록 누락 또는 카카오맵 API 비활성화일 가능성이 높다.
-- 앱은 현재 접속 도메인을 보여줘야 사용자가 Kakao Developers에 정확히 등록할 수 있다.
+- 현재 오류는 `https://tom072677-lgtm.github.io` origin이 카카오 JavaScript SDK 도메인에 없거나 카카오맵 API가 비활성화되어 발생한다.
+- 사용자가 Kakao Developers 설정을 고치기 전에도 앱 지도 탭은 동작해야 한다.
+- 길찾기 경로 데이터는 기존 서버의 Kakao Mobility 프록시를 계속 사용할 수 있다.
 
 ## 접근
-1. 정적 SDK 스크립트를 제거하고 `script.js`에서 동적으로 SDK를 로드한다.
-   - verify: SDK 실패를 `onerror`/초기화 검증으로 앱 안에서 처리한다.
-2. 실패 메시지에 현재 도메인과 Kakao Developers 설정 위치를 포함한다.
-   - verify: 모바일 화면에서 등록해야 할 도메인을 볼 수 있다.
-3. 캐시 버전을 갱신한다.
-   - verify: `index.html`/`sw.js` 버전이 오른다.
-4. 문법 검증 후 커밋/푸시한다.
+1. 카카오 SDK 로드 실패 시 Leaflet/OpenStreetMap fallback 지도를 동적으로 로드한다.
+   - verify: 카카오가 실패해도 지도 탭에 캠퍼스 지도와 마커가 표시되는 경로가 있다.
+2. fallback 지도에서도 현재 위치와 주요 위치 마커를 표시한다.
+   - verify: 위치 권한이 허용되면 현재 위치가 표시되고, 거부되어도 기본 지도는 유지된다.
+3. 식당 길찾기에서 fallback 지도일 때도 목적지와 경로 폴리라인을 그린다.
+   - verify: `showRestaurantRoute`가 Kakao/Leaflet 양쪽 경로를 분기한다.
+4. 캐시 버전을 갱신하고 문법 검증 후 푸시한다.
    - verify: `node --check script.js`, `node --check sw.js` 통과.
 
 ## 변경 파일
 - index.html
 - script.js
+- style.css
 - sw.js
 - PLAN.md
 - PLAN_REVIEW.md
