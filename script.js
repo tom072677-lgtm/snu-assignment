@@ -1070,13 +1070,20 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
     const name  = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
     const phone = (r.name.match(/\(([\d-]+)\)/) || [])[1] || "";
 
-    // 있는 식사 항목만 추출
+    // 있는 식사 항목 중 내용이 다른 것만 추출 (중복 내용은 탭 안 만듦)
     const MEAL_DEFS = [
       { key: "breakfast", label: "조식" },
       { key: "lunch",     label: "점심" },
       { key: "dinner",    label: "저녁" },
     ];
-    const available = MEAL_DEFS.filter(m => r[m.key] && r[m.key] !== "정보 없음");
+    const seen = new Set();
+    const available = MEAL_DEFS.filter(m => {
+      const val = r[m.key];
+      if (!val || val === "정보 없음") return false;
+      if (seen.has(val)) return false;
+      seen.add(val);
+      return true;
+    });
 
     // 표시할 식사 결정 (기본값: 시간 기반, 없으면 첫 번째)
     let meal = selectedMeal;
