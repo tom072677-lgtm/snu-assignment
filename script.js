@@ -1100,17 +1100,20 @@ function formatMealLines(val) {
 // restId: 식당 탭 ID와 연결 (있을 때)
 const SNU_LOCATIONS = [
   // ── 학생식당 (SNUCO) ──
-  { id: "loc_hakgwan_rest",   name: "학생회관 식당",    type: "restaurant", lat: 37.4614, lng: 126.9493, note: "220동 1·2층" },
-  { id: "loc_zahayeon_rest",  name: "자하연 식당",      type: "restaurant", lat: 37.4592, lng: 126.9453, note: "규장각 인근" },
-  { id: "loc_sodam",          name: "소담마루",          type: "restaurant", lat: 37.4548, lng: 126.9510, note: "301동 인근" },
-  { id: "loc_dure_rest",      name: "두레미담",          type: "restaurant", lat: 37.4607, lng: 126.9511, note: "63-1동" },
-  { id: "loc_gongdae_rest",   name: "공대 식당",         type: "restaurant", lat: 37.4537, lng: 126.9506, note: "302동 인근" },
-  { id: "loc_yesul_rest",     name: "예술계 식당",       type: "restaurant", lat: 37.4621, lng: 126.9500, note: "50동 인근" },
-  { id: "loc_gamgol",         name: "감골식당",          type: "restaurant", lat: 37.4582, lng: 126.9461, note: "사범대 인근" },
-  { id: "loc_byeolmee",       name: "별미네",            type: "restaurant", lat: 37.4600, lng: 126.9504, note: "학교 내 식당" },
+  { id: "loc_hakgwan_rest",   name: "학생회관 식당",    type: "restaurant", lat: 37.4614, lng: 126.9493, note: "220동 1·2층", aliases: ["학생회관", "학생회관식당", "학관", "220동"] },
+  { id: "loc_zahayeon_rest",  name: "자하연 식당",      type: "restaurant", lat: 37.4592, lng: 126.9453, note: "규장각 인근", aliases: ["자하연", "자하연식당", "109동"] },
+  { id: "loc_sodam",          name: "소담마루",          type: "restaurant", lat: 37.4548, lng: 126.9510, note: "301동 인근", aliases: ["소담", "소담마루", "301동", "301동식당", "공대간이", "공대간이식당"] },
+  { id: "loc_dure_rest",      name: "두레미담",          type: "restaurant", lat: 37.4607, lng: 126.9511, note: "63-1동", aliases: ["두레", "두레미담", "3식당", "제3식당", "제3학생식당", "75-1동", "농생대"] },
+  { id: "loc_gongdae_rest",   name: "공대 식당",         type: "restaurant", lat: 37.4537, lng: 126.9506, note: "302동 인근", aliases: ["공대", "공대식당", "302동"] },
+  { id: "loc_yesul_rest",     name: "예술계 식당",       type: "restaurant", lat: 37.4621, lng: 126.9500, note: "50동 인근", aliases: ["예술계", "예술계식당", "예술", "50동", "74동"] },
+  { id: "loc_gamgol",         name: "감골식당",          type: "restaurant", lat: 37.4582, lng: 126.9461, note: "사범대 인근", aliases: ["감골", "감골식당", "사범대", "11동"] },
+  { id: "loc_byeolmee",       name: "별미네",            type: "restaurant", lat: 37.4600, lng: 126.9504, note: "학교 내 식당", aliases: ["별미네"] },
+  { id: "loc_dongwon_rest",   name: "동원관식당",        type: "restaurant", lat: 37.4623, lng: 126.9523, note: "113동 인근", aliases: ["동원관", "동원관식당", "113동"] },
+  { id: "loc_dorm_rest",      name: "기숙사식당",        type: "restaurant", lat: 37.4629, lng: 126.9570, note: "919동 1층", aliases: ["기숙사", "기숙사식당", "919동"] },
+  { id: "loc_boodang",        name: "불당",              type: "restaurant", lat: 37.4628, lng: 126.9581, note: "대학원 기숙사 인근", restId: "boodang", aliases: ["불당", "대학원기숙사", "대학원 기숙사"] },
   // ── 외부 식당 ──
-  { id: "loc_burger",         name: "버거운버거",         type: "restaurant", lat: 37.4793, lng: 126.9513, note: "서울대입구역 상권", restId: "burgerwoober" },
-  { id: "loc_gangyeo",        name: "강여사집밥",          type: "restaurant", lat: 37.4800, lng: 126.9519, note: "서울대입구역 상권", restId: "gangyeo" },
+  { id: "loc_burger",         name: "버거운버거",         type: "restaurant", lat: 37.4793, lng: 126.9513, note: "서울대입구역 상권", restId: "burgerwoober", aliases: ["버거운버거"] },
+  { id: "loc_gangyeo",        name: "강여사집밥",          type: "restaurant", lat: 37.4800, lng: 126.9519, note: "서울대입구역 상권", restId: "gangyeo", aliases: ["강여사", "강여사집밥"] },
   // ── 카페 ──
   { id: "loc_cafe_library",   name: "스누리 카페",        type: "cafe", lat: 37.4639, lng: 126.9487, note: "중앙도서관 1층" },
   { id: "loc_cafe_hakgwan",   name: "학생회관 카페",       type: "cafe", lat: 37.4611, lng: 126.9493, note: "220동 1층" },
@@ -1136,120 +1139,251 @@ function kakaoNavUrl(lat, lng, name) {
   return `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
 }
 
+function normalizeRestaurantName(value) {
+  return String(value || "")
+    .replace(/\s*\([\d-]+\)\s*$/, "")
+    .replace(/\s+/g, "")
+    .replace(/식당$/g, "")
+    .trim();
+}
+
 // 식당 id / name → SNU_LOCATIONS 매칭
 function getRestaurantLoc(id, name) {
-  // 외부 식당: restId 직접 매칭
   const byRestId = SNU_LOCATIONS.find(l => l.restId === id);
   if (byRestId) return byRestId;
-  // 학생식당(snuco): 이름 기반 매칭
-  if (id && id.startsWith("snuco_")) {
-    const cleanName = name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
+
+  const cleanName = normalizeRestaurantName(name);
+  if (!cleanName) return null;
+
+  const byName = SNU_LOCATIONS.find(l => {
+    if (l.type !== "restaurant") return false;
+    const candidates = [l.name, ...(l.aliases || [])].map(normalizeRestaurantName);
+    return candidates.some(candidate => {
+      if (!candidate) return false;
+      if (candidate === cleanName) return true;
+      if (candidate.length < 3 || cleanName.length < 3) return false;
+      return candidate.includes(cleanName) || cleanName.includes(candidate);
+    });
+  });
+  if (byName) return byName;
+
+  // 건물 번호로 note/alias 매칭 (예: "220동 식당" → note "220동 1·2층")
+  const dongMatch = cleanName.match(/(\d{2,3})동/);
+  if (dongMatch) {
     return SNU_LOCATIONS.find(l =>
       l.type === "restaurant" &&
-      (l.name === cleanName || l.name.includes(cleanName) || cleanName.includes(l.name))
+      `${l.note || ""} ${(l.aliases || []).join(" ")}`.includes(dongMatch[0])
     ) || null;
   }
+
   return null;
 }
 
-// Leaflet 상태
-let leafletMap = null;
-let leafletMarkers = [];
-let activeMapFilter = "all";
-
-// 타입별 마커 색상
-const MAP_COLORS = { restaurant: "#ef4444", cafe: "#f59e0b", building: "#3b82f6" };
-
-function createMapIcon(type) {
-  const color = MAP_COLORS[type] || "#6b7280";
-  return L.divIcon({
-    className: "map-custom-icon",
-    html: `<div style="
-      width:20px;height:20px;
-      border-radius:50% 50% 50% 0;
-      background:${color};
-      border:2.5px solid #fff;
-      transform:rotate(-45deg);
-      box-shadow:0 2px 6px rgba(0,0,0,0.35)
-    "></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 20],
-    popupAnchor: [0, -22],
-  });
-}
-
-function buildMapPopup(loc) {
-  const typeLabel = loc.type === "restaurant" ? "🍽️ 식당" : loc.type === "cafe" ? "☕ 카페" : "🏛️ 건물";
-  return `
-    <div class="map-popup-inner">
-      <p class="map-popup-name">${escapeHtml(loc.name)}</p>
-      <p class="map-popup-note">${typeLabel}${loc.note ? ` · ${escapeHtml(loc.note)}` : ""}</p>
-      <a class="map-popup-nav" href="${kakaoNavUrl(loc.lat, loc.lng, loc.name)}" target="_blank" rel="noopener">🗺️ 카카오맵 길찾기</a>
-    </div>`;
-}
-
-function applyMapFilter(filter) {
-  activeMapFilter = filter;
-  leafletMarkers.forEach(({ marker, type }) => {
-    if (filter === "all" || filter === type) {
-      marker.addTo(leafletMap);
-    } else {
-      marker.remove();
-    }
-  });
-}
+// 카카오맵 상태
+let kakaoMap = null;
+let locationOverlay = null;
+let accuracyCircle = null;
+let orientationListenerAdded = false;
+let onOrientationHandler = null;
+let latestPosition = null;
+let routePolyline = null;
+let destOverlay = null;
 
 function renderMapTab() {
-  if (!leafletMap) {
-    // 지도 초기화 (캠퍼스 중심)
-    leafletMap = L.map("mapContainer", { zoomControl: true }).setView([37.4651, 126.9507], 15);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
-      maxZoom: 19,
-    }).addTo(leafletMap);
-
-    // 마커 추가
-    SNU_LOCATIONS.forEach(loc => {
-      const marker = L.marker([loc.lat, loc.lng], { icon: createMapIcon(loc.type) })
-        .bindPopup(buildMapPopup(loc), { maxWidth: 220 });
-      leafletMarkers.push({ marker, type: loc.type, id: loc.id });
-      marker.addTo(leafletMap);
+  if (!kakaoMap) {
+    const container = document.getElementById("mapContainer");
+    const saved = JSON.parse(localStorage.getItem("map_last_pos") || "null");
+    const initCenter = saved
+      ? new kakao.maps.LatLng(saved.lat, saved.lng)
+      : new kakao.maps.LatLng(37.4651, 126.9507);
+    kakaoMap = new kakao.maps.Map(container, {
+      center: initCenter,
+      level: 3,
     });
 
-    // 필터 버튼 이벤트
-    document.querySelectorAll(".map-filter-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".map-filter-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        applyMapFilter(btn.dataset.filter);
-      });
-    });
+    startLocationWatch();
 
-    // 현재 위치 버튼
-    L.control.locate = function(opts) {
-      const ctrl = L.control({ position: "topright" });
-      ctrl.onAdd = function() {
-        const btn = L.DomUtil.create("button", "map-locate-btn");
-        btn.innerHTML = "📍";
-        btn.title = "내 위치";
-        L.DomEvent.on(btn, "click", () => {
-          if (!navigator.geolocation) return;
-          navigator.geolocation.getCurrentPosition(pos => {
-            leafletMap.setView([pos.coords.latitude, pos.coords.longitude], 17);
-            L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
-              radius: 8, color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.8, weight: 2
-            }).addTo(leafletMap).bindPopup("📍 현재 위치").openPopup();
-          }, () => alert("위치 정보를 가져올 수 없습니다."));
+    const btn = document.createElement("button");
+    btn.className = "map-locate-btn";
+    btn.innerHTML = "📍";
+    btn.title = "내 위치";
+    btn.addEventListener("click", () => {
+      if (locationOverlay) {
+        kakaoMap.setCenter(locationOverlay.getPosition());
+        kakaoMap.setLevel(3);
+      }
+      requestOrientationPermission();
+    });
+    container.appendChild(btn);
+  }
+}
+
+function startLocationWatch() {
+  if (!navigator.geolocation) return;
+
+  let firstFix = true;
+
+  const dotEl = document.createElement("div");
+  dotEl.className = "map-location-icon";
+  dotEl.innerHTML = `<svg viewBox="-16 -28 32 44" width="32" height="44" overflow="visible">
+    <path class="map-heading-cone" d="M0,-26 L-10,-6 L10,-6 Z"
+      fill="rgba(37,99,235,0.5)" stroke="none" display="none"/>
+    <circle cx="0" cy="0" r="8" fill="#2563eb" stroke="white" stroke-width="2.5"/>
+  </svg>`;
+
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const position = new kakao.maps.LatLng(lat, lng);
+      latestPosition = { lat, lng };
+      localStorage.setItem("map_last_pos", JSON.stringify({ lat, lng }));
+      const cappedRadius = Math.min(accuracy, 14);
+
+      if (!locationOverlay) {
+        locationOverlay = new kakao.maps.CustomOverlay({
+          position,
+          content: dotEl,
+          zIndex: 10,
         });
-        return btn;
-      };
-      return ctrl;
-    };
-    L.control.locate().addTo(leafletMap);
+        locationOverlay.setMap(kakaoMap);
+
+        accuracyCircle = new kakao.maps.Circle({
+          center: position,
+          radius: cappedRadius,
+          strokeWeight: 1,
+          strokeColor: "#2563eb",
+          strokeOpacity: 0.35,
+          fillColor: "#2563eb",
+          fillOpacity: 0.06,
+        });
+        accuracyCircle.setMap(kakaoMap);
+      } else {
+        locationOverlay.setPosition(position);
+        accuracyCircle.setOptions({ center: position, radius: cappedRadius });
+      }
+
+      if (firstFix) {
+        kakaoMap.setCenter(position);
+        kakaoMap.setLevel(3);
+        firstFix = false;
+      }
+    },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 5000 }
+  );
+
+  onOrientationHandler = function (e) {
+    let heading = null;
+    if (typeof e.webkitCompassHeading === "number") {
+      heading = e.webkitCompassHeading;
+    } else if (typeof e.alpha === "number") {
+      heading = (360 - e.alpha) % 360;
+    }
+    if (heading === null) return;
+    const svg = dotEl.querySelector("svg");
+    const cone = dotEl.querySelector(".map-heading-cone");
+    if (!svg || !cone) return;
+    cone.removeAttribute("display");
+    svg.style.transform = `rotate(${heading}deg)`;
+  };
+
+  if (typeof DeviceOrientationEvent === "undefined" ||
+      typeof DeviceOrientationEvent.requestPermission !== "function") {
+    window.addEventListener("deviceorientationabsolute", onOrientationHandler, true);
+    window.addEventListener("deviceorientation", onOrientationHandler, true);
+    orientationListenerAdded = true;
+  }
+}
+
+function requestOrientationPermission() {
+  if (orientationListenerAdded) return;
+  if (typeof DeviceOrientationEvent === "undefined") return;
+  if (typeof DeviceOrientationEvent.requestPermission !== "function") return;
+  DeviceOrientationEvent.requestPermission()
+    .then(state => {
+      if (state === "granted" && onOrientationHandler) {
+        window.addEventListener("deviceorientation", onOrientationHandler);
+        orientationListenerAdded = true;
+      }
+    })
+    .catch(() => {});
+}
+
+// ─── 인앱 길찾기 ───
+async function showRestaurantRoute(loc) {
+  // 지도 탭으로 전환
+  document.querySelector('.tab-btn[data-tab="map"]').click();
+
+  if (!latestPosition) {
+    setTimeout(() => showMapMessage("위치를 확인 중입니다. 잠시 후 다시 시도해주세요."), 400);
+    return;
   }
 
-  // 탭이 보여진 후 지도 크기 재계산
-  setTimeout(() => leafletMap.invalidateSize(), 120);
+  // 기존 경로/목적지 마커 제거
+  if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
+  if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
+
+  // 목적지 마커
+  const destEl = document.createElement("div");
+  destEl.className = "map-dest-marker";
+  destEl.innerHTML = `<div class="map-dest-pin">🍽️</div><div class="map-dest-label">${escapeHtml(loc.name)}</div>`;
+  destOverlay = new kakao.maps.CustomOverlay({
+    position: new kakao.maps.LatLng(loc.lat, loc.lng),
+    content: destEl,
+    yAnchor: 1.2,
+    zIndex: 9,
+  });
+  destOverlay.setMap(kakaoMap);
+
+  showMapMessage("경로를 불러오는 중...");
+
+  try {
+    const res = await fetch(`${SERVER_URL}/api/directions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origin: latestPosition, destination: { lat: loc.lat, lng: loc.lng } }),
+    });
+    const data = await res.json();
+    const route = data.routes?.[0];
+    if (!route || route.result_code !== 0) {
+      showMapMessage("경로를 찾을 수 없습니다.");
+      return;
+    }
+
+    const path = [];
+    for (const section of route.sections || []) {
+      for (const road of section.roads || []) {
+        const v = road.vertexes;
+        for (let i = 0; i < v.length - 1; i += 2) {
+          path.push(new kakao.maps.LatLng(v[i + 1], v[i]));
+        }
+      }
+    }
+
+    routePolyline = new kakao.maps.Polyline({
+      path,
+      strokeWeight: 5,
+      strokeColor: "#2563eb",
+      strokeOpacity: 0.85,
+      strokeStyle: "solid",
+    });
+    routePolyline.setMap(kakaoMap);
+
+    const bounds = new kakao.maps.LatLngBounds();
+    bounds.extend(new kakao.maps.LatLng(latestPosition.lat, latestPosition.lng));
+    bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
+    kakaoMap.setBounds(bounds, 60);
+    showMapMessage("");
+  } catch {
+    showMapMessage("경로 불러오기 실패");
+  }
+}
+
+function showMapMessage(msg) {
+  const el = document.getElementById("mapMessage");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
 }
 
 // ─── 디테일 패널 HTML ───
@@ -1301,7 +1435,7 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
 
     const snucoLoc = getRestaurantLoc(id, name);
     const snucoNavBtn = snucoLoc
-      ? `<a class="rest-nav-btn" href="${kakaoNavUrl(snucoLoc.lat, snucoLoc.lng, name)}" target="_blank" rel="noopener">🗺️ 길찾기</a>`
+      ? `<button class="rest-nav-btn" data-lat="${snucoLoc.lat}" data-lng="${snucoLoc.lng}" data-name="${escapeHtml(name)}">🗺️ 길찾기</button>`
       : "";
 
     return `
@@ -1323,7 +1457,7 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
 
   const extLoc = getRestaurantLoc(id, info.name);
   const extNavBtn = extLoc
-    ? `<a class="rest-nav-btn" href="${kakaoNavUrl(extLoc.lat, extLoc.lng, info.name)}" target="_blank" rel="noopener">🗺️ 길찾기</a>`
+    ? `<button class="rest-nav-btn" data-lat="${extLoc.lat}" data-lng="${extLoc.lng}" data-name="${escapeHtml(info.name)}">🗺️ 길찾기</button>`
     : "";
 
   let html = `<div class="rest-detail-title">${escapeHtml(info.name)}</div>`;
@@ -1411,6 +1545,15 @@ function selectRestaurant(id) {
   // 디테일 업데이트
   const { list, snucoData, gangyeoData } = restaurantDataCache;
   document.getElementById("restDetailPanel").innerHTML = buildDetailHtml(id, list, snucoData, gangyeoData);
+  // 길찾기 버튼 이벤트 연결
+  const navBtn = document.querySelector("#restDetailPanel .rest-nav-btn");
+  if (navBtn) {
+    navBtn.addEventListener("click", () => showRestaurantRoute({
+      lat: parseFloat(navBtn.dataset.lat),
+      lng: parseFloat(navBtn.dataset.lng),
+      name: navBtn.dataset.name,
+    }));
+  }
 }
 
 // ─── 탭 렌더링 ───

@@ -7,8 +7,7 @@
   <link rel="manifest" href="app.webmanifest" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <div class="app">
@@ -167,7 +166,9 @@
       <button class="map-filter-btn" data-filter="cafe">☕ 카페</button>
       <button class="map-filter-btn" data-filter="building">🏛️ 건물</button>
     </div>
-    <div id="mapContainer"></div>
+    <div id="mapContainer">
+      <div id="mapMessage"></div>
+    </div>
   </div>
 
   <!-- 일정 추가 모달 -->
@@ -205,8 +206,8 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="script.js?v=13"></script>
+  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=6905c79ba68d3c49d21fcf41ea34d51e"></script>
+  <script src="script.js?v=14"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
