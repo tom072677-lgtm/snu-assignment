@@ -667,11 +667,8 @@ body.dark .completed-task-item { opacity: 0.7; }
    식당 탭
    ────────────────────────────────────────── */
 
-.restaurant-list {
-  padding: 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+#restaurantList {
+  padding: 8px 0 0;
 }
 
 .restaurant-loading,
@@ -683,34 +680,138 @@ body.dark .completed-task-item { opacity: 0.7; }
 }
 .restaurant-error { color: #ef4444; }
 
-/* 식당 카드 */
-.rest-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
+/* 사이드바 + 디테일 레이아웃 */
+.rest-layout {
+  display: flex;
+  gap: 0;
+  min-height: 360px;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: var(--card-shadow);
   overflow: hidden;
+  background: var(--card-bg);
 }
 
-.rest-card-header {
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--border);
+/* 왼쪽 사이드바 */
+.rest-sidebar {
+  width: 108px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg);
 }
 
-.rest-card-title-row {
+.rest-sidebar-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 5px;
+  padding: 10px 10px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
 
-.rest-name {
+.rest-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s;
+  word-break: keep-all;
+  line-height: 1.4;
+}
+.rest-sidebar-item:hover { background: var(--card-bg); color: var(--text); }
+.rest-sidebar-item.active {
+  background: var(--card-bg);
+  color: var(--tab-active-color);
+  font-weight: 600;
+  border-right: 2px solid var(--tab-active-color);
+}
+body.dark .rest-sidebar-item.active { border-right-color: #60a5fa; }
+
+/* 영업 상태 dot */
+.rest-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rest-dot.open   { background: #16a34a; }
+.rest-dot.closed { background: #d1d5db; }
+
+/* 오른쪽 디테일 패널 */
+.rest-detail {
+  flex: 1;
+  padding: 16px 14px;
+  overflow-y: auto;
+}
+
+.rest-detail-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
+  margin-bottom: 6px;
 }
 
+.rest-detail-phone {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+
+.rest-detail-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.rest-detail-section:first-of-type { margin-top: 10px; padding-top: 0; border-top: none; }
+
+.rest-detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px;
+}
+
+.rest-detail-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rest-menu-row {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.rest-menu-item {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+.rest-menu-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rest-detail-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* 배지 */
 .rest-open {
+  display: inline-block;
   font-size: 11px;
   font-weight: 600;
   color: #16a34a;
@@ -721,6 +822,7 @@ body.dark .completed-task-item { opacity: 0.7; }
 body.dark .rest-open { background: #14532d; color: #86efac; }
 
 .rest-closed {
+  display: inline-block;
   font-size: 11px;
   font-weight: 600;
   color: #9ca3af;
@@ -734,9 +836,7 @@ body.dark .rest-closed { background: #1e293b; color: #64748b; }
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
 }
-
 .rest-tag {
   font-size: 11px;
   color: var(--text-sub);
@@ -745,47 +845,10 @@ body.dark .rest-closed { background: #1e293b; color: #64748b; }
   border-radius: 99px;
   border: 1px solid var(--border);
 }
-
 .rest-note {
   font-size: 12px;
   color: var(--text-muted);
-  margin: 6px 0 0;
-}
-
-.rest-card-body {
-  padding: 14px 16px;
-}
-
-/* SNU 학생식당 그리드 */
-.rest-snuco-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.rest-snuco-item {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.rest-snuco-item:last-child { border-bottom: none; }
-.rest-snuco-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 4px;
-}
-.rest-snuco-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 4px 0 2px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.rest-snuco-menu {
-  font-size: 13px;
-  color: var(--text-sub);
-  margin: 0;
-  white-space: pre-line;
+  margin: 4px 0 0;
 }
 
 /* 인스타그램 게시물 */
@@ -793,10 +856,11 @@ body.dark .rest-closed { background: #1e293b; color: #64748b; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 6px;
 }
 .rest-ig-img {
   width: 100%;
-  max-height: 280px;
+  max-height: 240px;
   object-fit: cover;
   border-radius: 10px;
   background: var(--border);
@@ -816,19 +880,6 @@ body.dark .rest-closed { background: #1e293b; color: #64748b; }
 }
 body.dark .rest-ig-link { color: #60a5fa; }
 
-.rest-hours-text {
-  font-size: 13px;
-  color: var(--text-sub);
-  margin: 0 0 6px;
-}
-
-.rest-menu-loading,
-.rest-menu-empty {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-  padding: 4px 0;
-}
 .rest-menu-error {
   font-size: 13px;
   color: #ef4444;
