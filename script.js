@@ -13,6 +13,8 @@ const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
 const KAKAO_MAP_APP_KEY = "6905c79ba68d3c49d21fcf41ea34d51e";
+const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
 // 2026년 공휴일 및 대체공휴일
 const HOLIDAYS = [
@@ -1191,6 +1193,13 @@ let routePolyline = null;
 let destOverlay = null;
 let mapPlaceMarkers = [];
 let kakaoMapsLoadPromise = null;
+let fallbackMap = null;
+let fallbackPlaceMarkers = [];
+let fallbackLocationMarker = null;
+let fallbackAccuracyCircle = null;
+let fallbackRoutePolyline = null;
+let fallbackDestMarker = null;
+let leafletLoadPromise = null;
 
 function isKakaoMapsReady() {
   return !!(window.kakao && kakao.maps && kakao.maps.Map);
@@ -1249,6 +1258,43 @@ function loadKakaoMapsSdk() {
   return kakaoMapsLoadPromise;
 }
 
+function isLeafletReady() {
+  return !!window.L;
+}
+
+function loadLeaflet() {
+  if (isLeafletReady()) return Promise.resolve();
+  if (leafletLoadPromise) return leafletLoadPromise;
+
+  leafletLoadPromise = new Promise((resolve, reject) => {
+    if (!document.querySelector(`link[href="${LEAFLET_CSS_URL}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = LEAFLET_CSS_URL;
+      document.head.appendChild(link);
+    }
+
+    const existingScript = document.querySelector(`script[src="${LEAFLET_JS_URL}"]`);
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Leaflet load failed")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = LEAFLET_JS_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Leaflet load failed"));
+    document.head.appendChild(script);
+  }).catch((err) => {
+    leafletLoadPromise = null;
+    throw err;
+  });
+
+  return leafletLoadPromise;
+}
+
 function getMapStatusEl() {
   const container = document.getElementById("mapContainer");
   if (!container) return null;
@@ -1286,7 +1332,7 @@ function renderMapTab() {
       .then(() => {
         if (!mapTab.classList.contains("hidden")) renderMapTab();
       })
-      .catch(() => showMapStatus(getKakaoMapSetupMessage()));
+      .catch(() => renderFallbackMap(getKakaoMapSetupMessage()));
     return;
   }
 
@@ -1351,6 +1397,115 @@ function renderMapPlaces() {
     });
     mapPlaceMarkers.push(marker);
   });
+}
+
+function renderFallbackMap(reason) {
+  const container = document.getElementById("mapContainer");
+  if (!container) return;
+
+  showMapStatus("대체 지도를 불러오는 중...");
+  loadLeaflet()
+    .then(() => {
+      hideMapStatus();
+      if (!fallbackMap) {
+        fallbackMap = L.map(container).setView([37.4651, 126.9507], 16);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap",
+          maxZoom: 19,
+        }).addTo(fallbackMap);
+        renderFallbackPlaces();
+        startFallbackLocationWatch();
+
+        const btn = document.createElement("button");
+        btn.className = "map-locate-btn";
+        btn.innerHTML = "📍";
+        btn.title = "내 위치";
+        btn.addEventListener("click", () => {
+          if (fallbackLocationMarker) fallbackMap.setView(fallbackLocationMarker.getLatLng(), 17);
+        });
+        container.appendChild(btn);
+      }
+
+      setTimeout(() => fallbackMap.invalidateSize(), 80);
+      if (reason) showMapMessage("카카오 지도 대신 대체 지도를 표시합니다.");
+    })
+    .catch(() => {
+      showMapStatus(`${reason} 대체 지도도 불러오지 못했습니다.`);
+    });
+}
+
+function renderFallbackPlaces() {
+  if (!fallbackMap || fallbackPlaceMarkers.length > 0) return;
+
+  SNU_LOCATIONS.forEach((loc) => {
+    const typeLabel = loc.type === "restaurant" ? "식당"
+      : loc.type === "cafe" ? "카페"
+      : "건물";
+    const marker = L.marker([loc.lat, loc.lng])
+      .addTo(fallbackMap)
+      .bindPopup(`
+        <div class="map-popup-inner">
+          <p class="map-popup-name">${escapeHtml(loc.name)}</p>
+          <p class="map-popup-note">${typeLabel}${loc.note ? ` · ${escapeHtml(loc.note)}` : ""}</p>
+        </div>
+      `);
+    fallbackPlaceMarkers.push(marker);
+  });
+}
+
+function startFallbackLocationWatch() {
+  if (!navigator.geolocation) {
+    showMapMessage("이 브라우저에서는 위치 권한을 사용할 수 없습니다.");
+    return;
+  }
+  if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    showMapMessage("현재 위치는 HTTPS에서만 사용할 수 있습니다.");
+    return;
+  }
+
+  let firstFix = true;
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      latestPosition = { lat, lng };
+      localStorage.setItem("map_last_pos", JSON.stringify({ lat, lng }));
+      const latLng = [lat, lng];
+      const cappedRadius = Math.min(accuracy, 14);
+
+      if (!fallbackLocationMarker) {
+        fallbackLocationMarker = L.circleMarker(latLng, {
+          radius: 8,
+          color: "#ffffff",
+          weight: 3,
+          fillColor: "#2563eb",
+          fillOpacity: 1,
+        }).addTo(fallbackMap);
+        fallbackAccuracyCircle = L.circle(latLng, {
+          radius: cappedRadius,
+          color: "#2563eb",
+          weight: 1,
+          opacity: 0.35,
+          fillColor: "#2563eb",
+          fillOpacity: 0.06,
+        }).addTo(fallbackMap);
+      } else {
+        fallbackLocationMarker.setLatLng(latLng);
+        fallbackAccuracyCircle.setLatLng(latLng).setRadius(cappedRadius);
+      }
+
+      if (firstFix) {
+        fallbackMap.setView(latLng, 17);
+        firstFix = false;
+      }
+    },
+    (err) => {
+      const denied = err && err.code === err.PERMISSION_DENIED;
+      showMapMessage(denied
+        ? "위치 권한이 꺼져 있어 현재 위치 없이 지도를 표시합니다."
+        : "현재 위치를 가져오지 못했습니다.");
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
 }
 
 function startLocationWatch() {
@@ -1469,18 +1624,27 @@ async function showRestaurantRoute(loc) {
   // 기존 경로/목적지 마커 제거
   if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
   if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
+  if (fallbackRoutePolyline) { fallbackRoutePolyline.remove(); fallbackRoutePolyline = null; }
+  if (fallbackDestMarker) { fallbackDestMarker.remove(); fallbackDestMarker = null; }
 
-  // 목적지 마커
-  const destEl = document.createElement("div");
-  destEl.className = "map-dest-marker";
-  destEl.innerHTML = `<div class="map-dest-pin">🍽️</div><div class="map-dest-label">${escapeHtml(loc.name)}</div>`;
-  destOverlay = new kakao.maps.CustomOverlay({
-    position: new kakao.maps.LatLng(loc.lat, loc.lng),
-    content: destEl,
-    yAnchor: 1.2,
-    zIndex: 9,
-  });
-  destOverlay.setMap(kakaoMap);
+  if (kakaoMap) {
+    // 목적지 마커
+    const destEl = document.createElement("div");
+    destEl.className = "map-dest-marker";
+    destEl.innerHTML = `<div class="map-dest-pin">🍽️</div><div class="map-dest-label">${escapeHtml(loc.name)}</div>`;
+    destOverlay = new kakao.maps.CustomOverlay({
+      position: new kakao.maps.LatLng(loc.lat, loc.lng),
+      content: destEl,
+      yAnchor: 1.2,
+      zIndex: 9,
+    });
+    destOverlay.setMap(kakaoMap);
+  } else if (fallbackMap) {
+    fallbackDestMarker = L.marker([loc.lat, loc.lng])
+      .addTo(fallbackMap)
+      .bindPopup(escapeHtml(loc.name))
+      .openPopup();
+  }
 
   showMapMessage("경로를 불러오는 중...");
 
@@ -1497,29 +1661,42 @@ async function showRestaurantRoute(loc) {
       return;
     }
 
-    const path = [];
+    const routePoints = [];
     for (const section of route.sections || []) {
       for (const road of section.roads || []) {
         const v = road.vertexes;
         for (let i = 0; i < v.length - 1; i += 2) {
-          path.push(new kakao.maps.LatLng(v[i + 1], v[i]));
+          routePoints.push({ lat: v[i + 1], lng: v[i] });
         }
       }
     }
 
-    routePolyline = new kakao.maps.Polyline({
-      path,
-      strokeWeight: 5,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.85,
-      strokeStyle: "solid",
-    });
-    routePolyline.setMap(kakaoMap);
+    if (kakaoMap) {
+      routePolyline = new kakao.maps.Polyline({
+        path: routePoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng)),
+        strokeWeight: 5,
+        strokeColor: "#2563eb",
+        strokeOpacity: 0.85,
+        strokeStyle: "solid",
+      });
+      routePolyline.setMap(kakaoMap);
 
-    const bounds = new kakao.maps.LatLngBounds();
-    bounds.extend(new kakao.maps.LatLng(latestPosition.lat, latestPosition.lng));
-    bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
-    kakaoMap.setBounds(bounds, 60);
+      const bounds = new kakao.maps.LatLngBounds();
+      bounds.extend(new kakao.maps.LatLng(latestPosition.lat, latestPosition.lng));
+      bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
+      kakaoMap.setBounds(bounds, 60);
+    } else if (fallbackMap) {
+      const fallbackPath = routePoints.map((p) => [p.lat, p.lng]);
+      fallbackRoutePolyline = L.polyline(fallbackPath, {
+        color: "#2563eb",
+        weight: 5,
+        opacity: 0.85,
+      }).addTo(fallbackMap);
+      fallbackMap.fitBounds([
+        [latestPosition.lat, latestPosition.lng],
+        [loc.lat, loc.lng],
+      ], { padding: [60, 60] });
+    }
     showMapMessage("");
   } catch {
     showMapMessage("경로 불러오기 실패");

@@ -1,10 +1,11 @@
 ﻿# PLAN_REVIEW
 
 계획 리뷰 스크립트 실행 생략:
-- 이전 확인과 동일하게 `~/.Codex/scripts/codex_plan_review.ps1`가 현재 환경에 없다.
+- 현재 환경에 `~/.Codex/scripts/codex_plan_review.ps1`가 없다.
 
 수동 검토:
-- 공식 Kakao 지도 Web API 가이드는 JavaScript SDK 도메인 등록이 필요하다고 설명한다.
-- Kakao Developers 문서도 JavaScript 키가 등록된 JavaScript SDK 도메인에서만 사용 가능하다고 설명한다.
-- 현재 앱의 일반 네트워크 연결 문제가 아니라 SDK 인증/활성화 문제일 가능성이 높다.
-- 코드에서는 정적 스크립트 로드를 동적 로더로 바꿔 실패를 사용자에게 더 구체적으로 알려주는 것이 적절하다.
+- 스크린샷의 메시지는 카카오 SDK 인증 실패 경로가 실제로 발생했음을 보여준다.
+- 사용자가 Kakao Developers에 `https://tom072677-lgtm.github.io`를 등록하면 카카오 지도가 정상화될 수 있다.
+- 하지만 앱 안정성 측면에서는 SDK 인증 실패 시 대체 지도 제공이 더 좋다.
+- Leaflet/OpenStreetMap fallback은 별도 도메인 인증 없이 지도 표시가 가능하며, 기존 `SNU_LOCATIONS` 데이터를 재사용할 수 있다.
+- 기존 Kakao Mobility directions 응답의 vertexes를 Leaflet polyline으로 변환하면 길찾기 경로도 유지할 수 있다.
