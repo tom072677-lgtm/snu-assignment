@@ -505,18 +505,29 @@ async function fetchSnucoMenu() {
 
   const restaurants = [];
 
+  // <br> → \n 변환 후 텍스트 추출하는 헬퍼
+  function cellText(el) {
+    // <br> 태그를 줄바꿈으로 치환
+    $(el).find("br").replaceWith("\n");
+    return $(el).text()
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+
   // snuco.snu.ac.kr 실제 구조: #celeb-mealtable table.menu-table tbody tr
   $("#celeb-mealtable table.menu-table tbody tr").each((i, row) => {
-    const name = $(row).find("td.title").text().trim().replace(/\s+/g, " ");
-    const breakfast = $(row).find("td.breakfast").text().trim().replace(/\s+/g, " ");
-    const lunch = $(row).find("td.lunch").text().trim().replace(/\s+/g, " ");
-    const dinner = $(row).find("td.dinner").text().trim().replace(/\s+/g, " ");
+    const name      = $(row).find("td.title").text().trim().replace(/\s+/g, " ");
+    const breakfast = cellText($(row).find("td.breakfast"));
+    const lunch     = cellText($(row).find("td.lunch"));
+    const dinner    = cellText($(row).find("td.dinner"));
     if (name && (breakfast || lunch || dinner)) {
       restaurants.push({
         name,
         breakfast: breakfast || "",
-        lunch: lunch || "정보 없음",
-        dinner: dinner || "",
+        lunch:     lunch     || "정보 없음",
+        dinner:    dinner    || "",
       });
     }
   });

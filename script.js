@@ -1059,10 +1059,10 @@ function buildSidebarItems(list, snucoData) {
 
 // ─── 식사 메뉴 텍스트 → HTML ───
 function formatMealLines(val) {
-  const lines = val.split(" ").join("\n").split("\n").map(l => l.trim()).filter(Boolean);
+  const lines = val.split("\n").map(l => l.trim()).filter(Boolean);
   return lines.map(line => {
-    if (/:\s*[\d,]+원/.test(line))         return `<span class="rest-menu-row">${escapeHtml(line)}</span>`;
-    if (/운영시간|예약|문의|※/.test(line)) return `<span class="rest-menu-time">${escapeHtml(line)}</span>`;
+    if (/:\s*[\d,]+원/.test(line))              return `<span class="rest-menu-row">${escapeHtml(line)}</span>`;
+    if (/운영시간|예약|문의|※|\d{1,2}:\d{2}/.test(line)) return `<span class="rest-menu-time">${escapeHtml(line)}</span>`;
     return `<span class="rest-menu-item">${escapeHtml(line)}</span>`;
   }).join("");
 }
