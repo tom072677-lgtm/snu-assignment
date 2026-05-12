@@ -1036,9 +1036,9 @@ function renderRestaurantCard(info, menuData) {
         menuData.restaurants.map(r => `
           <div class="rest-snuco-item">
             <p class="rest-snuco-name">${escapeHtml(r.name)}</p>
-            <p class="rest-snuco-label">점심</p>
-            <p class="rest-snuco-menu">${escapeHtml(r.lunch)}</p>
-            ${r.dinner && r.dinner !== "정보 없음" ? `<p class="rest-snuco-label">저녁</p><p class="rest-snuco-menu">${escapeHtml(r.dinner)}</p>` : ""}
+            ${r.breakfast ? `<p class="rest-snuco-label">조식</p><p class="rest-snuco-menu">${escapeHtml(r.breakfast)}</p>` : ""}
+            ${r.lunch && r.lunch !== "정보 없음" ? `<p class="rest-snuco-label">점심</p><p class="rest-snuco-menu">${escapeHtml(r.lunch)}</p>` : ""}
+            ${r.dinner ? `<p class="rest-snuco-label">저녁</p><p class="rest-snuco-menu">${escapeHtml(r.dinner)}</p>` : ""}
           </div>`).join("") +
         `</div>`;
     } else {
