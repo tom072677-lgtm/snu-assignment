@@ -1023,13 +1023,8 @@ function toggleFave(id) {
   faveRestId = (faveRestId === id) ? null : id;
   if (faveRestId) localStorage.setItem(FAVE_REST_KEY, faveRestId);
   else            localStorage.removeItem(FAVE_REST_KEY);
-  // 별표 아이콘만 업데이트
-  document.querySelectorAll(".rest-fave-btn").forEach(btn => {
-    const isFave = btn.dataset.id === faveRestId;
-    btn.textContent = isFave ? "★" : "☆";
-    btn.classList.toggle("active", isFave);
-    btn.title = isFave ? "즐겨찾기 해제" : "즐겨찾기";
-  });
+  // 순서가 바뀌므로 사이드바 전체 재렌더
+  if (restaurantDataCache) renderRestaurantLayout();
 }
 
 function getDefaultMeal() {
@@ -1050,26 +1045,37 @@ function koreanSort(a, b) {
 // ─── 사이드바 항목 빌드 ───
 // snuco는 세부 식당 여러 개를 각각 항목으로 노출
 function buildSidebarItems(list, snucoData) {
-  const items = [];
+  const allItems = [];
 
   for (const info of list) {
     if (info.type === "snuco") {
-      // 학생식당 그룹 헤더
-      items.push({ id: "snuco_header", label: "SNU 학생식당", isHeader: true, isOpen: info.isOpen });
-      // 세부 식당 — 가나다 정렬, 숫자 시작은 뒤로
+      allItems.push({ id: "snuco_header", label: "SNU 학생식당", isHeader: true, isOpen: info.isOpen });
       if (snucoData && snucoData.restaurants) {
         const sorted = snucoData.restaurants
           .map((r, i) => ({ r, i, name: r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim() }))
           .sort((a, b) => koreanSort(a.name, b.name));
-        sorted.forEach(({ r, i, name }) => {
-          items.push({ id: `snuco_${i}`, label: name, isHeader: false, isOpen: null });
+        sorted.forEach(({ i, name }) => {
+          allItems.push({ id: `snuco_${i}`, label: name, isHeader: false, isOpen: null });
         });
       }
     } else {
-      items.push({ id: info.id, label: info.name, isHeader: false, isOpen: info.isOpen });
+      allItems.push({ id: info.id, label: info.name, isHeader: false, isOpen: info.isOpen });
     }
   }
-  return items;
+
+  // 즐겨찾기 항목을 맨 위로 이동
+  if (faveRestId) {
+    const faveItem = allItems.find(i => i.id === faveRestId && !i.isHeader);
+    if (faveItem) {
+      return [
+        { id: "__fave_header", label: "즐겨찾기", isHeader: true, isFaveHeader: true },
+        faveItem,
+        { id: "__divider", label: "전체 식당", isHeader: true },
+        ...allItems.filter(i => i.id !== faveRestId),
+      ];
+    }
+  }
+  return allItems;
 }
 
 // ─── 식사 메뉴 텍스트 → HTML ───
@@ -1285,7 +1291,8 @@ function renderRestaurantLayout() {
       const dot = item.isOpen === true  ? `<span class="rest-dot open"></span>`
                 : item.isOpen === false ? `<span class="rest-dot closed"></span>`
                 : "";
-      return `<div class="rest-sidebar-group">${dot}${escapeHtml(item.label)}</div>`;
+      const icon = item.isFaveHeader ? "★ " : "";
+      return `<div class="rest-sidebar-group${item.isFaveHeader ? " fave-group" : ""}">${dot}${icon}${escapeHtml(item.label)}</div>`;
     }
     const dot = item.isOpen === true  ? `<span class="rest-dot open"></span>`
               : item.isOpen === false ? `<span class="rest-dot closed"></span>`
