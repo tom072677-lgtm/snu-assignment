@@ -1084,21 +1084,24 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
       meal = available[0]?.key || "lunch";
     }
 
-    // 탭 버튼
-    const tabs = available.map(m =>
-      `<button class="rest-meal-tab${meal === m.key ? " active" : ""}" data-meal="${m.key}">${m.label}</button>`
-    ).join("");
-
-    // 선택된 식사 내용
     const val = r[meal] || "";
     const content = val
       ? `<div class="rest-detail-lines">${formatMealLines(val)}</div>`
       : `<p class="rest-detail-empty">정보 없음</p>`;
 
+    // 식사 구분이 2개 이상일 때만 탭 표시
+    const tabsHtml = available.length >= 2
+      ? `<div class="rest-meal-tabs">${
+          available.map(m =>
+            `<button class="rest-meal-tab${meal === m.key ? " active" : ""}" data-meal="${m.key}">${m.label}</button>`
+          ).join("")
+        }</div>`
+      : "";
+
     return `
       <div class="rest-detail-title">${escapeHtml(name)}</div>
       ${phone ? `<p class="rest-detail-phone">📞 ${escapeHtml(phone)}</p>` : ""}
-      <div class="rest-meal-tabs">${tabs}</div>
+      ${tabsHtml}
       <div class="rest-meal-content">${content}</div>`;
   }
 
