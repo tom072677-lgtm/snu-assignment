@@ -7,7 +7,8 @@
   <link rel="manifest" href="app.webmanifest" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
   <div class="app">
@@ -83,6 +84,7 @@
       <button class="tab-btn active" data-tab="alerts">과제 알림</button>
       <button class="tab-btn" data-tab="calendar">달력</button>
       <button class="tab-btn" data-tab="restaurant">식당</button>
+      <button class="tab-btn" data-tab="map">지도</button>
     </div>
 
     <!-- 과제 알림 탭 -->
@@ -157,6 +159,17 @@
       <div id="restaurantList"></div>
     </div>
 
+  <!-- 지도 탭 -->
+  <div id="mapTab" class="hidden">
+    <div class="map-filter-bar">
+      <button class="map-filter-btn active" data-filter="all">전체</button>
+      <button class="map-filter-btn" data-filter="restaurant">🍽️ 식당</button>
+      <button class="map-filter-btn" data-filter="cafe">☕ 카페</button>
+      <button class="map-filter-btn" data-filter="building">🏛️ 건물</button>
+    </div>
+    <div id="mapContainer"></div>
+  </div>
+
   <!-- 일정 추가 모달 -->
   <div id="calModal" class="cal-modal hidden">
     <div class="cal-modal-overlay" id="calModalOverlay"></div>
@@ -192,7 +205,8 @@
     </div>
   </div>
 
-  <script src="script.js?v=12"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/6pU=" crossorigin=""></script>
+  <script src="script.js?v=13"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
