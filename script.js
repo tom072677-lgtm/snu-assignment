@@ -1024,6 +1024,14 @@ function getDefaultMeal() {
   return "dinner";
 }
 
+// ─── 가나다 정렬 (숫자 시작은 맨 뒤) ───
+function koreanSort(a, b) {
+  const startsWithNum = s => /^\d/.test(s);
+  const an = startsWithNum(a), bn = startsWithNum(b);
+  if (an !== bn) return an ? 1 : -1;
+  return a.localeCompare(b, "ko");
+}
+
 // ─── 사이드바 항목 빌드 ───
 // snuco는 세부 식당 여러 개를 각각 항목으로 노출
 function buildSidebarItems(list, snucoData) {
@@ -1033,12 +1041,13 @@ function buildSidebarItems(list, snucoData) {
     if (info.type === "snuco") {
       // 학생식당 그룹 헤더
       items.push({ id: "snuco_header", label: "SNU 학생식당", isHeader: true, isOpen: info.isOpen });
-      // 세부 식당
+      // 세부 식당 — 가나다 정렬, 숫자 시작은 뒤로
       if (snucoData && snucoData.restaurants) {
-        snucoData.restaurants.forEach((r, i) => {
-          // 이름에서 전화번호 제거
-          const name = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
-          items.push({ id: `snuco_${i}`, label: name, isHeader: false, isOpen: null, _snucoIdx: i });
+        const sorted = snucoData.restaurants
+          .map((r, i) => ({ r, i, name: r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim() }))
+          .sort((a, b) => koreanSort(a.name, b.name));
+        sorted.forEach(({ r, i, name }) => {
+          items.push({ id: `snuco_${i}`, label: name, isHeader: false, isOpen: null });
         });
       }
     } else {
