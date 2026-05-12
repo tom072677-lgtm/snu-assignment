@@ -164,20 +164,18 @@ function saveCalendarEvents() { localStorage.setItem(CALENDAR_KEY, JSON.stringif
 
 const alertsTab = document.getElementById("alertsTab");
 const calendarTab = document.getElementById("calendarTab");
+const restaurantTab = document.getElementById("restaurantTab");
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const tab = btn.dataset.tab;
-    if (tab === "alerts") {
-      alertsTab.classList.remove("hidden");
-      calendarTab.classList.add("hidden");
-    } else {
-      alertsTab.classList.add("hidden");
-      calendarTab.classList.remove("hidden");
-      renderCalendar();
-    }
+    alertsTab.classList.toggle("hidden", tab !== "alerts");
+    calendarTab.classList.toggle("hidden", tab !== "calendar");
+    restaurantTab.classList.toggle("hidden", tab !== "restaurant");
+    if (tab === "calendar") renderCalendar();
+    if (tab === "restaurant") renderRestaurantTab();
   });
 });
 
@@ -985,8 +983,7 @@ function checkDeadlines() {
     });
   });
 
-  // 사용자 직접 추가 일정: 24h / 5h (±6분 창에 들어올 때만 발송)
-  const WINDOW_H = 1 / 60;
+  // 사용자 직접 추가 일정: 24h / 5h (±1분 창에 들어올 때만 발송)
   const userEvents = JSON.parse(localStorage.getItem(CALENDAR_KEY)) || [];
   userEvents.filter((e) => e.time).forEach((ev) => {
     const dueDate = parseDateValue(ev.time);
@@ -1008,6 +1005,128 @@ function checkDeadlines() {
       }
     });
   });
+}
+
+// ──────────────────────────────────────────
+// 식당 탭
+// ──────────────────────────────────────────
+
+const restaurantListEl = document.getElementById("restaurantList");
+let restaurantDataCache = null;
+let restaurantFetching = false;
+
+function getOpenLabel(isOpen) {
+  if (isOpen === null) return "";
+  return isOpen
+    ? `<span class="rest-open">영업중</span>`
+    : `<span class="rest-closed">영업종료</span>`;
+}
+
+function renderRestaurantCard(info, menuData) {
+  const openLabel = getOpenLabel(info.isOpen);
+  const tagsHtml = (info.tags || []).map(t => `<span class="rest-tag">${escapeHtml(t)}</span>`).join("");
+
+  let menuHtml = "";
+
+  if (info.type === "snuco" && menuData) {
+    if (menuData.error) {
+      menuHtml = `<p class="rest-menu-error">메뉴 불러오기 실패</p>`;
+    } else if (menuData.restaurants && menuData.restaurants.length > 0) {
+      menuHtml = `<div class="rest-snuco-grid">` +
+        menuData.restaurants.map(r => `
+          <div class="rest-snuco-item">
+            <p class="rest-snuco-name">${escapeHtml(r.name)}</p>
+            <p class="rest-snuco-label">점심</p>
+            <p class="rest-snuco-menu">${escapeHtml(r.lunch)}</p>
+            ${r.dinner && r.dinner !== "정보 없음" ? `<p class="rest-snuco-label">저녁</p><p class="rest-snuco-menu">${escapeHtml(r.dinner)}</p>` : ""}
+          </div>`).join("") +
+        `</div>`;
+    } else {
+      menuHtml = `<p class="rest-menu-empty">오늘의 메뉴 정보 없음</p>`;
+    }
+  }
+
+  if (info.type === "instagram" && menuData) {
+    if (menuData.needsAuth) {
+      menuHtml = `<p class="rest-menu-error">사장님 Instagram 연동 필요</p>`;
+    } else if (menuData.error) {
+      menuHtml = `<p class="rest-menu-error">메뉴 불러오기 실패</p>`;
+    } else if (menuData.posts && menuData.posts.length > 0) {
+      const post = menuData.posts[0];
+      const caption = post.caption || "";
+      const shortCaption = caption.length > 180 ? caption.slice(0, 180) + "…" : caption;
+      menuHtml = `
+        <div class="rest-ig-post">
+          ${post.imageUrl ? `<img class="rest-ig-img" src="${escapeHtml(post.imageUrl)}" alt="오늘의 메뉴" loading="lazy">` : ""}
+          <p class="rest-ig-caption">${escapeHtml(shortCaption)}</p>
+          <a class="rest-ig-link" href="${escapeHtml(post.url)}" target="_blank" rel="noopener">Instagram에서 보기 →</a>
+        </div>`;
+    } else {
+      menuHtml = `<p class="rest-menu-empty">최근 게시물 없음</p>`;
+    }
+  }
+
+  if (info.type === "static") {
+    const hours = info.hours || {};
+    const hoursText = Object.entries(hours).map(([k, v]) => {
+      const label = k === "weekday" ? "평일" : k === "weekend" ? "주말" : k;
+      return `${label}: ${v}`;
+    }).join(" · ");
+    menuHtml = `<p class="rest-hours-text">${escapeHtml(hoursText)}</p>`;
+    if (info.note) menuHtml += `<p class="rest-note">${escapeHtml(info.note)}</p>`;
+  }
+
+  return `
+    <div class="rest-card">
+      <div class="rest-card-header">
+        <div class="rest-card-title-row">
+          <span class="rest-name">${escapeHtml(info.name)}</span>
+          ${openLabel}
+        </div>
+        <div class="rest-tags">${tagsHtml}</div>
+        ${info.note && info.type !== "static" ? `<p class="rest-note">${escapeHtml(info.note)}</p>` : ""}
+      </div>
+      <div class="rest-card-body">
+        ${menuHtml || `<p class="rest-menu-loading">불러오는 중...</p>`}
+      </div>
+    </div>`;
+}
+
+async function renderRestaurantTab() {
+  if (restaurantFetching) return;
+  restaurantFetching = true;
+  restaurantListEl.innerHTML = `<div class="restaurant-loading">불러오는 중...</div>`;
+
+  try {
+    // 식당 목록 + 메뉴 병렬 패치
+    const [listRes, snucoRes, gangyeoRes] = await Promise.allSettled([
+      fetch(`${SERVER_URL}/api/restaurant/list`).then(r => r.json()),
+      fetch(`${SERVER_URL}/api/restaurant/snuco`).then(r => r.json()),
+      fetch(`${SERVER_URL}/api/restaurant/gangyeo`).then(r => r.json()),
+    ]);
+
+    const list = listRes.status === "fulfilled" ? listRes.value : [];
+    const snucoData = snucoRes.status === "fulfilled" ? snucoRes.value : { error: "실패" };
+    const gangyeoData = gangyeoRes.status === "fulfilled" ? gangyeoRes.value : { error: "실패" };
+
+    if (list.length === 0) {
+      restaurantListEl.innerHTML = `<p class="restaurant-error">식당 정보를 불러오지 못했습니다.</p>`;
+      return;
+    }
+
+    const cardsHtml = list.map(info => {
+      const menuData = info.type === "snuco" ? snucoData
+                     : info.type === "instagram" ? gangyeoData
+                     : null;
+      return renderRestaurantCard(info, menuData);
+    }).join("");
+
+    restaurantListEl.innerHTML = cardsHtml;
+  } catch (err) {
+    restaurantListEl.innerHTML = `<p class="restaurant-error">오류: ${escapeHtml(err.message)}</p>`;
+  } finally {
+    restaurantFetching = false;
+  }
 }
 
 // ──────────────────────────────────────────

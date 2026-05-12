@@ -663,6 +663,178 @@ body.dark .completed-task-item { opacity: 0.7; }
 /* 유틸 */
 .hidden { display: none; }
 
+/* ──────────────────────────────────────────
+   식당 탭
+   ────────────────────────────────────────── */
+
+.restaurant-list {
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.restaurant-loading,
+.restaurant-error {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-sub);
+  font-size: 14px;
+}
+.restaurant-error { color: #ef4444; }
+
+/* 식당 카드 */
+.rest-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.rest-card-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rest-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rest-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rest-open {
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+body.dark .rest-open { background: #14532d; color: #86efac; }
+
+.rest-closed {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+body.dark .rest-closed { background: #1e293b; color: #64748b; }
+
+.rest-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.rest-tag {
+  font-size: 11px;
+  color: var(--text-sub);
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+}
+
+.rest-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+.rest-card-body {
+  padding: 14px 16px;
+}
+
+/* SNU 학생식당 그리드 */
+.rest-snuco-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rest-snuco-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rest-snuco-item:last-child { border-bottom: none; }
+.rest-snuco-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.rest-snuco-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rest-snuco-menu {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* 인스타그램 게시물 */
+.rest-ig-post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rest-ig-img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--border);
+}
+.rest-ig-caption {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.6;
+}
+.rest-ig-link {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+body.dark .rest-ig-link { color: #60a5fa; }
+
+.rest-hours-text {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin: 0 0 6px;
+}
+
+.rest-menu-loading,
+.rest-menu-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  padding: 4px 0;
+}
+.rest-menu-error {
+  font-size: 13px;
+  color: #ef4444;
+  margin: 0;
+}
+
 /* 반응형 */
 @media (max-width: 640px) {
   .app { margin: 16px; padding: 18px; }
