@@ -12,6 +12,7 @@ const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
+const KAKAO_MAP_APP_KEY = "6905c79ba68d3c49d21fcf41ea34d51e";
 
 // 2026년 공휴일 및 대체공휴일
 const HOLIDAYS = [
@@ -1188,11 +1189,64 @@ let onOrientationHandler = null;
 let latestPosition = null;
 let routePolyline = null;
 let destOverlay = null;
-let mapLoadRetryTimer = null;
 let mapPlaceMarkers = [];
+let kakaoMapsLoadPromise = null;
 
 function isKakaoMapsReady() {
   return !!(window.kakao && kakao.maps && kakao.maps.Map);
+}
+
+function getKakaoMapSetupMessage() {
+  return `카카오 지도 인증에 실패했습니다. Kakao Developers에서 JavaScript SDK 도메인에 ${location.origin} 을 등록하고, 제품 설정의 카카오맵 API가 켜져 있는지 확인해주세요.`;
+}
+
+function loadKakaoMapsSdk() {
+  if (isKakaoMapsReady()) return Promise.resolve();
+  if (kakaoMapsLoadPromise) return kakaoMapsLoadPromise;
+
+  kakaoMapsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    const timeoutId = setTimeout(() => {
+      fail(new Error("Kakao Maps SDK load timeout"));
+    }, 10000);
+
+    function done() {
+      clearTimeout(timeoutId);
+      resolve();
+    }
+
+    function fail(err) {
+      clearTimeout(timeoutId);
+      reject(err);
+    }
+
+    function finishLoad() {
+      if (!window.kakao || !kakao.maps || typeof kakao.maps.load !== "function") {
+        fail(new Error("Kakao Maps SDK authorization failed"));
+        return;
+      }
+      kakao.maps.load(() => {
+        if (isKakaoMapsReady()) {
+          done();
+        } else {
+          fail(new Error("Kakao Maps SDK initialized without Map"));
+        }
+      });
+    }
+
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false`;
+    script.async = true;
+    script.dataset.kakaoMapSdk = "true";
+    script.onload = finishLoad;
+    script.onerror = () => fail(new Error("Kakao Maps SDK network or authorization error"));
+
+    document.head.appendChild(script);
+  }).catch((err) => {
+    kakaoMapsLoadPromise = null;
+    throw err;
+  });
+
+  return kakaoMapsLoadPromise;
 }
 
 function getMapStatusEl() {
@@ -1227,13 +1281,12 @@ function renderMapTab() {
   if (!container) return;
 
   if (!isKakaoMapsReady()) {
-    showMapStatus("지도를 불러오지 못했습니다. 네트워크 또는 카카오 지도 도메인 설정을 확인해주세요.");
-    if (!mapLoadRetryTimer) {
-      mapLoadRetryTimer = setTimeout(() => {
-        mapLoadRetryTimer = null;
+    showMapStatus("카카오 지도를 불러오는 중...");
+    loadKakaoMapsSdk()
+      .then(() => {
         if (!mapTab.classList.contains("hidden")) renderMapTab();
-      }, 1200);
-    }
+      })
+      .catch(() => showMapStatus(getKakaoMapSetupMessage()));
     return;
   }
 

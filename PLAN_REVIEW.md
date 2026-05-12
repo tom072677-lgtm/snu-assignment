@@ -1,11 +1,10 @@
 ﻿# PLAN_REVIEW
 
-계획 리뷰 스크립트 실행 실패:
-- `~/.Codex/scripts/codex_plan_review.ps1`가 현재 환경에 없다.
+계획 리뷰 스크립트 실행 생략:
+- 이전 확인과 동일하게 `~/.Codex/scripts/codex_plan_review.ps1`가 현재 환경에 없다.
 
 수동 검토:
-- 현재 `renderMapTab()`은 `kakao.maps.*`가 준비되어 있다는 전제에서 바로 실행된다.
-- 이 전제가 깨지면 예외가 발생하고 `startLocationWatch()`까지 도달하지 못하므로 위치 권한 요청도 뜨지 않을 수 있다.
-- 지도 표시와 위치 권한은 분리해야 한다.
-- 지도 탭에는 위치 권한 없이도 캠퍼스 주요 위치 마커 또는 명확한 오류 메시지가 보여야 한다.
-- 숨김 탭에서 보이는 탭으로 전환한 직후 카카오 지도는 `relayout()`이 필요할 수 있다.
+- 공식 Kakao 지도 Web API 가이드는 JavaScript SDK 도메인 등록이 필요하다고 설명한다.
+- Kakao Developers 문서도 JavaScript 키가 등록된 JavaScript SDK 도메인에서만 사용 가능하다고 설명한다.
+- 현재 앱의 일반 네트워크 연결 문제가 아니라 SDK 인증/활성화 문제일 가능성이 높다.
+- 코드에서는 정적 스크립트 로드를 동적 로더로 바꿔 실패를 사용자에게 더 구체적으로 알려주는 것이 적절하다.
