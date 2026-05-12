@@ -165,6 +165,7 @@ function saveCalendarEvents() { localStorage.setItem(CALENDAR_KEY, JSON.stringif
 const alertsTab = document.getElementById("alertsTab");
 const calendarTab = document.getElementById("calendarTab");
 const restaurantTab = document.getElementById("restaurantTab");
+const mapTab = document.getElementById("mapTab");
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -174,8 +175,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     alertsTab.classList.toggle("hidden", tab !== "alerts");
     calendarTab.classList.toggle("hidden", tab !== "calendar");
     restaurantTab.classList.toggle("hidden", tab !== "restaurant");
+    mapTab.classList.toggle("hidden", tab !== "map");
     if (tab === "calendar") renderCalendar();
     if (tab === "restaurant") renderRestaurantTab();
+    if (tab === "map") renderMapTab();
   });
 });
 
@@ -1088,6 +1091,167 @@ function formatMealLines(val) {
   }).join("");
 }
 
+// ──────────────────────────────────────────
+// 지도 탭
+// ──────────────────────────────────────────
+
+// SNU 주요 위치 데이터
+// type: "restaurant" | "cafe" | "building"
+// restId: 식당 탭 ID와 연결 (있을 때)
+const SNU_LOCATIONS = [
+  // ── 학생식당 (SNUCO) ──
+  { id: "loc_hakgwan_rest",   name: "학생회관 식당",    type: "restaurant", lat: 37.4614, lng: 126.9493, note: "220동 1·2층" },
+  { id: "loc_zahayeon_rest",  name: "자하연 식당",      type: "restaurant", lat: 37.4592, lng: 126.9453, note: "규장각 인근" },
+  { id: "loc_sodam",          name: "소담마루",          type: "restaurant", lat: 37.4548, lng: 126.9510, note: "301동 인근" },
+  { id: "loc_dure_rest",      name: "두레미담",          type: "restaurant", lat: 37.4607, lng: 126.9511, note: "63-1동" },
+  { id: "loc_gongdae_rest",   name: "공대 식당",         type: "restaurant", lat: 37.4537, lng: 126.9506, note: "302동 인근" },
+  { id: "loc_yesul_rest",     name: "예술계 식당",       type: "restaurant", lat: 37.4621, lng: 126.9500, note: "50동 인근" },
+  { id: "loc_gamgol",         name: "감골식당",          type: "restaurant", lat: 37.4582, lng: 126.9461, note: "사범대 인근" },
+  { id: "loc_byeolmee",       name: "별미네",            type: "restaurant", lat: 37.4600, lng: 126.9504, note: "학교 내 식당" },
+  // ── 외부 식당 ──
+  { id: "loc_burger",         name: "버거운버거",         type: "restaurant", lat: 37.4793, lng: 126.9513, note: "서울대입구역 상권", restId: "burgerwoober" },
+  { id: "loc_gangyeo",        name: "강여사집밥",          type: "restaurant", lat: 37.4800, lng: 126.9519, note: "서울대입구역 상권", restId: "gangyeo" },
+  // ── 카페 ──
+  { id: "loc_cafe_library",   name: "스누리 카페",        type: "cafe", lat: 37.4639, lng: 126.9487, note: "중앙도서관 1층" },
+  { id: "loc_cafe_hakgwan",   name: "학생회관 카페",       type: "cafe", lat: 37.4611, lng: 126.9493, note: "220동 1층" },
+  { id: "loc_starbucks",      name: "스타벅스 서울대점",   type: "cafe", lat: 37.4616, lng: 126.9499, note: "학생회관 앞" },
+  { id: "loc_cafe_inmun",     name: "인문대 카페",         type: "cafe", lat: 37.4609, lng: 126.9469, note: "인문대 1동" },
+  // ── 건물 ──
+  { id: "loc_library",        name: "중앙도서관",          type: "building", lat: 37.4639, lng: 126.9487, note: "62동" },
+  { id: "loc_hakgwan_bld",    name: "학생회관",            type: "building", lat: 37.4614, lng: 126.9493, note: "220동" },
+  { id: "loc_bonkwan",        name: "본관 (행정관)",       type: "building", lat: 37.4616, lng: 126.9476, note: "60동" },
+  { id: "loc_dure_bld",       name: "두레문예관",          type: "building", lat: 37.4607, lng: 126.9509, note: "학생 문화공간" },
+  { id: "loc_gate",           name: "SNU 정문",            type: "building", lat: 37.4596, lng: 126.9516, note: "관악캠퍼스 정문" },
+  { id: "loc_gongdae_bld",    name: "공과대학",            type: "building", lat: 37.4535, lng: 126.9505, note: "301·302동 일대" },
+  { id: "loc_inmun_bld",      name: "인문대학",            type: "building", lat: 37.4609, lng: 126.9468, note: "1·2동 일대" },
+  { id: "loc_sahoe_bld",      name: "사회과학대학",        type: "building", lat: 37.4601, lng: 126.9522, note: "16동" },
+  { id: "loc_gyeong_bld",     name: "경영대학",            type: "building", lat: 37.4623, lng: 126.9523, note: "58동" },
+  { id: "loc_jawoon_bld",     name: "자연과학대학",        type: "building", lat: 37.4573, lng: 126.9496, note: "500동 일대" },
+  { id: "loc_sabum_bld",      name: "사범대학",            type: "building", lat: 37.4581, lng: 126.9461, note: "11동 일대" },
+  { id: "loc_subway",         name: "서울대입구역",        type: "building", lat: 37.4811, lng: 126.9531, note: "지하철 2호선" },
+];
+
+// 카카오맵 길찾기 URL
+function kakaoNavUrl(lat, lng, name) {
+  return `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+}
+
+// 식당 id / name → SNU_LOCATIONS 매칭
+function getRestaurantLoc(id, name) {
+  // 외부 식당: restId 직접 매칭
+  const byRestId = SNU_LOCATIONS.find(l => l.restId === id);
+  if (byRestId) return byRestId;
+  // 학생식당(snuco): 이름 기반 매칭
+  if (id && id.startsWith("snuco_")) {
+    const cleanName = name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
+    return SNU_LOCATIONS.find(l =>
+      l.type === "restaurant" &&
+      (l.name === cleanName || l.name.includes(cleanName) || cleanName.includes(l.name))
+    ) || null;
+  }
+  return null;
+}
+
+// Leaflet 상태
+let leafletMap = null;
+let leafletMarkers = [];
+let activeMapFilter = "all";
+
+// 타입별 마커 색상
+const MAP_COLORS = { restaurant: "#ef4444", cafe: "#f59e0b", building: "#3b82f6" };
+
+function createMapIcon(type) {
+  const color = MAP_COLORS[type] || "#6b7280";
+  return L.divIcon({
+    className: "map-custom-icon",
+    html: `<div style="
+      width:20px;height:20px;
+      border-radius:50% 50% 50% 0;
+      background:${color};
+      border:2.5px solid #fff;
+      transform:rotate(-45deg);
+      box-shadow:0 2px 6px rgba(0,0,0,0.35)
+    "></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 20],
+    popupAnchor: [0, -22],
+  });
+}
+
+function buildMapPopup(loc) {
+  const typeLabel = loc.type === "restaurant" ? "🍽️ 식당" : loc.type === "cafe" ? "☕ 카페" : "🏛️ 건물";
+  return `
+    <div class="map-popup-inner">
+      <p class="map-popup-name">${escapeHtml(loc.name)}</p>
+      <p class="map-popup-note">${typeLabel}${loc.note ? ` · ${escapeHtml(loc.note)}` : ""}</p>
+      <a class="map-popup-nav" href="${kakaoNavUrl(loc.lat, loc.lng, loc.name)}" target="_blank" rel="noopener">🗺️ 카카오맵 길찾기</a>
+    </div>`;
+}
+
+function applyMapFilter(filter) {
+  activeMapFilter = filter;
+  leafletMarkers.forEach(({ marker, type }) => {
+    if (filter === "all" || filter === type) {
+      marker.addTo(leafletMap);
+    } else {
+      marker.remove();
+    }
+  });
+}
+
+function renderMapTab() {
+  if (!leafletMap) {
+    // 지도 초기화 (캠퍼스 중심)
+    leafletMap = L.map("mapContainer", { zoomControl: true }).setView([37.4651, 126.9507], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+      maxZoom: 19,
+    }).addTo(leafletMap);
+
+    // 마커 추가
+    SNU_LOCATIONS.forEach(loc => {
+      const marker = L.marker([loc.lat, loc.lng], { icon: createMapIcon(loc.type) })
+        .bindPopup(buildMapPopup(loc), { maxWidth: 220 });
+      leafletMarkers.push({ marker, type: loc.type, id: loc.id });
+      marker.addTo(leafletMap);
+    });
+
+    // 필터 버튼 이벤트
+    document.querySelectorAll(".map-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".map-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        applyMapFilter(btn.dataset.filter);
+      });
+    });
+
+    // 현재 위치 버튼
+    L.control.locate = function(opts) {
+      const ctrl = L.control({ position: "topright" });
+      ctrl.onAdd = function() {
+        const btn = L.DomUtil.create("button", "map-locate-btn");
+        btn.innerHTML = "📍";
+        btn.title = "내 위치";
+        L.DomEvent.on(btn, "click", () => {
+          if (!navigator.geolocation) return;
+          navigator.geolocation.getCurrentPosition(pos => {
+            leafletMap.setView([pos.coords.latitude, pos.coords.longitude], 17);
+            L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+              radius: 8, color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.8, weight: 2
+            }).addTo(leafletMap).bindPopup("📍 현재 위치").openPopup();
+          }, () => alert("위치 정보를 가져올 수 없습니다."));
+        });
+        return btn;
+      };
+      return ctrl;
+    };
+    L.control.locate().addTo(leafletMap);
+  }
+
+  // 탭이 보여진 후 지도 크기 재계산
+  setTimeout(() => leafletMap.invalidateSize(), 120);
+}
+
 // ─── 디테일 패널 HTML ───
 function buildDetailHtml(id, list, snucoData, gangyeoData) {
   // snuco 세부 식당
@@ -1135,9 +1299,15 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
         }</div>`
       : "";
 
+    const snucoLoc = getRestaurantLoc(id, name);
+    const snucoNavBtn = snucoLoc
+      ? `<a class="rest-nav-btn" href="${kakaoNavUrl(snucoLoc.lat, snucoLoc.lng, name)}" target="_blank" rel="noopener">🗺️ 길찾기</a>`
+      : "";
+
     return `
       <div class="rest-detail-title">${escapeHtml(name)}</div>
       ${phone ? `<p class="rest-detail-phone">📞 ${escapeHtml(phone)}</p>` : ""}
+      ${snucoNavBtn}
       ${tabsHtml}
       <div class="rest-meal-content">${content}</div>`;
   }
@@ -1151,6 +1321,11 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
   const info = list.find(r => r.id === id);
   if (!info) return `<p class="rest-detail-empty">정보 없음</p>`;
 
+  const extLoc = getRestaurantLoc(id, info.name);
+  const extNavBtn = extLoc
+    ? `<a class="rest-nav-btn" href="${kakaoNavUrl(extLoc.lat, extLoc.lng, info.name)}" target="_blank" rel="noopener">🗺️ 길찾기</a>`
+    : "";
+
   let html = `<div class="rest-detail-title">${escapeHtml(info.name)}</div>`;
 
   const openBadge = info.isOpen === true
@@ -1159,6 +1334,7 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
     ? `<span class="rest-closed">영업종료</span>`
     : "";
   if (openBadge) html += `<div style="margin-bottom:10px">${openBadge}</div>`;
+  if (extNavBtn) html += `<div style="margin-bottom:10px">${extNavBtn}</div>`;
 
   const tags = (info.tags || []).map(t => `<span class="rest-tag">${escapeHtml(t)}</span>`).join("");
   if (tags) html += `<div class="rest-tags" style="margin-bottom:10px">${tags}</div>`;
