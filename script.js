@@ -1012,101 +1012,175 @@ function checkDeadlines() {
 // ──────────────────────────────────────────
 
 const restaurantListEl = document.getElementById("restaurantList");
-let restaurantDataCache = null;
+let restaurantDataCache = null;   // { list, snucoData, gangyeoData }
 let restaurantFetching = false;
+let selectedRestId = null;        // 현재 선택된 식당 id
 
-function getOpenLabel(isOpen) {
-  if (isOpen === null) return "";
-  return isOpen
-    ? `<span class="rest-open">영업중</span>`
-    : `<span class="rest-closed">영업종료</span>`;
-}
+// ─── 사이드바 항목 빌드 ───
+// snuco는 세부 식당 여러 개를 각각 항목으로 노출
+function buildSidebarItems(list, snucoData) {
+  const items = [];
 
-function renderRestaurantCard(info, menuData) {
-  const openLabel = getOpenLabel(info.isOpen);
-  const tagsHtml = (info.tags || []).map(t => `<span class="rest-tag">${escapeHtml(t)}</span>`).join("");
-
-  let menuHtml = "";
-
-  if (info.type === "snuco" && menuData) {
-    if (menuData.error) {
-      menuHtml = `<p class="rest-menu-error">메뉴 불러오기 실패</p>`;
-    } else if (menuData.restaurants && menuData.restaurants.length > 0) {
-      menuHtml = `<div class="rest-snuco-grid">` +
-        menuData.restaurants.map(r => `
-          <div class="rest-snuco-item">
-            <p class="rest-snuco-name">${escapeHtml(r.name)}</p>
-            ${r.breakfast ? `<p class="rest-snuco-label">조식</p><p class="rest-snuco-menu">${escapeHtml(r.breakfast)}</p>` : ""}
-            ${r.lunch && r.lunch !== "정보 없음" ? `<p class="rest-snuco-label">점심</p><p class="rest-snuco-menu">${escapeHtml(r.lunch)}</p>` : ""}
-            ${r.dinner ? `<p class="rest-snuco-label">저녁</p><p class="rest-snuco-menu">${escapeHtml(r.dinner)}</p>` : ""}
-          </div>`).join("") +
-        `</div>`;
+  for (const info of list) {
+    if (info.type === "snuco") {
+      // 학생식당 그룹 헤더
+      items.push({ id: "snuco_header", label: "SNU 학생식당", isHeader: true, isOpen: info.isOpen });
+      // 세부 식당
+      if (snucoData && snucoData.restaurants) {
+        snucoData.restaurants.forEach((r, i) => {
+          // 이름에서 전화번호 제거
+          const name = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
+          items.push({ id: `snuco_${i}`, label: name, isHeader: false, isOpen: null, _snucoIdx: i });
+        });
+      }
     } else {
-      menuHtml = `<p class="rest-menu-empty">오늘의 메뉴 정보 없음</p>`;
+      items.push({ id: info.id, label: info.name, isHeader: false, isOpen: info.isOpen });
     }
   }
+  return items;
+}
 
-  if (info.type === "instagram" && menuData) {
-    if (menuData.needsAuth) {
-      menuHtml = `<p class="rest-menu-error">사장님 Instagram 연동 필요</p>`;
-    } else if (menuData.error) {
-      menuHtml = `<p class="rest-menu-error">메뉴 불러오기 실패</p>`;
-    } else if (menuData.posts && menuData.posts.length > 0) {
-      const post = menuData.posts[0];
-      const caption = post.caption || "";
-      const shortCaption = caption.length > 180 ? caption.slice(0, 180) + "…" : caption;
-      menuHtml = `
-        <div class="rest-ig-post">
-          ${post.imageUrl ? `<img class="rest-ig-img" src="${escapeHtml(post.imageUrl)}" alt="오늘의 메뉴" loading="lazy">` : ""}
-          <p class="rest-ig-caption">${escapeHtml(shortCaption)}</p>
-          <a class="rest-ig-link" href="${escapeHtml(post.url)}" target="_blank" rel="noopener">Instagram에서 보기 →</a>
+// ─── 디테일 패널 HTML ───
+function buildDetailHtml(id, list, snucoData, gangyeoData) {
+  // snuco 세부 식당
+  if (id && id.startsWith("snuco_") && id !== "snuco_header") {
+    const idx = parseInt(id.replace("snuco_", ""), 10);
+    if (!snucoData || !snucoData.restaurants) return `<p class="rest-detail-empty">메뉴 정보 없음</p>`;
+    const r = snucoData.restaurants[idx];
+    if (!r) return `<p class="rest-detail-empty">메뉴 정보 없음</p>`;
+
+    const name = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
+    const phone = (r.name.match(/\(([\d-]+)\)/) || [])[1] || "";
+
+    let html = `<div class="rest-detail-title">${escapeHtml(name)}</div>`;
+    if (phone) html += `<p class="rest-detail-phone">📞 ${escapeHtml(phone)}</p>`;
+
+    const sections = [
+      { key: "breakfast", label: "조식" },
+      { key: "lunch",     label: "점심" },
+      { key: "dinner",    label: "저녁" },
+    ];
+    sections.forEach(({ key, label }) => {
+      const val = r[key];
+      if (!val || val === "정보 없음") return;
+      // 줄바꿈 유지, 가격에 하이라이트
+      const lines = val.split(" ").join("\n").split("\n").map(l => l.trim()).filter(Boolean);
+      const formatted = lines.map(line => {
+        if (/:\s*[\d,]+원/.test(line)) {
+          return `<span class="rest-menu-row">${escapeHtml(line)}</span>`;
+        }
+        if (/운영시간|예약|문의/.test(line)) {
+          return `<span class="rest-menu-time">${escapeHtml(line)}</span>`;
+        }
+        return `<span class="rest-menu-item">${escapeHtml(line)}</span>`;
+      }).join("");
+      html += `
+        <div class="rest-detail-section">
+          <p class="rest-detail-label">${label}</p>
+          <div class="rest-detail-lines">${formatted}</div>
         </div>`;
-    } else {
-      menuHtml = `<p class="rest-menu-empty">최근 게시물 없음</p>`;
+    });
+    return html;
+  }
+
+  // snuco_header 클릭 — 안내 메시지
+  if (id === "snuco_header") {
+    return `<p class="rest-detail-empty">왼쪽에서 세부 식당을 선택하세요.</p>`;
+  }
+
+  // 일반 식당 (강여사집밥, 불당 등)
+  const info = list.find(r => r.id === id);
+  if (!info) return `<p class="rest-detail-empty">정보 없음</p>`;
+
+  let html = `<div class="rest-detail-title">${escapeHtml(info.name)}</div>`;
+
+  const openBadge = info.isOpen === true
+    ? `<span class="rest-open">영업중</span>`
+    : info.isOpen === false
+    ? `<span class="rest-closed">영업종료</span>`
+    : "";
+  if (openBadge) html += `<div style="margin-bottom:10px">${openBadge}</div>`;
+
+  const tags = (info.tags || []).map(t => `<span class="rest-tag">${escapeHtml(t)}</span>`).join("");
+  if (tags) html += `<div class="rest-tags" style="margin-bottom:10px">${tags}</div>`;
+
+  if (info.address) html += `<p class="rest-detail-phone">📍 ${escapeHtml(info.address)}</p>`;
+
+  // 운영 시간
+  if (info.hours) {
+    const hoursLines = Object.entries(info.hours).map(([k, v]) => {
+      const label = k === "weekday" ? "평일" : k === "weekend" ? "주말"
+                  : k === "breakfast" ? "조식" : k === "lunch" ? "점심"
+                  : k === "dinner" ? "저녁" : k;
+      return `<span class="rest-menu-time">${label}: ${escapeHtml(v)}</span>`;
+    }).join("");
+    html += `
+      <div class="rest-detail-section">
+        <p class="rest-detail-label">운영 시간</p>
+        <div class="rest-detail-lines">${hoursLines}</div>
+      </div>`;
+  }
+
+  if (info.note) html += `<p class="rest-note" style="margin-top:8px">${escapeHtml(info.note)}</p>`;
+
+  // Instagram 게시물
+  if (info.type === "instagram") {
+    if (!gangyeoData || gangyeoData.needsAuth) {
+      html += `<p class="rest-menu-error" style="margin-top:12px">사장님 Instagram 연동 필요</p>`;
+    } else if (gangyeoData.error) {
+      html += `<p class="rest-menu-error" style="margin-top:12px">메뉴 불러오기 실패</p>`;
+    } else if (gangyeoData.posts && gangyeoData.posts.length > 0) {
+      const post = gangyeoData.posts[0];
+      const caption = post.caption || "";
+      html += `
+        <div class="rest-detail-section">
+          <p class="rest-detail-label">오늘의 메뉴</p>
+          <div class="rest-ig-post">
+            ${post.imageUrl ? `<img class="rest-ig-img" src="${escapeHtml(post.imageUrl)}" alt="오늘의 메뉴" loading="lazy">` : ""}
+            <p class="rest-ig-caption">${escapeHtml(caption)}</p>
+            <a class="rest-ig-link" href="${escapeHtml(post.url)}" target="_blank" rel="noopener">Instagram에서 보기 →</a>
+          </div>
+        </div>`;
     }
   }
 
-  if (info.type === "static") {
-    const hours = info.hours || {};
-    const hoursText = Object.entries(hours).map(([k, v]) => {
-      const label = k === "weekday" ? "평일" : k === "weekend" ? "주말" : k;
-      return `${label}: ${v}`;
-    }).join(" · ");
-    menuHtml = `<p class="rest-hours-text">${escapeHtml(hoursText)}</p>`;
-    if (info.note) menuHtml += `<p class="rest-note">${escapeHtml(info.note)}</p>`;
-  }
-
-  return `
-    <div class="rest-card">
-      <div class="rest-card-header">
-        <div class="rest-card-title-row">
-          <span class="rest-name">${escapeHtml(info.name)}</span>
-          ${openLabel}
-        </div>
-        <div class="rest-tags">${tagsHtml}</div>
-        ${info.note && info.type !== "static" ? `<p class="rest-note">${escapeHtml(info.note)}</p>` : ""}
-      </div>
-      <div class="rest-card-body">
-        ${menuHtml || `<p class="rest-menu-loading">불러오는 중...</p>`}
-      </div>
-    </div>`;
+  return html;
 }
 
+// ─── 사이드바 선택 처리 ───
+function selectRestaurant(id) {
+  selectedRestId = id;
+  // 사이드바 active 표시
+  document.querySelectorAll(".rest-sidebar-item").forEach(el => {
+    el.classList.toggle("active", el.dataset.id === id);
+  });
+  // 디테일 업데이트
+  const { list, snucoData, gangyeoData } = restaurantDataCache;
+  document.getElementById("restDetailPanel").innerHTML = buildDetailHtml(id, list, snucoData, gangyeoData);
+}
+
+// ─── 탭 렌더링 ───
 async function renderRestaurantTab() {
   if (restaurantFetching) return;
+
+  // 캐시 있으면 재렌더만
+  if (restaurantDataCache) {
+    renderRestaurantLayout();
+    return;
+  }
+
   restaurantFetching = true;
   restaurantListEl.innerHTML = `<div class="restaurant-loading">불러오는 중...</div>`;
 
   try {
-    // 식당 목록 + 메뉴 병렬 패치
     const [listRes, snucoRes, gangyeoRes] = await Promise.allSettled([
       fetch(`${SERVER_URL}/api/restaurant/list`).then(r => r.json()),
       fetch(`${SERVER_URL}/api/restaurant/snuco`).then(r => r.json()),
       fetch(`${SERVER_URL}/api/restaurant/gangyeo`).then(r => r.json()),
     ]);
 
-    const list = listRes.status === "fulfilled" ? listRes.value : [];
-    const snucoData = snucoRes.status === "fulfilled" ? snucoRes.value : { error: "실패" };
+    const list       = listRes.status    === "fulfilled" ? listRes.value    : [];
+    const snucoData  = snucoRes.status   === "fulfilled" ? snucoRes.value   : { error: "실패" };
     const gangyeoData = gangyeoRes.status === "fulfilled" ? gangyeoRes.value : { error: "실패" };
 
     if (list.length === 0) {
@@ -1114,19 +1188,49 @@ async function renderRestaurantTab() {
       return;
     }
 
-    const cardsHtml = list.map(info => {
-      const menuData = info.type === "snuco" ? snucoData
-                     : info.type === "instagram" ? gangyeoData
-                     : null;
-      return renderRestaurantCard(info, menuData);
-    }).join("");
-
-    restaurantListEl.innerHTML = cardsHtml;
+    restaurantDataCache = { list, snucoData, gangyeoData };
+    renderRestaurantLayout();
   } catch (err) {
     restaurantListEl.innerHTML = `<p class="restaurant-error">오류: ${escapeHtml(err.message)}</p>`;
   } finally {
     restaurantFetching = false;
   }
+}
+
+function renderRestaurantLayout() {
+  const { list, snucoData, gangyeoData } = restaurantDataCache;
+  const items = buildSidebarItems(list, snucoData);
+
+  // 기본 선택: 첫 번째 비헤더 항목
+  if (!selectedRestId || !items.find(i => i.id === selectedRestId)) {
+    selectedRestId = items.find(i => !i.isHeader)?.id || items[0]?.id;
+  }
+
+  const sidebarHtml = items.map(item => {
+    if (item.isHeader) {
+      const dot = item.isOpen === true  ? `<span class="rest-dot open"></span>`
+                : item.isOpen === false ? `<span class="rest-dot closed"></span>`
+                : "";
+      return `<div class="rest-sidebar-group">${dot}${escapeHtml(item.label)}</div>`;
+    }
+    const dot = item.isOpen === true  ? `<span class="rest-dot open"></span>`
+              : item.isOpen === false ? `<span class="rest-dot closed"></span>`
+              : "";
+    const activeClass = item.id === selectedRestId ? " active" : "";
+    return `<div class="rest-sidebar-item${activeClass}" data-id="${escapeHtml(item.id)}">${dot}<span>${escapeHtml(item.label)}</span></div>`;
+  }).join("");
+
+  restaurantListEl.innerHTML = `
+    <div class="rest-layout">
+      <div class="rest-sidebar" id="restSidebar">${sidebarHtml}</div>
+      <div class="rest-detail" id="restDetailPanel">${buildDetailHtml(selectedRestId, list, snucoData, gangyeoData)}</div>
+    </div>`;
+
+  // 클릭 이벤트
+  document.getElementById("restSidebar").addEventListener("click", e => {
+    const item = e.target.closest(".rest-sidebar-item");
+    if (item) selectRestaurant(item.dataset.id);
+  });
 }
 
 // ──────────────────────────────────────────
