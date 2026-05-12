@@ -505,37 +505,21 @@ async function fetchSnucoMenu() {
 
   const restaurants = [];
 
-  // 각 식당 섹션 파싱
-  $(".view-content .views-row, table.views-table tbody tr").each((i, row) => {
-    // 다양한 레이아웃 시도
-    const name = $(row).find(".views-field-title, .field-name-title, td:first-child").first().text().trim();
-    const lunch = $(row).find(".views-field-field-lunch-menu, td:nth-child(2)").text().trim();
-    const dinner = $(row).find(".views-field-field-dinner-menu, td:nth-child(3)").text().trim();
-    if (name && (lunch || dinner)) {
-      restaurants.push({ name, lunch: lunch || "정보 없음", dinner: dinner || "정보 없음" });
+  // snuco.snu.ac.kr 실제 구조: #celeb-mealtable table.menu-table tbody tr
+  $("#celeb-mealtable table.menu-table tbody tr").each((i, row) => {
+    const name = $(row).find("td.title").text().trim().replace(/\s+/g, " ");
+    const breakfast = $(row).find("td.breakfast").text().trim().replace(/\s+/g, " ");
+    const lunch = $(row).find("td.lunch").text().trim().replace(/\s+/g, " ");
+    const dinner = $(row).find("td.dinner").text().trim().replace(/\s+/g, " ");
+    if (name && (breakfast || lunch || dinner)) {
+      restaurants.push({
+        name,
+        breakfast: breakfast || "",
+        lunch: lunch || "정보 없음",
+        dinner: dinner || "",
+      });
     }
   });
-
-  // 파싱 실패 시 다른 셀렉터 시도
-  if (restaurants.length === 0) {
-    $("table").each((i, table) => {
-      const headers = [];
-      $(table).find("thead th, tr:first-child th").each((j, th) => headers.push($(th).text().trim()));
-      if (headers.some(h => h.includes("중식") || h.includes("석식") || h.includes("조식") || h.includes("메뉴"))) {
-        $(table).find("tbody tr").each((j, tr) => {
-          const cells = [];
-          $(tr).find("td").each((k, td) => cells.push($(td).text().trim().replace(/\n\s+/g, " / ")));
-          if (cells[0]) {
-            restaurants.push({
-              name: cells[0],
-              lunch: cells[1] || "정보 없음",
-              dinner: cells[2] || cells[3] || "정보 없음",
-            });
-          }
-        });
-      }
-    });
-  }
 
   const result = { restaurants, fetchedAt: new Date().toISOString() };
   snucoCache.set(cacheKey, result);
