@@ -381,6 +381,107 @@ setInterval(async () => {
   }
 }, 5 * 60 * 1000);
 
+// ──────────────────────────────────────────
+// Instagram 최신 게시물 (쿠키 세션 방식)
+// ──────────────────────────────────────────
+
+const igCache = new Map(); // username → { posts, fetchedAt }
+let igCookies = ""; // 홈페이지에서 받은 세션 쿠키
+
+const IG_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept-Language": "ko-KR,ko;q=0.9",
+};
+
+function fetchWithResponse(url, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const req = https.request({
+      hostname: parsed.hostname,
+      path: parsed.pathname + parsed.search,
+      method: "GET",
+      headers: { ...IG_HEADERS, ...extraHeaders },
+    }, (res) => {
+      const setCookies = res.headers["set-cookie"] || [];
+      res.setEncoding("utf8");
+      let data = "";
+      res.on("data", (c) => { data += c; });
+      res.on("end", () => resolve({ text: data, status: res.statusCode, setCookies }));
+    });
+    req.on("error", reject);
+    req.setTimeout(15000, () => req.destroy(new Error("timeout")));
+    req.end();
+  });
+}
+
+async function refreshIgCookies() {
+  const { setCookies } = await fetchWithResponse("https://www.instagram.com/");
+  igCookies = setCookies.map((c) => c.split(";")[0]).join("; ");
+  console.log("[ig] 쿠키 갱신 완료");
+}
+
+async function fetchInstagramPosts(username) {
+  const cached = igCache.get(username);
+  if (cached && Date.now() - cached.fetchedAt < 30 * 60 * 1000) {
+    console.log(`[ig] 캐시 사용: ${username}`);
+    return cached.posts;
+  }
+
+  if (!igCookies) await refreshIgCookies();
+
+  console.log(`[ig] Instagram 요청: ${username}`);
+  const { text, status } = await fetchWithResponse(
+    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`,
+    {
+      "X-Ig-App-Id": "936619743392459",
+      "Accept": "*/*",
+      "Referer": "https://www.instagram.com/",
+      "Cookie": igCookies,
+    }
+  );
+
+  if (status === 429) {
+    // 쿠키 만료 → 갱신 후 재시도
+    console.log("[ig] 429 → 쿠키 갱신 후 재시도");
+    await refreshIgCookies();
+    throw new Error("rate_limited");
+  }
+
+  if (status !== 200) throw new Error(`HTTP ${status}`);
+
+  const data = JSON.parse(text);
+  const edges = data?.data?.user?.edge_owner_to_timeline_media?.edges || [];
+
+  const posts = edges.slice(0, 5).map((e) => {
+    const node = e.node;
+    return {
+      id: node.shortcode,
+      url: `https://www.instagram.com/p/${node.shortcode}/`,
+      imageUrl: node.thumbnail_src || node.display_url,
+      caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || "",
+      timestamp: node.taken_at_timestamp,
+      date: new Date(node.taken_at_timestamp * 1000).toISOString(),
+    };
+  });
+
+  igCache.set(username, { posts, fetchedAt: Date.now() });
+  console.log(`[ig] ${username} 게시물 ${posts.length}개 수집`);
+  return posts;
+}
+
+// 서버 시작 시 쿠키 미리 받아두기
+refreshIgCookies().catch(() => {});
+
+app.get("/api/instagram/:username", async (req, res) => {
+  try {
+    const posts = await fetchInstagramPosts(req.params.username);
+    res.json(posts);
+  } catch (err) {
+    console.error(`[ig] 오류: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
