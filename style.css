@@ -958,9 +958,10 @@ body.dark .rest-meal-tab.active {
   display: flex;
   flex-direction: column;
 }
+#mapTab.hidden { display: none; }
 
 .map-filter-bar {
-  display: flex;
+  display: none;
   gap: 8px;
   padding: 10px 16px;
   background: var(--app-bg);
@@ -1033,6 +1034,10 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
 
 /* 현재 위치 버튼 */
 .map-locate-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
   width: 34px;
   height: 34px;
   background: #fff;
@@ -1044,12 +1049,56 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 5px rgba(0,0,0,0.2);
-  margin-top: 4px;
 }
 .map-locate-btn:hover { background: #f4f4f4; }
 
-/* 마커 아이콘 (divIcon) */
-.map-custom-icon { background: none; border: none; }
+/* 내 위치 마커 */
+.map-location-icon { background: none !important; border: none !important; }
+.map-location-icon svg {
+  transform-origin: 16px 28px;
+  transition: transform 0.25s ease;
+  overflow: visible;
+}
+
+/* 지도 메시지 토스트 */
+#mapMessage {
+  display: none;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(0,0,0,0.72);
+  color: #fff;
+  font-size: 13px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 목적지 마커 */
+.map-dest-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.map-dest-pin {
+  font-size: 22px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.map-dest-label {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #111;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
 
 /* 길찾기 버튼 (식당 디테일 패널) */
 .rest-nav-btn {
@@ -1058,6 +1107,7 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   gap: 5px;
   font-size: 13px;
   font-weight: 600;
+  font-family: inherit;
   color: #2563eb;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -1065,6 +1115,7 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   padding: 5px 12px;
   text-decoration: none;
   margin-bottom: 10px;
+  cursor: pointer;
   transition: background 0.15s;
 }
 .rest-nav-btn:hover { background: #dbeafe; }

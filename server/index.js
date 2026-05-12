@@ -4,10 +4,15 @@ const ical = require("node-ical");
 const https = require("https");
 const webpush = require("web-push");
 
-// VAPID 설정
-const VAPID_PUBLIC = process.env.VAPID_PUBLIC || "BNHX2y_hSe3MDv1TelFE8LSK6Kg2DY8Aa7gFAjvX9OAIyJu72OerTOMA7PNW3dVf-6lM9DNUFkI9FOoAh_TTZOg";
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE || "zf1hxNgT-YzntEwS5CycYS9oynMTZeDIqmPlWUMrbU0";
-webpush.setVapidDetails("mailto:admin@snu-app.com", VAPID_PUBLIC, VAPID_PRIVATE);
+// VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
+const pushEnabled = !!(VAPID_PUBLIC && VAPID_PRIVATE);
+if (pushEnabled) {
+  webpush.setVapidDetails("mailto:admin@snu-app.com", VAPID_PUBLIC, VAPID_PRIVATE);
+} else {
+  console.warn("VAPID 환경변수 없음 — Push 알림 비활성화");
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -335,10 +340,12 @@ const pushStore = new Map();
 const sentKeys = new Set(); // "endpoint:etlId:Nh" - 중복 발송 방지
 
 app.get("/api/push/vapid-public-key", (req, res) => {
+  if (!pushEnabled) return res.status(503).json({ error: "Push 비활성화" });
   res.json({ key: VAPID_PUBLIC });
 });
 
 app.post("/api/push/subscribe", (req, res) => {
+  if (!pushEnabled) return res.status(503).json({ error: "Push 비활성화" });
   const { subscription, tasks } = req.body;
   if (!subscription?.endpoint) return res.status(400).json({ error: "subscription 필요" });
   pushStore.set(subscription.endpoint, { subscription, tasks: tasks || [] });
@@ -635,6 +642,26 @@ app.get("/api/restaurant/list", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// ──────────────────────────────────────────
+// 카카오 길찾기 프록시 (CORS 방지)
+// ──────────────────────────────────────────
+const KAKAO_REST_KEY = "80493a22b9dfbe3ba266c2f2421b461b";
+
+app.post("/api/directions", async (req, res) => {
+  const { origin, destination } = req.body || {};
+  if (!origin?.lat || !destination?.lat) {
+    return res.status(400).json({ error: "origin/destination 필요" });
+  }
+  try {
+    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&priority=RECOMMEND`;
+    const result = await fetchText(url, 0, { Authorization: `KakaoAK ${KAKAO_REST_KEY}` });
+    res.json(JSON.parse(result));
+  } catch (err) {
+    console.error("[directions]", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
