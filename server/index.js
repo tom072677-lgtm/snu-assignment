@@ -16,18 +16,22 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // ──────────────────────────────────────────
-// URL fetch (헤더 지원, 리다이렉트 자동 처리)
+// URL fetch (헤더 지원, 리다이렉트 자동 처리, POST 지원)
 // ──────────────────────────────────────────
-function fetchText(url, redirectCount = 0, extraHeaders = {}) {
+function fetchText(url, redirectCount = 0, extraHeaders = {}, method = "GET", body = null) {
   return new Promise((resolve, reject) => {
     if (redirectCount > 5) return reject(new Error("리다이렉트가 너무 많습니다."));
 
     const parsed = new URL(url);
+    const bodyBuf = body ? Buffer.from(body, "utf8") : null;
     const options = {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
-      method: "GET",
-      headers: extraHeaders,
+      method: method,
+      headers: {
+        ...extraHeaders,
+        ...(bodyBuf ? { "Content-Length": bodyBuf.length } : {}),
+      },
     };
 
     const req = https.request(options, (res) => {
@@ -47,6 +51,7 @@ function fetchText(url, redirectCount = 0, extraHeaders = {}) {
 
     req.on("error", reject);
     req.setTimeout(15000, () => req.destroy(new Error("요청 시간 초과 (15초)")));
+    if (bodyBuf) req.write(bodyBuf);
     req.end();
   });
 }
@@ -382,104 +387,256 @@ setInterval(async () => {
 }, 5 * 60 * 1000);
 
 // ──────────────────────────────────────────
-// Instagram 최신 게시물 (쿠키 세션 방식)
+// Instagram 공식 API (OAuth 방식)
 // ──────────────────────────────────────────
 
-const igCache = new Map(); // username → { posts, fetchedAt }
-let igCookies = ""; // 홈페이지에서 받은 세션 쿠키
+const IG_APP_ID     = process.env.IG_APP_ID     || "975791108172537";
+const IG_APP_SECRET = process.env.IG_APP_SECRET || "";
+const IG_REDIRECT   = process.env.IG_REDIRECT   || "https://snu-assignment-server.onrender.com/api/instagram/callback";
 
-const IG_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Accept-Language": "ko-KR,ko;q=0.9",
-};
+// 액세스 토큰 저장 (메모리 + 환경변수 폴백)
+// 서버 재시작 후에도 유지되도록 환경변수 IG_ACCESS_TOKEN 사용
+let igAccessToken = process.env.IG_ACCESS_TOKEN || "";
+const igPostCache = new Map(); // 게시물 캐시 (30분)
 
-function fetchWithResponse(url, extraHeaders = {}) {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const req = https.request({
-      hostname: parsed.hostname,
-      path: parsed.pathname + parsed.search,
-      method: "GET",
-      headers: { ...IG_HEADERS, ...extraHeaders },
-    }, (res) => {
-      const setCookies = res.headers["set-cookie"] || [];
-      res.setEncoding("utf8");
-      let data = "";
-      res.on("data", (c) => { data += c; });
-      res.on("end", () => resolve({ text: data, status: res.statusCode, setCookies }));
+// ─── OAuth 콜백 (사장님이 승인 후 리다이렉트되는 곳) ───
+app.get("/api/instagram/callback", async (req, res) => {
+  const { code, error } = req.query;
+  if (error || !code) {
+    return res.send("Instagram 연결 실패: " + (error || "코드 없음"));
+  }
+  try {
+    // 단기 토큰 발급
+    const params = new URLSearchParams({
+      client_id:     IG_APP_ID,
+      client_secret: IG_APP_SECRET,
+      grant_type:    "authorization_code",
+      redirect_uri:  IG_REDIRECT,
+      code,
     });
-    req.on("error", reject);
-    req.setTimeout(15000, () => req.destroy(new Error("timeout")));
-    req.end();
-  });
-}
+    const shortRes = await fetchText(
+      `https://api.instagram.com/oauth/access_token`,
+      0,
+      { "Content-Type": "application/x-www-form-urlencoded" },
+      "POST",
+      params.toString()
+    );
+    const { access_token: shortToken } = JSON.parse(shortRes);
 
-async function refreshIgCookies() {
-  const { setCookies } = await fetchWithResponse("https://www.instagram.com/");
-  igCookies = setCookies.map((c) => c.split(";")[0]).join("; ");
-  console.log("[ig] 쿠키 갱신 완료");
-}
+    // 장기 토큰으로 교환 (60일 유효)
+    const longRes = await fetchText(
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
+    );
+    const { access_token: longToken } = JSON.parse(longRes);
+    igAccessToken = longToken;
 
-async function fetchInstagramPosts(username) {
-  const cached = igCache.get(username);
+    console.log("[ig] 액세스 토큰 발급 완료!");
+    console.log("[ig] 토큰 (Render 환경변수 IG_ACCESS_TOKEN에 저장하세요):", longToken);
+    res.send(`
+      <h2>✅ Instagram 연결 완료!</h2>
+      <p>아래 토큰을 Render 환경변수 <b>IG_ACCESS_TOKEN</b>에 저장하세요.</p>
+      <textarea rows="4" cols="80">${longToken}</textarea>
+    `);
+  } catch (err) {
+    console.error("[ig] 토큰 발급 오류:", err.message);
+    res.status(500).send("토큰 발급 실패: " + err.message);
+  }
+});
+
+// ─── 게시물 조회 ───
+async function fetchInstagramPosts() {
+  if (!igAccessToken) throw new Error("액세스 토큰 없음 — 사장님 승인 필요");
+
+  const cached = igPostCache.get("posts");
   if (cached && Date.now() - cached.fetchedAt < 30 * 60 * 1000) {
-    console.log(`[ig] 캐시 사용: ${username}`);
+    console.log("[ig] 캐시 사용");
     return cached.posts;
   }
 
-  if (!igCookies) await refreshIgCookies();
-
-  console.log(`[ig] Instagram 요청: ${username}`);
-  const { text, status } = await fetchWithResponse(
-    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`,
-    {
-      "X-Ig-App-Id": "936619743392459",
-      "Accept": "*/*",
-      "Referer": "https://www.instagram.com/",
-      "Cookie": igCookies,
-    }
+  console.log("[ig] Instagram API 요청");
+  const text = await fetchText(
+    `https://graph.instagram.com/v21.0/me/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,permalink&limit=5&access_token=${igAccessToken}`
   );
-
-  if (status === 429) {
-    // 쿠키 만료 → 갱신 후 재시도
-    console.log("[ig] 429 → 쿠키 갱신 후 재시도");
-    await refreshIgCookies();
-    throw new Error("rate_limited");
-  }
-
-  if (status !== 200) throw new Error(`HTTP ${status}`);
-
   const data = JSON.parse(text);
-  const edges = data?.data?.user?.edge_owner_to_timeline_media?.edges || [];
+  if (data.error) throw new Error(data.error.message);
 
-  const posts = edges.slice(0, 5).map((e) => {
-    const node = e.node;
-    return {
-      id: node.shortcode,
-      url: `https://www.instagram.com/p/${node.shortcode}/`,
-      imageUrl: node.thumbnail_src || node.display_url,
-      caption: node.edge_media_to_caption?.edges?.[0]?.node?.text || "",
-      timestamp: node.taken_at_timestamp,
-      date: new Date(node.taken_at_timestamp * 1000).toISOString(),
-    };
-  });
+  const posts = (data.data || []).map((p) => ({
+    id:        p.id,
+    url:       p.permalink,
+    imageUrl:  p.media_url || p.thumbnail_url || "",
+    caption:   p.caption || "",
+    date:      p.timestamp,
+  }));
 
-  igCache.set(username, { posts, fetchedAt: Date.now() });
-  console.log(`[ig] ${username} 게시물 ${posts.length}개 수집`);
+  igPostCache.set("posts", { posts, fetchedAt: Date.now() });
+  console.log(`[ig] 게시물 ${posts.length}개 수집`);
   return posts;
 }
 
-// 서버 시작 시 쿠키 미리 받아두기
-refreshIgCookies().catch(() => {});
+// ─── 인증 URL 생성 (사장님에게 보낼 링크) ───
+app.get("/api/instagram/auth-url", (req, res) => {
+  const url = `https://www.instagram.com/oauth/authorize?client_id=${IG_APP_ID}&redirect_uri=${encodeURIComponent(IG_REDIRECT)}&response_type=code&scope=instagram_business_basic`;
+  res.json({ url });
+});
 
-app.get("/api/instagram/:username", async (req, res) => {
+app.get("/api/instagram/posts", async (req, res) => {
   try {
-    const posts = await fetchInstagramPosts(req.params.username);
+    const posts = await fetchInstagramPosts();
     res.json(posts);
   } catch (err) {
     console.error(`[ig] 오류: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ──────────────────────────────────────────
+// 식당 메뉴
+// ──────────────────────────────────────────
+
+// ─── SNU 학생식당 (snuco.snu.ac.kr) ───
+const snucoCache = new Map();
+
+async function fetchSnucoMenu() {
+  const cacheKey = new Date().toISOString().slice(0, 10); // 날짜 기준 캐시
+  if (snucoCache.has(cacheKey)) return snucoCache.get(cacheKey);
+
+  const html = await fetchText("https://snuco.snu.ac.kr/ko/foodmenu", 0, { "User-Agent": "Mozilla/5.0" });
+  const $ = cheerio.load(html);
+
+  const restaurants = [];
+
+  // 각 식당 섹션 파싱
+  $(".view-content .views-row, table.views-table tbody tr").each((i, row) => {
+    // 다양한 레이아웃 시도
+    const name = $(row).find(".views-field-title, .field-name-title, td:first-child").first().text().trim();
+    const lunch = $(row).find(".views-field-field-lunch-menu, td:nth-child(2)").text().trim();
+    const dinner = $(row).find(".views-field-field-dinner-menu, td:nth-child(3)").text().trim();
+    if (name && (lunch || dinner)) {
+      restaurants.push({ name, lunch: lunch || "정보 없음", dinner: dinner || "정보 없음" });
+    }
+  });
+
+  // 파싱 실패 시 다른 셀렉터 시도
+  if (restaurants.length === 0) {
+    $("table").each((i, table) => {
+      const headers = [];
+      $(table).find("thead th, tr:first-child th").each((j, th) => headers.push($(th).text().trim()));
+      if (headers.some(h => h.includes("중식") || h.includes("석식") || h.includes("조식") || h.includes("메뉴"))) {
+        $(table).find("tbody tr").each((j, tr) => {
+          const cells = [];
+          $(tr).find("td").each((k, td) => cells.push($(td).text().trim().replace(/\n\s+/g, " / ")));
+          if (cells[0]) {
+            restaurants.push({
+              name: cells[0],
+              lunch: cells[1] || "정보 없음",
+              dinner: cells[2] || cells[3] || "정보 없음",
+            });
+          }
+        });
+      }
+    });
+  }
+
+  const result = { restaurants, fetchedAt: new Date().toISOString() };
+  snucoCache.set(cacheKey, result);
+  return result;
+}
+
+app.get("/api/restaurant/snuco", async (req, res) => {
+  try {
+    const data = await fetchSnucoMenu();
+    res.json(data);
+  } catch (err) {
+    console.error("[snuco] 오류:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── 강여사집밥 Instagram 게시물 ───
+app.get("/api/restaurant/gangyeo", async (req, res) => {
+  try {
+    const posts = await fetchInstagramPosts();
+    res.json({ posts });
+  } catch (err) {
+    console.error("[gangyeo] 오류:", err.message);
+    res.status(500).json({ error: err.message, needsAuth: !igAccessToken });
+  }
+});
+
+// ─── 고정 식당 정보 (오픈시간 등) ───
+const RESTAURANTS_INFO = [
+  {
+    id: "gangyeo",
+    name: "강여사집밥",
+    type: "instagram",
+    tags: ["한식", "백반"],
+    address: "서울 관악구 신림로 92-1",
+    hours: { weekday: "11:00–14:00", weekend: "휴무" },
+    instagram: "@sgon1476",
+    note: "매일 메뉴 변동 — 인스타그램 확인",
+  },
+  {
+    id: "snuco",
+    name: "SNU 학생식당",
+    type: "snuco",
+    tags: ["학식", "구내식당"],
+    address: "서울대학교 내",
+    hours: {
+      breakfast: "07:30–09:00",
+      lunch: "11:00–14:00",
+      dinner: "17:00–19:00",
+    },
+    note: "건물마다 운영 시간 상이",
+  },
+  {
+    id: "boodang",
+    name: "불당",
+    type: "static",
+    tags: ["한식", "분식"],
+    address: "서울 관악구 관악로 1",
+    hours: { weekday: "11:00–20:00", weekend: "11:00–17:00" },
+    note: "대학원 기숙사 인근",
+  },
+];
+
+// 현재 오픈 여부 계산
+function isOpenNow(info) {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC→KST
+  const day = kst.getUTCDay(); // 0=일, 6=토
+  const hhmm = kst.getUTCHours() * 100 + kst.getUTCMinutes();
+
+  function parseRange(str) {
+    if (!str || str === "휴무") return null;
+    const m = str.match(/(\d{1,2}):(\d{2})[–\-~](\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return {
+      open:  parseInt(m[1]) * 100 + parseInt(m[2]),
+      close: parseInt(m[3]) * 100 + parseInt(m[4]),
+    };
+  }
+
+  const hours = info.hours;
+  if (!hours) return null;
+
+  if (info.id === "snuco") {
+    if (day === 0 || day === 6) return false; // 주말 휴무
+    const ranges = [hours.breakfast, hours.lunch, hours.dinner].map(parseRange).filter(Boolean);
+    return ranges.some(r => hhmm >= r.open && hhmm < r.close);
+  }
+
+  const rangeStr = (day === 0 || day === 6) ? (hours.weekend || hours.weekday) : hours.weekday;
+  const r = parseRange(rangeStr);
+  if (!r) return false;
+  return hhmm >= r.open && hhmm < r.close;
+}
+
+app.get("/api/restaurant/list", (req, res) => {
+  const list = RESTAURANTS_INFO.map(r => ({
+    ...r,
+    isOpen: isOpenNow(r),
+  }));
+  res.json(list);
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));

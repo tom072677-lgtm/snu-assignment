@@ -7,7 +7,7 @@
   <link rel="manifest" href="app.webmanifest" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <div class="app">
@@ -82,6 +82,7 @@
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="alerts">과제 알림</button>
       <button class="tab-btn" data-tab="calendar">달력</button>
+      <button class="tab-btn" data-tab="restaurant">식당</button>
     </div>
 
     <!-- 과제 알림 탭 -->
@@ -151,6 +152,15 @@
 
   </div>
 
+    <!-- 식당 탭 -->
+    <div id="restaurantTab" class="hidden">
+
+      <div class="restaurant-list" id="restaurantList">
+        <div class="restaurant-loading">불러오는 중...</div>
+      </div>
+
+    </div>
+
   <!-- 일정 추가 모달 -->
   <div id="calModal" class="cal-modal hidden">
     <div class="cal-modal-overlay" id="calModalOverlay"></div>
@@ -186,7 +196,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
