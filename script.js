@@ -1015,6 +1015,14 @@ const restaurantListEl = document.getElementById("restaurantList");
 let restaurantDataCache = null;   // { list, snucoData, gangyeoData }
 let restaurantFetching = false;
 let selectedRestId = null;        // 현재 선택된 식당 id
+let selectedMeal = null;          // "breakfast" | "lunch" | "dinner"
+
+function getDefaultMeal() {
+  const h = new Date().getHours();
+  if (h < 9)  return "breakfast";
+  if (h < 15) return "lunch";
+  return "dinner";
+}
 
 // ─── 사이드바 항목 빌드 ───
 // snuco는 세부 식당 여러 개를 각각 항목으로 노출
@@ -1040,6 +1048,16 @@ function buildSidebarItems(list, snucoData) {
   return items;
 }
 
+// ─── 식사 메뉴 텍스트 → HTML ───
+function formatMealLines(val) {
+  const lines = val.split(" ").join("\n").split("\n").map(l => l.trim()).filter(Boolean);
+  return lines.map(line => {
+    if (/:\s*[\d,]+원/.test(line))         return `<span class="rest-menu-row">${escapeHtml(line)}</span>`;
+    if (/운영시간|예약|문의|※/.test(line)) return `<span class="rest-menu-time">${escapeHtml(line)}</span>`;
+    return `<span class="rest-menu-item">${escapeHtml(line)}</span>`;
+  }).join("");
+}
+
 // ─── 디테일 패널 HTML ───
 function buildDetailHtml(id, list, snucoData, gangyeoData) {
   // snuco 세부 식당
@@ -1049,38 +1067,39 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
     const r = snucoData.restaurants[idx];
     if (!r) return `<p class="rest-detail-empty">메뉴 정보 없음</p>`;
 
-    const name = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
+    const name  = r.name.replace(/\s*\([\d-]+\)\s*$/, "").trim();
     const phone = (r.name.match(/\(([\d-]+)\)/) || [])[1] || "";
 
-    let html = `<div class="rest-detail-title">${escapeHtml(name)}</div>`;
-    if (phone) html += `<p class="rest-detail-phone">📞 ${escapeHtml(phone)}</p>`;
-
-    const sections = [
+    // 있는 식사 항목만 추출
+    const MEAL_DEFS = [
       { key: "breakfast", label: "조식" },
       { key: "lunch",     label: "점심" },
       { key: "dinner",    label: "저녁" },
     ];
-    sections.forEach(({ key, label }) => {
-      const val = r[key];
-      if (!val || val === "정보 없음") return;
-      // 줄바꿈 유지, 가격에 하이라이트
-      const lines = val.split(" ").join("\n").split("\n").map(l => l.trim()).filter(Boolean);
-      const formatted = lines.map(line => {
-        if (/:\s*[\d,]+원/.test(line)) {
-          return `<span class="rest-menu-row">${escapeHtml(line)}</span>`;
-        }
-        if (/운영시간|예약|문의/.test(line)) {
-          return `<span class="rest-menu-time">${escapeHtml(line)}</span>`;
-        }
-        return `<span class="rest-menu-item">${escapeHtml(line)}</span>`;
-      }).join("");
-      html += `
-        <div class="rest-detail-section">
-          <p class="rest-detail-label">${label}</p>
-          <div class="rest-detail-lines">${formatted}</div>
-        </div>`;
-    });
-    return html;
+    const available = MEAL_DEFS.filter(m => r[m.key] && r[m.key] !== "정보 없음");
+
+    // 표시할 식사 결정 (기본값: 시간 기반, 없으면 첫 번째)
+    let meal = selectedMeal;
+    if (!available.find(m => m.key === meal)) {
+      meal = available[0]?.key || "lunch";
+    }
+
+    // 탭 버튼
+    const tabs = available.map(m =>
+      `<button class="rest-meal-tab${meal === m.key ? " active" : ""}" data-meal="${m.key}">${m.label}</button>`
+    ).join("");
+
+    // 선택된 식사 내용
+    const val = r[meal] || "";
+    const content = val
+      ? `<div class="rest-detail-lines">${formatMealLines(val)}</div>`
+      : `<p class="rest-detail-empty">정보 없음</p>`;
+
+    return `
+      <div class="rest-detail-title">${escapeHtml(name)}</div>
+      ${phone ? `<p class="rest-detail-phone">📞 ${escapeHtml(phone)}</p>` : ""}
+      <div class="rest-meal-tabs">${tabs}</div>
+      <div class="rest-meal-content">${content}</div>`;
   }
 
   // snuco_header 클릭 — 안내 메시지
@@ -1147,9 +1166,28 @@ function buildDetailHtml(id, list, snucoData, gangyeoData) {
   return html;
 }
 
+// ─── 식사 탭 클릭 처리 ───
+function selectMeal(meal) {
+  selectedMeal = meal;
+  const { list, snucoData, gangyeoData } = restaurantDataCache;
+  // 탭 active 업데이트
+  document.querySelectorAll(".rest-meal-tab").forEach(b => {
+    b.classList.toggle("active", b.dataset.meal === meal);
+  });
+  // 메뉴 내용만 교체
+  const idx = parseInt(selectedRestId.replace("snuco_", ""), 10);
+  const r = snucoData.restaurants[idx];
+  const val = r?.[meal] || "";
+  const content = val
+    ? `<div class="rest-detail-lines">${formatMealLines(val)}</div>`
+    : `<p class="rest-detail-empty">정보 없음</p>`;
+  document.querySelector(".rest-meal-content").innerHTML = content;
+}
+
 // ─── 사이드바 선택 처리 ───
 function selectRestaurant(id) {
   selectedRestId = id;
+  selectedMeal = getDefaultMeal(); // 식당 바뀌면 시간 기반 기본값으로 리셋
   // 사이드바 active 표시
   document.querySelectorAll(".rest-sidebar-item").forEach(el => {
     el.classList.toggle("active", el.dataset.id === id);
@@ -1205,6 +1243,7 @@ function renderRestaurantLayout() {
   if (!selectedRestId || !items.find(i => i.id === selectedRestId)) {
     selectedRestId = items.find(i => !i.isHeader)?.id || items[0]?.id;
   }
+  if (!selectedMeal) selectedMeal = getDefaultMeal();
 
   const sidebarHtml = items.map(item => {
     if (item.isHeader) {
@@ -1226,10 +1265,16 @@ function renderRestaurantLayout() {
       <div class="rest-detail" id="restDetailPanel">${buildDetailHtml(selectedRestId, list, snucoData, gangyeoData)}</div>
     </div>`;
 
-  // 클릭 이벤트
+  // 사이드바 클릭
   document.getElementById("restSidebar").addEventListener("click", e => {
     const item = e.target.closest(".rest-sidebar-item");
     if (item) selectRestaurant(item.dataset.id);
+  });
+
+  // 식사 탭 클릭 (이벤트 위임)
+  document.getElementById("restDetailPanel").addEventListener("click", e => {
+    const tab = e.target.closest(".rest-meal-tab");
+    if (tab) selectMeal(tab.dataset.meal);
   });
 }
 

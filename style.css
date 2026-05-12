@@ -886,6 +886,44 @@ body.dark .rest-ig-link { color: #60a5fa; }
   margin: 0;
 }
 
+/* 식사 탭 (조식/점심/저녁) */
+.rest-meal-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+.rest-meal-tab {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rest-meal-tab:hover {
+  background: var(--card-bg);
+  color: var(--text);
+}
+.rest-meal-tab.active {
+  background: var(--tab-active-color);
+  color: #fff;
+  border-color: var(--tab-active-color);
+}
+body.dark .rest-meal-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.rest-meal-content {
+  min-height: 60px;
+}
+
 /* 반응형 */
 @media (max-width: 640px) {
   .app { margin: 16px; padding: 18px; }
