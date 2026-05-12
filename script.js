@@ -1012,10 +1012,25 @@ function checkDeadlines() {
 // ──────────────────────────────────────────
 
 const restaurantListEl = document.getElementById("restaurantList");
+const FAVE_REST_KEY = "snu_fave_restaurant";
 let restaurantDataCache = null;   // { list, snucoData, gangyeoData }
 let restaurantFetching = false;
 let selectedRestId = null;        // 현재 선택된 식당 id
 let selectedMeal = null;          // "breakfast" | "lunch" | "dinner"
+let faveRestId = localStorage.getItem(FAVE_REST_KEY) || null;
+
+function toggleFave(id) {
+  faveRestId = (faveRestId === id) ? null : id;
+  if (faveRestId) localStorage.setItem(FAVE_REST_KEY, faveRestId);
+  else            localStorage.removeItem(FAVE_REST_KEY);
+  // 별표 아이콘만 업데이트
+  document.querySelectorAll(".rest-fave-btn").forEach(btn => {
+    const isFave = btn.dataset.id === faveRestId;
+    btn.textContent = isFave ? "★" : "☆";
+    btn.classList.toggle("active", isFave);
+    btn.title = isFave ? "즐겨찾기 해제" : "즐겨찾기";
+  });
+}
 
 function getDefaultMeal() {
   const h = new Date().getHours();
@@ -1258,9 +1273,10 @@ function renderRestaurantLayout() {
   const { list, snucoData, gangyeoData } = restaurantDataCache;
   const items = buildSidebarItems(list, snucoData);
 
-  // 기본 선택: 첫 번째 비헤더 항목
+  // 즐겨찾기가 있으면 우선 선택, 없으면 첫 번째 비헤더
+  const validFave = faveRestId && items.find(i => i.id === faveRestId && !i.isHeader);
   if (!selectedRestId || !items.find(i => i.id === selectedRestId)) {
-    selectedRestId = items.find(i => !i.isHeader)?.id || items[0]?.id;
+    selectedRestId = validFave ? faveRestId : (items.find(i => !i.isHeader)?.id || items[0]?.id);
   }
   if (!selectedMeal) selectedMeal = getDefaultMeal();
 
@@ -1275,7 +1291,9 @@ function renderRestaurantLayout() {
               : item.isOpen === false ? `<span class="rest-dot closed"></span>`
               : "";
     const activeClass = item.id === selectedRestId ? " active" : "";
-    return `<div class="rest-sidebar-item${activeClass}" data-id="${escapeHtml(item.id)}">${dot}<span>${escapeHtml(item.label)}</span></div>`;
+    const isFave = item.id === faveRestId;
+    const faveBtn = `<button class="rest-fave-btn${isFave ? " active" : ""}" data-id="${escapeHtml(item.id)}" title="${isFave ? "즐겨찾기 해제" : "즐겨찾기"}">${isFave ? "★" : "☆"}</button>`;
+    return `<div class="rest-sidebar-item${activeClass}" data-id="${escapeHtml(item.id)}">${dot}<span class="rest-sidebar-label">${escapeHtml(item.label)}</span>${faveBtn}</div>`;
   }).join("");
 
   restaurantListEl.innerHTML = `
@@ -1284,8 +1302,10 @@ function renderRestaurantLayout() {
       <div class="rest-detail" id="restDetailPanel">${buildDetailHtml(selectedRestId, list, snucoData, gangyeoData)}</div>
     </div>`;
 
-  // 사이드바 클릭
+  // 사이드바 클릭 (즐겨찾기 버튼 / 식당 선택 분리)
   document.getElementById("restSidebar").addEventListener("click", e => {
+    const faveBtn = e.target.closest(".rest-fave-btn");
+    if (faveBtn) { toggleFave(faveBtn.dataset.id); return; }
     const item = e.target.closest(".rest-sidebar-item");
     if (item) selectRestaurant(item.dataset.id);
   });
