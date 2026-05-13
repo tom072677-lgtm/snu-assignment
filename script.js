@@ -1189,7 +1189,6 @@ let onOrientationHandler = null;
 let latestPosition = null;
 let routePolyline = null;
 let destOverlay = null;
-let mapPlaceMarkers = [];
 let kakaoMapsLoadPromise = null;
 
 function isKakaoMapsReady() {
@@ -1302,7 +1301,6 @@ function renderMapTab() {
       level: 3,
     });
 
-    renderMapPlaces();
     startLocationWatch();
 
     const btn = document.createElement("button");
@@ -1325,32 +1323,6 @@ function renderMapTab() {
     kakaoMap.relayout();
     kakaoMap.setCenter(center);
   }, 80);
-}
-
-function renderMapPlaces() {
-  if (!kakaoMap || mapPlaceMarkers.length > 0) return;
-
-  SNU_LOCATIONS.forEach((loc) => {
-    const marker = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(loc.lat, loc.lng),
-      map: kakaoMap,
-    });
-    const typeLabel = loc.type === "restaurant" ? "식당"
-      : loc.type === "cafe" ? "카페"
-      : "건물";
-    const info = new kakao.maps.InfoWindow({
-      content: `
-        <div class="map-info-window">
-          <strong>${escapeHtml(loc.name)}</strong>
-          <span>${typeLabel}${loc.note ? ` · ${escapeHtml(loc.note)}` : ""}</span>
-        </div>
-      `,
-    });
-    kakao.maps.event.addListener(marker, "click", () => {
-      info.open(kakaoMap, marker);
-    });
-    mapPlaceMarkers.push(marker);
-  });
 }
 
 function startLocationWatch() {

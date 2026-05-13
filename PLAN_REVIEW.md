@@ -4,7 +4,7 @@
 - 현재 환경에 `~/.Codex/scripts/codex_plan_review.ps1`가 없다.
 
 수동 검토:
-- `Referer: https://tom072677-lgtm.github.io/snu-assignment/`로 Kakao Maps SDK를 요청했을 때 200 OK와 SDK JavaScript가 내려왔다.
-- 즉 도메인 등록은 반영된 상태로 보인다.
-- 사용자가 카카오 지도만 원하므로 Leaflet fallback은 제거하는 것이 요구에 맞다.
-- 카카오 SDK 실패 시에는 대체 지도 대신 설정 메시지를 띄우는 동작이 명확하다.
+- 스크린샷의 파란 핀/정보창은 카카오 기본 POI가 아니라 앱의 `renderMapPlaces()`가 추가한 커스텀 마커다.
+- 초기 지도 품질을 위해 커스텀 장소 마커를 제거하는 것이 맞다.
+- 지도 클릭 시 근처 저장 장소를 띄우는 커스텀 정보창도 카카오 기본 선택 흐름을 방해하므로 제거한다.
+- 목적지 길찾기 마커와 현재 위치 마커는 사용자 액션 이후에만 나타나므로 유지한다.
