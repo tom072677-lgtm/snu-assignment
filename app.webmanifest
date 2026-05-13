@@ -1,6 +1,6 @@
 {
-  "name": "서울대 과제 알림",
-  "short_name": "과제알림",
+  "name": "샤랍",
+  "short_name": "샤랍",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",

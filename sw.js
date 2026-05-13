@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open("assignment-app-v22").then((cache) => {
+    caches.open("assignment-app-v23").then((cache) => {
       return cache.addAll([
         "./",
         "./index.html",
@@ -18,7 +18,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== "assignment-app-v22").map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== "assignment-app-v23").map((k) => caches.delete(k)))
     ).then(() => clients.claim())
   );
 });
@@ -29,7 +29,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "SNU 과제 알림";
+  const title = data.title || "샤랍";
   const options = {
     body: data.body || "확인해주세요!",
     icon: "./icon-192.png"
