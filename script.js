@@ -1190,6 +1190,12 @@ let latestPosition = null;
 let routePolyline = null;
 let destOverlay = null;
 let kakaoMapsLoadPromise = null;
+let smoothedHeading = null;
+let lastHeadingUpdateAt = 0;
+
+const HEADING_DEADBAND_DEG = 6;
+const HEADING_MIN_UPDATE_MS = 120;
+const HEADING_SMOOTHING = 0.18;
 
 function isKakaoMapsReady() {
   return !!(window.kakao && kakao.maps && kakao.maps.Map);
@@ -1197,6 +1203,24 @@ function isKakaoMapsReady() {
 
 function getKakaoMapSetupMessage() {
   return `카카오 지도 인증에 실패했습니다. Kakao Developers에서 JavaScript SDK 도메인에 ${location.origin} 을 등록하고, 제품 설정의 카카오맵 API가 켜져 있는지 확인해주세요.`;
+}
+
+function normalizeHeading(deg) {
+  return ((deg % 360) + 360) % 360;
+}
+
+function getShortestHeadingDelta(from, to) {
+  return ((to - from + 540) % 360) - 180;
+}
+
+function smoothHeading(current, next) {
+  const normalizedNext = normalizeHeading(next);
+  if (current === null) return normalizedNext;
+
+  const delta = getShortestHeadingDelta(current, normalizedNext);
+  if (Math.abs(delta) < HEADING_DEADBAND_DEG) return current;
+
+  return normalizeHeading(current + delta * HEADING_SMOOTHING);
 }
 
 function loadKakaoMapsSdk() {
@@ -1399,11 +1423,21 @@ function startLocationWatch() {
       heading = (360 - e.alpha) % 360;
     }
     if (heading === null) return;
+
+    const now = window.performance ? performance.now() : Date.now();
+    if (smoothedHeading !== null && now - lastHeadingUpdateAt < HEADING_MIN_UPDATE_MS) return;
+
+    const nextHeading = smoothHeading(smoothedHeading, heading);
+    if (smoothedHeading !== null && nextHeading === smoothedHeading) return;
+
+    smoothedHeading = nextHeading;
+    lastHeadingUpdateAt = now;
+
     const svg = dotEl.querySelector("svg");
     const cone = dotEl.querySelector(".map-heading-cone");
     if (!svg || !cone) return;
     cone.removeAttribute("display");
-    svg.style.transform = `rotate(${heading}deg)`;
+    svg.style.transform = `rotate(${smoothedHeading.toFixed(1)}deg)`;
   };
 
   if (typeof DeviceOrientationEvent === "undefined" ||
