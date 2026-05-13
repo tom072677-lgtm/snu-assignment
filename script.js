@@ -141,10 +141,13 @@ function getBombCountdownInfo(dateString, now = new Date()) {
   if (!dueDate) return null;
 
   const diffMs = dueDate - now;
-  if (diffMs <= 0 || diffMs > BOMB_COUNTDOWN_MS) return null;
+  const diffDays = diffMs / BOMB_COUNTDOWN_MS;
+  const isWaiting = diffMs > BOMB_COUNTDOWN_MS && Math.floor(diffDays) === 1;
+  if (diffMs <= 0 || (diffMs > BOMB_COUNTDOWN_MS && !isWaiting)) return null;
 
-  const progress = 1 - (diffMs / BOMB_COUNTDOWN_MS);
-  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const countdownMs = Math.min(diffMs, BOMB_COUNTDOWN_MS);
+  const progress = 1 - (countdownMs / BOMB_COUNTDOWN_MS);
+  const totalSeconds = Math.max(0, Math.floor(countdownMs / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -153,6 +156,7 @@ function getBombCountdownInfo(dateString, now = new Date()) {
     left: 5 + progress * 90,
     label: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
     isCritical: diffMs <= 60 * 60 * 1000,
+    isWaiting,
   };
 }
 
@@ -189,7 +193,11 @@ function updateDeadlineBombs() {
     ensureBombContent(el);
     el.classList.remove("hidden");
     el.classList.toggle("critical", info.isCritical);
+    el.classList.toggle("waiting", info.isWaiting);
     el.style.setProperty("--bomb-left", `${info.left.toFixed(2)}%`);
+
+    const titleEl = el.querySelector(".deadline-bomb-title");
+    if (titleEl) titleEl.textContent = info.isWaiting ? "💣 24시간 전 대기" : "💣 마감";
 
     const timeEl = el.querySelector(".deadline-bomb-time");
     if (timeEl) timeEl.textContent = info.label;
