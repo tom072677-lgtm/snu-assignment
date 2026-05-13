@@ -252,6 +252,74 @@ a.task-title:hover { text-decoration: underline; color: #4f46e5; }
 .due-green { background: #dcfce7; color: #15803d; }
 .due-blue  { background: #dbeafe; color: #1d4ed8; }
 .due-black { background: #111827; color: #ffffff; }
+.deadline-bomb {
+  --bomb-left: 5%;
+  margin-top: 12px;
+  padding: 10px 12px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+.deadline-bomb-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.deadline-bomb-title {
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 900;
+}
+.deadline-bomb-time {
+  color: #b91c1c;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.deadline-bomb-track {
+  position: relative;
+  height: 28px;
+}
+.deadline-bomb-line {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 13px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fed7aa, #f97316, #dc2626);
+}
+.deadline-bomb-runner {
+  position: absolute;
+  left: var(--bomb-left);
+  top: 0;
+  font-size: 22px;
+  line-height: 1;
+  transform: translateX(-50%);
+  transition: left 0.9s linear;
+  filter: drop-shadow(0 3px 4px rgba(127, 29, 29, 0.18));
+}
+.deadline-bomb-mark {
+  position: absolute;
+  top: 7px;
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: 900;
+}
+.deadline-bomb-mark.start { left: 0; }
+.deadline-bomb-mark.end { right: 0; }
+.deadline-bomb.critical {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+.deadline-bomb.critical .deadline-bomb-runner {
+  animation: bombPulse 0.75s ease-in-out infinite alternate;
+}
+@keyframes bombPulse {
+  from { transform: translateX(-50%) scale(1); }
+  to { transform: translateX(-50%) scale(1.12); }
+}
 .empty-message { margin-top: 16px; color: #6b7280; }
 
 /* 메모 */
@@ -624,6 +692,12 @@ body.dark .btn-secondary { background: #334155; color: #f1f5f9; }
 body.dark #settingsBtn { color: #64748b; }
 body.dark #settingsBtn:hover { background: #334155; color: #f1f5f9; }
 body.dark .due-date-text { color: #94a3b8; }
+body.dark .deadline-bomb { background: #451a03; border-color: #9a3412; }
+body.dark .deadline-bomb-title,
+body.dark .deadline-bomb-mark { color: #fed7aa; }
+body.dark .deadline-bomb-time { color: #fecaca; }
+body.dark .deadline-bomb-line { background: linear-gradient(90deg, #92400e, #f97316, #ef4444); }
+body.dark .deadline-bomb.critical { background: #450a0a; border-color: #b91c1c; }
 body.dark .empty-message { color: #64748b; }
 body.dark .sync-status { color: #94a3b8; }
 body.dark .token-label { color: #f1f5f9; }
@@ -1167,6 +1241,8 @@ body.dark .rest-nav-btn:hover { background: #1e40af; }
   .app { margin: 16px; padding: 18px; }
   .app-header h1 { font-size: 26px; }
   .task-item { flex-direction: column; align-items: stretch; }
+  .deadline-bomb { padding: 9px 10px 11px; }
+  .deadline-bomb-top { align-items: flex-start; flex-direction: column; gap: 4px; }
   .complete-btn, .restore-btn { width: 100%; }
   .cal-day-num { font-size: 13px; }
 }
