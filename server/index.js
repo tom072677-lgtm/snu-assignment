@@ -338,6 +338,37 @@ app.get("/api/events", async (req, res) => {
 // { endpoint → { subscription, tasks: [{etlId, dueDate, title, courseName}] } }
 const pushStore = new Map();
 const sentKeys = new Set(); // "endpoint:etlId:Nh" - 중복 발송 방지
+const HOURLY_DEADLINE_TARGETS = Array.from({ length: 24 }, (_, i) => 24 - i);
+
+function buildBombProgressBar(diffH) {
+  const totalBlocks = 12;
+  const remainingRatio = Math.max(0, Math.min(1, diffH / 24));
+  const filled = Math.max(0, Math.min(totalBlocks, Math.ceil(remainingRatio * totalBlocks)));
+  return "█".repeat(filled) + "░".repeat(totalBlocks - filled);
+}
+
+function buildPushPayload(task, h, diffH) {
+  const isUserEvent = !!task.targets;
+  const name = task.courseName || task.title;
+  const safeHours = Math.max(0, diffH);
+  const wholeHours = Math.floor(safeHours);
+  const minutes = Math.floor((safeHours - wholeHours) * 60);
+  const timeText = `${String(wholeHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} 남음`;
+  const id = task.etlId || task.id || task.title;
+
+  return {
+    title: isUserEvent ? `💣 일정 ${h}시간 전` : `💣 ${name}`,
+    body: isUserEvent
+      ? `"${name}" ${h}시간 전\n${timeText} ${buildBombProgressBar(safeHours)}`
+      : `${task.title} 마감 ${h}시간 전\n${timeText} ${buildBombProgressBar(safeHours)}`,
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    tag: `${isUserEvent ? "event" : "deadline"}-bomb-${id}`,
+    renotify: true,
+    requireInteraction: true,
+    data: { url: task.url || "./" },
+  };
+}
 
 app.get("/api/push/vapid-public-key", (req, res) => {
   if (!pushEnabled) return res.status(503).json({ error: "Push 비활성화" });
@@ -353,8 +384,8 @@ app.post("/api/push/subscribe", (req, res) => {
   res.json({ ok: true });
 });
 
-// 5분마다 알림 체크 (과제: 24h/5h/1h, 사용자 일정: task.targets 사용)
-const DEFAULT_TARGETS = [24, 5, 1];
+// 5분마다 알림 체크 (과제: 24h~1h 매시간, 사용자 일정: task.targets 사용)
+const DEFAULT_TARGETS = HOURLY_DEADLINE_TARGETS;
 setInterval(async () => {
   const now = new Date();
   const WINDOW = 6 / 60; // ±6분 허용
@@ -372,16 +403,9 @@ setInterval(async () => {
           if (sentKeys.has(key)) continue;
           sentKeys.add(key);
 
-          const label = h === 1 ? "1시간" : h === 5 ? "5시간" : "24시간";
           const name = task.courseName || task.title;
-          const isUserEvent = !!task.targets;
           try {
-            await webpush.sendNotification(subscription, JSON.stringify({
-              title: isUserEvent ? `📅 일정 ${label} 전` : `📚 마감 ${label} 전`,
-              body: isUserEvent
-                ? `"${name}" 일정이 ${label} 후입니다.`
-                : `${name} 과제 마감이 ${label} 후입니다.`,
-            }));
+            await webpush.sendNotification(subscription, JSON.stringify(buildPushPayload(task, h, diffH)));
             console.log(`[push] 알림 발송: ${name} (${h}h)`);
           } catch (err) {
             console.error(`[push] 발송 실패:`, err.message);

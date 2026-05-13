@@ -313,17 +313,6 @@ a.task-title:hover { text-decoration: underline; color: #4f46e5; }
   background: #fef2f2;
   border-color: #fca5a5;
 }
-.deadline-bomb.waiting {
-  background: #fffbeb;
-  border-color: #fde68a;
-}
-.deadline-bomb.waiting .deadline-bomb-title,
-.deadline-bomb.waiting .deadline-bomb-mark {
-  color: #92400e;
-}
-.deadline-bomb.waiting .deadline-bomb-time {
-  color: #b45309;
-}
 .deadline-bomb.critical .deadline-bomb-runner {
   animation: bombPulse 0.75s ease-in-out infinite alternate;
 }
@@ -709,7 +698,6 @@ body.dark .deadline-bomb-mark { color: #fed7aa; }
 body.dark .deadline-bomb-time { color: #fecaca; }
 body.dark .deadline-bomb-line { background: linear-gradient(90deg, #92400e, #f97316, #ef4444); }
 body.dark .deadline-bomb.critical { background: #450a0a; border-color: #b91c1c; }
-body.dark .deadline-bomb.waiting { background: #422006; border-color: #854d0e; }
 body.dark .empty-message { color: #64748b; }
 body.dark .sync-status { color: #94a3b8; }
 body.dark .token-label { color: #f1f5f9; }

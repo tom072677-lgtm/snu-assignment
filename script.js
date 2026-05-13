@@ -141,13 +141,10 @@ function getBombCountdownInfo(dateString, now = new Date()) {
   if (!dueDate) return null;
 
   const diffMs = dueDate - now;
-  const diffDays = diffMs / BOMB_COUNTDOWN_MS;
-  const isWaiting = diffMs > BOMB_COUNTDOWN_MS && Math.floor(diffDays) === 1;
-  if (diffMs <= 0 || (diffMs > BOMB_COUNTDOWN_MS && !isWaiting)) return null;
+  if (diffMs <= 0 || diffMs > BOMB_COUNTDOWN_MS) return null;
 
-  const countdownMs = Math.min(diffMs, BOMB_COUNTDOWN_MS);
-  const progress = 1 - (countdownMs / BOMB_COUNTDOWN_MS);
-  const totalSeconds = Math.max(0, Math.floor(countdownMs / 1000));
+  const progress = 1 - (diffMs / BOMB_COUNTDOWN_MS);
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -156,7 +153,6 @@ function getBombCountdownInfo(dateString, now = new Date()) {
     left: 5 + progress * 90,
     label: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
     isCritical: diffMs <= 60 * 60 * 1000,
-    isWaiting,
   };
 }
 
@@ -193,11 +189,10 @@ function updateDeadlineBombs() {
     ensureBombContent(el);
     el.classList.remove("hidden");
     el.classList.toggle("critical", info.isCritical);
-    el.classList.toggle("waiting", info.isWaiting);
     el.style.setProperty("--bomb-left", `${info.left.toFixed(2)}%`);
 
     const titleEl = el.querySelector(".deadline-bomb-title");
-    if (titleEl) titleEl.textContent = info.isWaiting ? "💣 24시간 전 대기" : "💣 마감";
+    if (titleEl) titleEl.textContent = "💣 마감";
 
     const timeEl = el.querySelector(".deadline-bomb-time");
     if (timeEl) timeEl.textContent = info.label;
@@ -208,6 +203,32 @@ function startBombMotionTimer() {
   if (bombMotionTimer) return;
   updateDeadlineBombs();
   bombMotionTimer = setInterval(updateDeadlineBombs, 1000);
+}
+
+function buildBombProgressBar(diffHours) {
+  const totalBlocks = 12;
+  const remainingRatio = Math.max(0, Math.min(1, diffHours / 24));
+  const filled = Math.max(0, Math.min(totalBlocks, Math.ceil(remainingRatio * totalBlocks)));
+  return "█".repeat(filled) + "░".repeat(totalBlocks - filled);
+}
+
+function buildDeadlineNotification(task, diffHours, label) {
+  const name = cleanCourseName(task.courseName) || task.title;
+  const safeHours = Math.max(0, diffHours);
+  const wholeHours = Math.floor(safeHours);
+  const minutes = Math.floor((safeHours - wholeHours) * 60);
+  const timeText = `${String(wholeHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} 남음`;
+
+  return {
+    title: `💣 ${name}`,
+    body: `${task.title} 마감 ${label} 전\n${timeText} ${buildBombProgressBar(safeHours)}`,
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    tag: `deadline-bomb-${task.etlId || task.id}`,
+    renotify: true,
+    requireInteraction: true,
+    data: { url: task.url || "./" },
+  };
 }
 
 function cleanCourseName(name) {
@@ -1008,6 +1029,7 @@ async function subscribePush() {
       dueDate: t.dueDate,
       title: t.title,
       courseName: cleanCourseName(t.courseName),
+      url: t.url || null,
     }));
 
     const userEventTasks = calendarEvents
@@ -1017,7 +1039,7 @@ async function subscribePush() {
         dueDate: e.time,
         title: e.title,
         courseName: null,
-        targets: [24, 5],
+        targets: [24, 12, 6, 3, 1],
       }));
 
     await fetch(`${SERVER_URL}/api/push/subscribe`, {
@@ -1039,7 +1061,7 @@ async function requestNotificationPermission() {
 function checkDeadlines() {
   if (Notification.permission !== "granted") return;
 
-  // ETL 과제: 24h / 5h / 1h (±6분 창에 들어올 때만 발송)
+  // ETL 과제: 24h부터 1h까지 매시간 (±1분 창에 들어올 때만 발송)
   const WINDOW_H = 1 / 60;
   const etlTasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   etlTasks.forEach((task) => {
@@ -1047,18 +1069,14 @@ function checkDeadlines() {
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
     if (diffHours < 0) return;
-    [
-      { h: 24, key: `notified_24h_${task.id}` },
-      { h: 5,  key: `notified_5h_${task.id}` },
-      { h: 1,  key: `notified_1h_${task.id}` },
-    ].forEach(({ h, key }) => {
+    Array.from({ length: 24 }, (_, i) => 24 - i).forEach((h) => {
+      const key = `notified_${h}h_${task.id}`;
       if (diffHours <= h + WINDOW_H && diffHours > h - WINDOW_H && !localStorage.getItem(key)) {
         navigator.serviceWorker.ready.then((reg) => {
-          const name = cleanCourseName(task.courseName) || task.title;
-          reg.showNotification(`📚 마감 ${h}시간 전`, {
-            body: `${name} 과제 마감이 ${h}시간 후입니다.`,
-            icon: "./icon-192.png",
-          });
+          reg.showNotification(
+            `💣 마감 ${h}시간 전`,
+            buildDeadlineNotification(task, diffHours, `${h}시간`)
+          );
         });
         localStorage.setItem(key, "true");
       }
@@ -1072,15 +1090,17 @@ function checkDeadlines() {
     if (!dueDate) return;
     const diffHours = (dueDate - new Date()) / (1000 * 60 * 60);
     if (diffHours < 0) return;
-    [
-      { h: 24, key: `notified_24h_${ev.id}` },
-      { h: 5,  key: `notified_5h_${ev.id}` },
-    ].forEach(({ h, key }) => {
+    [24, 12, 6, 3, 1].forEach((h) => {
+      const key = `notified_${h}h_${ev.id}`;
       if (diffHours <= h + WINDOW_H && diffHours > h - WINDOW_H && !localStorage.getItem(key)) {
         navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(`📅 일정 ${h}시간 전`, {
-            body: `"${ev.title}" 일정이 ${h}시간 후입니다.`,
+          reg.showNotification(`💣 일정 ${h}시간 전`, {
+            body: `"${ev.title}" ${h}시간 전\n${String(h).padStart(2, "0")}:00 남음 ${buildBombProgressBar(h)}`,
             icon: "./icon-192.png",
+            badge: "./icon-192.png",
+            tag: `event-bomb-${ev.id}`,
+            renotify: true,
+            requireInteraction: true,
           });
         });
         localStorage.setItem(key, "true");
