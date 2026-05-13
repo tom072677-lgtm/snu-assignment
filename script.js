@@ -13,6 +13,7 @@ const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
 const KAKAO_MAP_APP_KEY = "6905c79ba68d3c49d21fcf41ea34d51e";
+const BOMB_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
 
 // 2026년 공휴일 및 대체공휴일
 const HOLIDAYS = [
@@ -80,6 +81,7 @@ let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 let memos = JSON.parse(localStorage.getItem(MEMO_KEY)) || {};
 let completedTasks = JSON.parse(localStorage.getItem(COMPLETED_KEY)) || [];
 let calendarEvents = JSON.parse(localStorage.getItem(CALENDAR_KEY)) || [];
+let bombMotionTimer = null;
 let icalUrl = localStorage.getItem(ICAL_URL_KEY) || null;
 let canvasToken = localStorage.getItem(CANVAS_TOKEN_KEY) || null;
 
@@ -132,6 +134,72 @@ function getBadgeInfo(dateString) {
   if (d === 0) return { text: "D-0", className: "due-red" };
   if (d <= 3) return { text: `D-${d}`, className: "due-green" };
   return { text: `D-${d}`, className: "due-blue" };
+}
+
+function getBombCountdownInfo(dateString, now = new Date()) {
+  const dueDate = parseDateValue(dateString);
+  if (!dueDate) return null;
+
+  const diffMs = dueDate - now;
+  if (diffMs <= 0 || diffMs > BOMB_COUNTDOWN_MS) return null;
+
+  const progress = 1 - (diffMs / BOMB_COUNTDOWN_MS);
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    left: 5 + progress * 90,
+    label: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+    isCritical: diffMs <= 60 * 60 * 1000,
+  };
+}
+
+function renderBombSlot(task) {
+  if (!parseDateValue(task.dueDate)) return "";
+  return `<div class="deadline-bomb hidden" data-due="${escapeHtml(task.dueDate)}"></div>`;
+}
+
+function ensureBombContent(el) {
+  if (el.dataset.ready === "true") return;
+  el.innerHTML = `
+    <div class="deadline-bomb-top">
+      <span class="deadline-bomb-title">💣 마감</span>
+      <strong class="deadline-bomb-time"></strong>
+    </div>
+    <div class="deadline-bomb-track">
+      <span class="deadline-bomb-mark start">24h</span>
+      <span class="deadline-bomb-line"></span>
+      <span class="deadline-bomb-runner">💣</span>
+      <span class="deadline-bomb-mark end">0h</span>
+    </div>
+  `;
+  el.dataset.ready = "true";
+}
+
+function updateDeadlineBombs() {
+  document.querySelectorAll(".deadline-bomb").forEach((el) => {
+    const info = getBombCountdownInfo(el.dataset.due);
+    if (!info) {
+      el.classList.add("hidden");
+      return;
+    }
+
+    ensureBombContent(el);
+    el.classList.remove("hidden");
+    el.classList.toggle("critical", info.isCritical);
+    el.style.setProperty("--bomb-left", `${info.left.toFixed(2)}%`);
+
+    const timeEl = el.querySelector(".deadline-bomb-time");
+    if (timeEl) timeEl.textContent = info.label;
+  });
+}
+
+function startBombMotionTimer() {
+  if (bombMotionTimer) return;
+  updateDeadlineBombs();
+  bombMotionTimer = setInterval(updateDeadlineBombs, 1000);
 }
 
 function cleanCourseName(name) {
@@ -239,6 +307,7 @@ function renderTasks() {
           <span class="due-badge ${badge.className}">${badge.text}</span>
           <button class="memo-btn" data-id="${task.id}" title="메모">✏️</button>
         </div>
+        ${renderBombSlot(task)}
         <textarea class="memo-input${memo ? "" : " hidden"}" placeholder="메모 입력..." data-id="${task.id}">${escapeHtml(memo)}</textarea>
       </div>
       <button class="complete-btn" data-id="${task.id}">완료</button>
@@ -286,6 +355,7 @@ function renderTasks() {
 
     taskList.appendChild(li);
   });
+  updateDeadlineBombs();
 }
 
 function renderCompleted() {
@@ -1831,6 +1901,7 @@ requestNotificationPermission();
 // 권한이 이미 있으면 서버 재시작 후 구독 복구
 if (Notification.permission === "granted") subscribePush();
 renderTasks();
+startBombMotionTimer();
 renderCompleted();
 checkDeadlines();
 setInterval(checkDeadlines, 60000);
