@@ -51,8 +51,11 @@ function fetchText(url, redirectCount = 0, extraHeaders = {}, method = "GET", bo
         return fetchText(res.headers.location, redirectCount + 1, extraHeaders).then(resolve).catch(reject);
       }
       if (res.statusCode !== 200) {
-        res.resume();
-        return reject(new Error(`HTTP ${res.statusCode}`));
+        res.setEncoding("utf8");
+        let errBody = "";
+        res.on("data", (c) => { errBody += c; });
+        res.on("end", () => reject(new Error(`HTTP ${res.statusCode}: ${errBody.slice(0, 300)}`)));
+        return;
       }
       res.setEncoding("utf8");
       let data = "";
@@ -442,7 +445,7 @@ app.get("/api/search-place", async (req, res) => {
   if (!q) return res.status(400).json({ error: "q 필요" });
   try {
     let url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15`;
-    if (x && y) url += `&x=${x}&y=${y}&radius=30000&sort=distance`;
+    if (x && y) url += `&x=${x}&y=${y}&radius=20000&sort=distance`;
     const text = await fetchText(url, 0, { Authorization: `KakaoAK ${KAKAO_REST_KEY}` });
     const data = JSON.parse(text);
     res.json((data.documents || []).map((d) => ({
