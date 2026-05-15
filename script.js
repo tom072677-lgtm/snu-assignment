@@ -13,6 +13,7 @@ const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
 const KAKAO_MAP_APP_KEY = "6905c79ba68d3c49d21fcf41ea34d51e";
+const KAKAO_REST_KEY = "80493a22b9dfbe3ba266c2f2421b461b";
 const BOMB_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
 
 // 2026년 공휴일 및 대체공휴일
@@ -1687,15 +1688,40 @@ function initMapRouteSearch() {
     });
   });
 
-  function renderSuggestions(results, forInput) {
+  function renderSuggestions(results, forInput, loading = false) {
     suggestions.innerHTML = "";
+    if (loading) {
+      const li = document.createElement("li");
+      li.className = "map-route-suggestion-item suggestion-loading";
+      li.textContent = "검색 중...";
+      suggestions.appendChild(li);
+      suggestions.classList.remove("hidden");
+      return;
+    }
     if (!results.length) { suggestions.classList.add("hidden"); return; }
+
     results.forEach((loc) => {
       const li = document.createElement("li");
       li.className = "map-route-suggestion-item";
-      const icon = loc.type === "restaurant" ? "🍽️" : loc.type === "cafe" ? "☕" : loc.type === "external" ? "📍" : "🏛️";
-      const sub = escapeHtml(loc.note || loc.address || "");
-      li.innerHTML = `<span class="suggestion-icon">${icon}</span><span class="suggestion-name">${escapeHtml(loc.name)}</span>${sub ? `<span class="suggestion-note">${sub}</span>` : ""}`;
+      const catIcon = loc.type === "restaurant" ? "🍽️"
+        : loc.type === "cafe" ? "☕"
+        : loc.category?.includes("음식") ? "🍽️"
+        : loc.category?.includes("카페") ? "☕"
+        : loc.category?.includes("편의") ? "🏪"
+        : loc.category?.includes("병원") ? "🏥"
+        : loc.category?.includes("학교") ? "🏫"
+        : loc.category?.includes("지하철") || loc.category?.includes("교통") ? "🚇"
+        : "📍";
+      const sub = escapeHtml(loc.address || loc.note || "");
+      const cat = escapeHtml(loc.category || "");
+      li.innerHTML = `
+        <span class="suggestion-icon">${catIcon}</span>
+        <span class="suggestion-body">
+          <span class="suggestion-name">${escapeHtml(loc.name)}</span>
+          ${sub ? `<span class="suggestion-addr">${sub}</span>` : ""}
+        </span>
+        ${cat ? `<span class="suggestion-cat">${cat}</span>` : ""}
+      `;
       li.addEventListener("mousedown", (e) => {
         e.preventDefault();
         if (forInput === "origin") { mapOriginLoc = loc; originInput.value = loc.name; }
@@ -1707,23 +1733,45 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
+  async function kakaoLocalSearch(q) {
+    const lat = latestPosition?.lat || 37.4651;
+    const lng = latestPosition?.lng || 126.9507;
+    const params = new URLSearchParams({ query: q, size: 10, x: lng, y: lat, radius: 30000, sort: "distance" });
+    const res = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?${params}`, {
+      headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` },
+    });
+    if (!res.ok) throw new Error("카카오 검색 실패");
+    const data = await res.json();
+    return (data.documents || []).map((d) => ({
+      name: d.place_name,
+      address: d.road_address_name || d.address_name,
+      lat: parseFloat(d.y),
+      lng: parseFloat(d.x),
+      category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
+      type: "kakao",
+    }));
+  }
+
   async function fetchAndShow(q, forInput) {
-    if (!q.trim()) { suggestions.classList.add("hidden"); return; }
+    if (q.trim().length < 2) { suggestions.classList.add("hidden"); return; }
+
+    // 즉시 로컬 SNU 결과 표시
     const local = searchSNULocations(q);
-    renderSuggestions(local, forInput);
+    if (local.length) renderSuggestions(local, forInput);
+    else renderSuggestions([], forInput, true); // 로딩 표시
+
     clearTimeout(routeSearchTimer);
     routeSearchTimer = setTimeout(async () => {
       try {
-        const lat = latestPosition?.lat || 37.4651;
-        const lng = latestPosition?.lng || 126.9507;
-        const res = await fetch(`${SERVER_URL}/api/search-place?q=${encodeURIComponent(q)}&x=${lng}&y=${lat}`);
-        if (!res.ok) return;
-        const remote = await res.json();
+        const remote = await kakaoLocalSearch(q);
         const localNames = new Set(local.map((l) => l.name));
-        const merged = [...local, ...remote.filter((r) => !localNames.has(r.name)).map((r) => ({ ...r, type: "external" }))];
+        const merged = [...local, ...remote.filter((r) => !localNames.has(r.name))];
         renderSuggestions(merged, forInput);
-      } catch { /* local only */ }
-    }, 350);
+      } catch {
+        if (local.length) renderSuggestions(local, forInput);
+        else suggestions.classList.add("hidden");
+      }
+    }, 300);
   }
 
   originInput.addEventListener("focus", () => { if (originInput.value === "현재 위치") originInput.value = ""; });
