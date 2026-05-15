@@ -12,8 +12,8 @@ const CANVAS_TOKEN_KEY = "snu_etl_canvas_token";
 const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
-const KAKAO_MAP_APP_KEY = "6905c79ba68d3c49d21fcf41ea34d51e";
 const KAKAO_REST_KEY = "80493a22b9dfbe3ba266c2f2421b461b";
+const NAVER_MAP_CLIENT_ID = "YOUR_NAVER_CLIENT_ID"; // ← 네이버 클라우드 플랫폼 Client ID 입력
 const BOMB_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
 
 // 2026년 공휴일 및 대체공휴일
@@ -1331,31 +1331,28 @@ function getRestaurantLoc(id, name) {
   return null;
 }
 
-// 카카오맵 상태
-let kakaoMap = null;
+// 네이버 지도 상태
+let naverMap = null;
 let mapOriginLoc = null; // null = 현재 위치
 let mapDestLoc = null;
-let locationOverlay = null;
+let locationMarker = null;
 let accuracyCircle = null;
 let orientationListenerAdded = false;
 let onOrientationHandler = null;
 let latestPosition = null;
-let destOverlay = null;
-let originOverlay = null;
-let kakaoMapsLoadPromise = null;
+let destMarker = null;
+let originMarker = null;
+let naverMapsLoadPromise = null;
 let smoothedHeading = null;
 let lastHeadingUpdateAt = 0;
+let locationDotEl = null; // heading 업데이트용 참조
 
 const HEADING_DEADBAND_DEG = 6;
 const HEADING_MIN_UPDATE_MS = 120;
 const HEADING_SMOOTHING = 0.18;
 
-function isKakaoMapsReady() {
-  return !!(window.kakao && kakao.maps && kakao.maps.Map);
-}
-
-function getKakaoMapSetupMessage() {
-  return `카카오 지도 인증에 실패했습니다. Kakao Developers에서 JavaScript SDK 도메인에 ${location.origin} 을 등록하고, 제품 설정의 카카오맵 API가 켜져 있는지 확인해주세요.`;
+function isNaverMapsReady() {
+  return !!(window.naver && naver.maps && naver.maps.Map);
 }
 
 function normalizeHeading(deg) {
@@ -1369,60 +1366,38 @@ function getShortestHeadingDelta(from, to) {
 function smoothHeading(current, next) {
   const normalizedNext = normalizeHeading(next);
   if (current === null) return normalizedNext;
-
   const delta = getShortestHeadingDelta(current, normalizedNext);
   if (Math.abs(delta) < HEADING_DEADBAND_DEG) return current;
-
   return normalizeHeading(current + delta * HEADING_SMOOTHING);
 }
 
-function loadKakaoMapsSdk() {
-  if (isKakaoMapsReady()) return Promise.resolve();
-  if (kakaoMapsLoadPromise) return kakaoMapsLoadPromise;
+function loadNaverMapsSdk() {
+  if (isNaverMapsReady()) return Promise.resolve();
+  if (naverMapsLoadPromise) return naverMapsLoadPromise;
 
-  kakaoMapsLoadPromise = new Promise((resolve, reject) => {
+  naverMapsLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     const timeoutId = setTimeout(() => {
-      fail(new Error("Kakao Maps SDK load timeout"));
-    }, 10000);
+      naverMapsLoadPromise = null;
+      reject(new Error("Naver Maps SDK load timeout"));
+    }, 12000);
 
-    function done() {
-      clearTimeout(timeoutId);
-      resolve();
-    }
-
-    function fail(err) {
-      clearTimeout(timeoutId);
-      reject(err);
-    }
-
-    function finishLoad() {
-      if (!window.kakao || !kakao.maps || typeof kakao.maps.load !== "function") {
-        fail(new Error("Kakao Maps SDK authorization failed"));
-        return;
-      }
-      kakao.maps.load(() => {
-        if (isKakaoMapsReady()) {
-          done();
-        } else {
-          fail(new Error("Kakao Maps SDK initialized without Map"));
-        }
-      });
-    }
-
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false&libraries=services`;
+    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_MAP_CLIENT_ID}`;
     script.async = true;
-    script.dataset.kakaoMapSdk = "true";
-    script.onload = finishLoad;
-    script.onerror = () => fail(new Error("Kakao Maps SDK network or authorization error"));
-
+    script.onload = () => {
+      clearTimeout(timeoutId);
+      if (isNaverMapsReady()) resolve();
+      else { naverMapsLoadPromise = null; reject(new Error("Naver Maps SDK not ready after load")); }
+    };
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      naverMapsLoadPromise = null;
+      reject(new Error("Naver Maps SDK 로드 실패. 네이버 클라우드 플랫폼에서 도메인(" + location.origin + ")을 등록했는지 확인하세요."));
+    };
     document.head.appendChild(script);
-  }).catch((err) => {
-    kakaoMapsLoadPromise = null;
-    throw err;
   });
 
-  return kakaoMapsLoadPromise;
+  return naverMapsLoadPromise;
 }
 
 function getMapStatusEl() {
@@ -1456,26 +1431,27 @@ function renderMapTab() {
   const container = document.getElementById("mapContainer");
   if (!container) return;
 
-  if (!isKakaoMapsReady()) {
-    showMapStatus("카카오 지도를 불러오는 중...");
-    loadKakaoMapsSdk()
+  if (!isNaverMapsReady()) {
+    showMapStatus("네이버 지도를 불러오는 중...");
+    loadNaverMapsSdk()
       .then(() => {
         if (!mapTab.classList.contains("hidden")) renderMapTab();
       })
-      .catch(() => showMapStatus(getKakaoMapSetupMessage()));
+      .catch((err) => showMapStatus(err.message));
     return;
   }
 
   hideMapStatus();
 
-  if (!kakaoMap) {
+  if (!naverMap) {
     const saved = JSON.parse(localStorage.getItem("map_last_pos") || "null");
     const initCenter = saved
-      ? new kakao.maps.LatLng(saved.lat, saved.lng)
-      : new kakao.maps.LatLng(37.4651, 126.9507);
-    kakaoMap = new kakao.maps.Map(container, {
+      ? new naver.maps.LatLng(saved.lat, saved.lng)
+      : new naver.maps.LatLng(37.4651, 126.9507);
+    naverMap = new naver.maps.Map(container, {
       center: initCenter,
-      level: 3,
+      zoom: 16,
+      mapTypeId: naver.maps.MapTypeId.NORMAL,
     });
 
     startLocationWatch();
@@ -1485,21 +1461,13 @@ function renderMapTab() {
     btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`;
     btn.title = "내 위치";
     btn.addEventListener("click", () => {
-      if (locationOverlay) {
-        kakaoMap.setCenter(locationOverlay.getPosition());
-        kakaoMap.setLevel(3);
+      if (latestPosition) {
+        naverMap.setCenter(new naver.maps.LatLng(latestPosition.lat, latestPosition.lng));
+        naverMap.setZoom(16);
       }
       requestOrientationPermission();
     });
     container.appendChild(btn);
-
-    // 모바일에서 지도 영역 터치 시 페이지 스크롤 방지
-    container.addEventListener("touchstart", (e) => {
-      e.stopPropagation();
-    }, { passive: true });
-    container.addEventListener("touchmove", (e) => {
-      e.preventDefault();
-    }, { passive: false });
   }
 
   setTimeout(() => {
@@ -1515,10 +1483,8 @@ function resizeMapContainer() {
   if (!el || mapTab.classList.contains("hidden")) return;
   const top = el.getBoundingClientRect().top + window.scrollY;
   el.style.height = `${Math.max(200, window.innerHeight - top - 4)}px`;
-  if (kakaoMap) {
-    const center = kakaoMap.getCenter();
-    kakaoMap.relayout();
-    kakaoMap.setCenter(center);
+  if (naverMap) {
+    naverMap.autoResize();
   }
 }
 window.addEventListener("resize", resizeMapContainer);
@@ -1564,28 +1530,30 @@ async function fetchAllRoutes(origin, dest) {
   showMapMessage("경로를 불러오는 중...");
 
   // 출발지 마커 (특정 장소 선택 시만)
-  if (originOverlay) { originOverlay.setMap(null); originOverlay = null; }
+  if (originMarker) { originMarker.setMap(null); originMarker = null; }
   if (mapOriginLoc) {
-    const originEl = document.createElement("div");
-    originEl.className = "map-dest-marker";
-    originEl.innerHTML = `<div class="map-pin-svg origin-pin"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#22C55E"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label origin-label">${escapeHtml(mapOriginLoc.name || "출발지")}</div>`;
-    originOverlay = new kakao.maps.CustomOverlay({
-      position: new kakao.maps.LatLng(mapOriginLoc.lat, mapOriginLoc.lng),
-      content: originEl, yAnchor: 1.1, zIndex: 8,
+    originMarker = new naver.maps.Marker({
+      position: new naver.maps.LatLng(mapOriginLoc.lat, mapOriginLoc.lng),
+      map: naverMap,
+      icon: {
+        content: `<div class="map-dest-marker"><div class="map-pin-svg"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#22C55E"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label origin-label">${escapeHtml(mapOriginLoc.name || "출발지")}</div></div>`,
+        anchor: new naver.maps.Point(11, 30),
+      },
+      zIndex: 8,
     });
-    originOverlay.setMap(kakaoMap);
   }
 
   // 목적지 마커
-  if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
-  const destEl = document.createElement("div");
-  destEl.className = "map-dest-marker";
-  destEl.innerHTML = `<div class="map-pin-svg dest-pin"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#EF4444"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label">${escapeHtml(dest.name || "")}</div>`;
-  destOverlay = new kakao.maps.CustomOverlay({
-    position: new kakao.maps.LatLng(dest.lat, dest.lng),
-    content: destEl, yAnchor: 1.1, zIndex: 9,
+  if (destMarker) { destMarker.setMap(null); destMarker = null; }
+  destMarker = new naver.maps.Marker({
+    position: new naver.maps.LatLng(dest.lat, dest.lng),
+    map: naverMap,
+    icon: {
+      content: `<div class="map-dest-marker"><div class="map-pin-svg"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#EF4444"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label">${escapeHtml(dest.name || "")}</div></div>`,
+      anchor: new naver.maps.Point(11, 30),
+    },
+    zIndex: 9,
   });
-  destOverlay.setMap(kakaoMap);
 
   // 탭 로딩 상태
   document.querySelectorAll(".map-route-mode-btn").forEach((b) => {
@@ -1644,10 +1612,11 @@ async function fetchAllRoutes(origin, dest) {
   });
 
   // 지도 bounds 맞추기
-  const bounds = new kakao.maps.LatLngBounds();
-  bounds.extend(new kakao.maps.LatLng(origin.lat, origin.lng));
-  bounds.extend(new kakao.maps.LatLng(dest.lat, dest.lng));
-  kakaoMap.setBounds(bounds, 60);
+  const bounds = new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(Math.min(origin.lat, dest.lat), Math.min(origin.lng, dest.lng)),
+    new naver.maps.LatLng(Math.max(origin.lat, dest.lat), Math.max(origin.lng, dest.lng))
+  );
+  naverMap.fitBounds(bounds, 60);
 
   setActiveMode(currentRouteMode);
   showMapMessage("");
@@ -1658,6 +1627,7 @@ function setActiveMode(mode) {
   document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
 
   if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
+  if (!naverMap) return;
 
   const data = routeData[mode];
   const timeEl = document.getElementById("mapRouteTime");
@@ -1666,15 +1636,15 @@ function setActiveMode(mode) {
     if (timeEl) timeEl.textContent = (data.estimated ? "약 " : "") + formatDuration(data.duration);
     if (distEl) distEl.textContent = formatDistance(data.distance);
 
-    if (data.path && data.path.length && kakaoMap) {
-      currentPolyline = new kakao.maps.Polyline({
-        path: data.path.map(([lat, lng]) => new kakao.maps.LatLng(lat, lng)),
+    if (data.path && data.path.length && naverMap) {
+      currentPolyline = new naver.maps.Polyline({
+        map: naverMap,
+        path: data.path.map(([lat, lng]) => new naver.maps.LatLng(lat, lng)),
         strokeWeight: 5,
         strokeColor: MODE_COLORS[mode] || "#2563eb",
         strokeOpacity: 0.9,
         strokeStyle: MODE_STROKE[mode] || "solid",
       });
-      currentPolyline.setMap(kakaoMap);
     }
   }
 }
@@ -1755,46 +1725,17 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
-  async function kakaoSearchPlaces(q) {
+  async function searchPlaces(q) {
     const lat = latestPosition?.lat || 37.4651;
     const lng = latestPosition?.lng || 126.9507;
 
     async function searchOnce(keyword) {
-      // 1순위: SDK
-      try {
-        if (!window.kakao?.maps?.services?.Places) await loadKakaoMapsSdk();
-        if (window.kakao?.maps?.services?.Places) {
-          return await new Promise((resolve, reject) => {
-            const ps = new kakao.maps.services.Places();
-            ps.keywordSearch(keyword, (result, status) => {
-              if (status === kakao.maps.services.Status.OK) {
-                resolve(result.map((d) => ({
-                  name: d.place_name,
-                  address: d.road_address_name || d.address_name,
-                  lat: parseFloat(d.y),
-                  lng: parseFloat(d.x),
-                  category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
-                  type: "kakao",
-                })));
-              } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-                resolve([]);
-              } else {
-                reject(new Error("Places: " + status));
-              }
-            }, { location: new kakao.maps.LatLng(lat, lng), radius: 20000, sort: kakao.maps.services.SortBy.ACCURACY });
-          });
-        }
-      } catch (e) {
-        console.warn("[search] SDK 실패:", e.message);
-      }
-      // 2순위: 서버 프록시
       const params = new URLSearchParams({ q: keyword, x: lng, y: lat });
       const res = await fetch(`${SERVER_URL}/api/search-place?${params}`);
       if (!res.ok) throw new Error("서버 검색 실패: " + res.status);
-      return (await res.json()).map((d) => ({ ...d, type: "kakao" }));
+      return await res.json();
     }
 
-    // 전체 쿼리로 검색
     const results = await searchOnce(q);
     if (results.length > 0) return results;
 
@@ -1806,7 +1747,7 @@ function initMapRouteSearch() {
     const base = await searchOnce(baseQuery);
     return base.filter((r) =>
       r.name.toLowerCase().includes(lastWord) ||
-      r.address.toLowerCase().includes(lastWord)
+      (r.address || "").toLowerCase().includes(lastWord)
     );
   }
 
@@ -1821,7 +1762,7 @@ function initMapRouteSearch() {
     clearTimeout(routeSearchTimer);
     routeSearchTimer = setTimeout(async () => {
       try {
-        const remote = await kakaoSearchPlaces(q);
+        const remote = await searchPlaces(q);
         const localNames = new Set(local.map((l) => l.name));
         const merged = [...local, ...remote.filter((r) => !localNames.has(r.name))];
         renderSuggestions(merged, forInput);
@@ -1862,8 +1803,8 @@ function initMapRouteSearch() {
 
   clearBtn.addEventListener("click", () => {
     if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
-    if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
-    if (originOverlay) { originOverlay.setMap(null); originOverlay = null; }
+    if (destMarker) { destMarker.setMap(null); destMarker = null; }
+    if (originMarker) { originMarker.setMap(null); originMarker = null; }
     clearBtn.classList.add("hidden");
     infoEl.classList.add("hidden");
     routeData = {};
@@ -1884,9 +1825,9 @@ function startLocationWatch() {
 
   let firstFix = true;
 
-  const dotEl = document.createElement("div");
-  dotEl.className = "map-location-icon";
-  dotEl.innerHTML = `<svg viewBox="-16 -28 32 44" width="32" height="44" overflow="visible">
+  locationDotEl = document.createElement("div");
+  locationDotEl.className = "map-location-icon";
+  locationDotEl.innerHTML = `<svg viewBox="-16 -28 32 44" width="32" height="44" overflow="visible">
     <path class="map-heading-cone" d="M0,-26 L-10,-6 L10,-6 Z"
       fill="rgba(37,99,235,0.5)" stroke="none" display="none"/>
     <circle cx="0" cy="0" r="8" fill="#2563eb" stroke="white" stroke-width="2.5"/>
@@ -1895,20 +1836,24 @@ function startLocationWatch() {
   navigator.geolocation.watchPosition(
     (pos) => {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-      const position = new kakao.maps.LatLng(lat, lng);
+      const position = new naver.maps.LatLng(lat, lng);
       latestPosition = { lat, lng };
       localStorage.setItem("map_last_pos", JSON.stringify({ lat, lng }));
-      const cappedRadius = Math.min(accuracy, 14);
+      const cappedRadius = Math.min(accuracy, 40);
 
-      if (!locationOverlay) {
-        locationOverlay = new kakao.maps.CustomOverlay({
+      if (!locationMarker) {
+        locationMarker = new naver.maps.Marker({
           position,
-          content: dotEl,
+          map: naverMap,
+          icon: {
+            content: locationDotEl,
+            anchor: new naver.maps.Point(16, 28),
+          },
           zIndex: 10,
         });
-        locationOverlay.setMap(kakaoMap);
 
-        accuracyCircle = new kakao.maps.Circle({
+        accuracyCircle = new naver.maps.Circle({
+          map: naverMap,
           center: position,
           radius: cappedRadius,
           strokeWeight: 1,
@@ -1917,15 +1862,15 @@ function startLocationWatch() {
           fillColor: "#2563eb",
           fillOpacity: 0.06,
         });
-        accuracyCircle.setMap(kakaoMap);
       } else {
-        locationOverlay.setPosition(position);
-        accuracyCircle.setOptions({ center: position, radius: cappedRadius });
+        locationMarker.setPosition(position);
+        accuracyCircle.setCenter(position);
+        accuracyCircle.setRadius(cappedRadius);
       }
 
       if (firstFix) {
-        kakaoMap.setCenter(position);
-        kakaoMap.setLevel(3);
+        naverMap.setCenter(position);
+        naverMap.setZoom(16);
         firstFix = false;
       }
     },
@@ -1956,8 +1901,8 @@ function startLocationWatch() {
     smoothedHeading = nextHeading;
     lastHeadingUpdateAt = now;
 
-    const svg = dotEl.querySelector("svg");
-    const cone = dotEl.querySelector(".map-heading-cone");
+    const svg = locationDotEl.querySelector("svg");
+    const cone = locationDotEl.querySelector(".map-heading-cone");
     if (!svg || !cone) return;
     cone.removeAttribute("display");
     svg.style.transform = `rotate(${smoothedHeading.toFixed(1)}deg)`;
