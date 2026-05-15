@@ -1772,11 +1772,12 @@ function initMapRouteSearch() {
     clearTimeout(routeSearchTimer);
     routeSearchTimer = setTimeout(async () => {
       try {
+        await loadKakaoMapsSdk();
         const remote = await kakaoLocalSearch(q);
         const localNames = new Set(local.map((l) => l.name));
         const merged = [...local, ...remote.filter((r) => !localNames.has(r.name))];
         renderSuggestions(merged, forInput);
-      } catch {
+      } catch (e) {
         if (local.length) renderSuggestions(local, forInput);
         else suggestions.classList.add("hidden");
       }
