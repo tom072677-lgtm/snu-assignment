@@ -448,6 +448,7 @@ app.get("/api/search-place", async (req, res) => {
       category: d.category_group_name || "",
     })));
   } catch (err) {
+    console.error("[search-place]", err.message);
     res.status(500).json({ error: err.message });
   }
 });

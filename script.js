@@ -1733,14 +1733,52 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
-  async function kakaoServerSearch(q) {
+  async function kakaoSearchPlaces(q) {
     const lat = latestPosition?.lat || 37.4651;
     const lng = latestPosition?.lng || 126.9507;
+
+    // 1순위: Kakao Maps SDK Places (카카오맵과 동일한 검색 엔진)
+    try {
+      if (!window.kakao?.maps?.services?.Places) {
+        await loadKakaoMapsSdk();
+      }
+      if (window.kakao?.maps?.services?.Places) {
+        return await new Promise((resolve, reject) => {
+          const ps = new kakao.maps.services.Places();
+          ps.keywordSearch(q, (result, status) => {
+            if (status === kakao.maps.services.Status.OK) {
+              resolve(result.map((d) => ({
+                name: d.place_name,
+                address: d.road_address_name || d.address_name,
+                lat: parseFloat(d.y),
+                lng: parseFloat(d.x),
+                category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
+                type: "kakao",
+              })));
+            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+              resolve([]);
+            } else {
+              reject(new Error("Places 검색 실패: " + status));
+            }
+          }, {
+            location: new kakao.maps.LatLng(lat, lng),
+            radius: 30000,
+            sort: kakao.maps.services.SortBy.DISTANCE,
+          });
+        });
+      }
+    } catch (e) {
+      console.warn("[search] SDK 실패, 서버 프록시로:", e.message);
+    }
+
+    // 2순위: 서버 프록시 폴백
     const params = new URLSearchParams({ q, x: lng, y: lat });
     const res = await fetch(`${SERVER_URL}/api/search-place?${params}`);
-    if (!res.ok) throw new Error("검색 실패");
-    const data = await res.json();
-    return data.map((d) => ({ ...d, type: "kakao" }));
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error("서버 검색 실패: " + (body.error || res.status));
+    }
+    return (await res.json()).map((d) => ({ ...d, type: "kakao" }));
   }
 
   async function fetchAndShow(q, forInput) {
@@ -1754,7 +1792,7 @@ function initMapRouteSearch() {
     clearTimeout(routeSearchTimer);
     routeSearchTimer = setTimeout(async () => {
       try {
-        const remote = await kakaoServerSearch(q);
+        const remote = await kakaoSearchPlaces(q);
         const localNames = new Set(local.map((l) => l.name));
         const merged = [...local, ...remote.filter((r) => !localNames.has(r.name))];
         renderSuggestions(merged, forInput);
