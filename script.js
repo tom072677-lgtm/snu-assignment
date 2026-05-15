@@ -1341,6 +1341,7 @@ let orientationListenerAdded = false;
 let onOrientationHandler = null;
 let latestPosition = null;
 let destOverlay = null;
+let originOverlay = null;
 let kakaoMapsLoadPromise = null;
 let smoothedHeading = null;
 let lastHeadingUpdateAt = 0;
@@ -1481,7 +1482,7 @@ function renderMapTab() {
 
     const btn = document.createElement("button");
     btn.className = "map-locate-btn";
-    btn.innerHTML = "📍";
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`;
     btn.title = "내 위치";
     btn.addEventListener("click", () => {
       if (locationOverlay) {
@@ -1554,14 +1555,27 @@ async function fetchAllRoutes(origin, dest) {
   routeData = {};
   showMapMessage("경로를 불러오는 중...");
 
+  // 출발지 마커 (특정 장소 선택 시만)
+  if (originOverlay) { originOverlay.setMap(null); originOverlay = null; }
+  if (mapOriginLoc) {
+    const originEl = document.createElement("div");
+    originEl.className = "map-dest-marker";
+    originEl.innerHTML = `<div class="map-pin-svg origin-pin"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#22C55E"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label origin-label">${escapeHtml(mapOriginLoc.name || "출발지")}</div>`;
+    originOverlay = new kakao.maps.CustomOverlay({
+      position: new kakao.maps.LatLng(mapOriginLoc.lat, mapOriginLoc.lng),
+      content: originEl, yAnchor: 1.1, zIndex: 8,
+    });
+    originOverlay.setMap(kakaoMap);
+  }
+
   // 목적지 마커
   if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
   const destEl = document.createElement("div");
   destEl.className = "map-dest-marker";
-  destEl.innerHTML = `<div class="map-dest-pin">📍</div><div class="map-dest-label">${escapeHtml(dest.name || "")}</div>`;
+  destEl.innerHTML = `<div class="map-pin-svg dest-pin"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="#EF4444"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg></div><div class="map-dest-label">${escapeHtml(dest.name || "")}</div>`;
   destOverlay = new kakao.maps.CustomOverlay({
     position: new kakao.maps.LatLng(dest.lat, dest.lng),
-    content: destEl, yAnchor: 1.2, zIndex: 9,
+    content: destEl, yAnchor: 1.1, zIndex: 9,
   });
   destOverlay.setMap(kakaoMap);
 
@@ -1841,6 +1855,7 @@ function initMapRouteSearch() {
   clearBtn.addEventListener("click", () => {
     if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
     if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
+    if (originOverlay) { originOverlay.setMap(null); originOverlay = null; }
     clearBtn.classList.add("hidden");
     infoEl.classList.add("hidden");
     routeData = {};
