@@ -1348,16 +1348,16 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   white-space: nowrap;
 }
 
-/* 목적지 마커 */
+/* 목적지/출발지 마커 */
 .map-dest-marker {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
-.map-dest-pin {
-  font-size: 22px;
+.map-pin-svg {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  display: flex;
 }
 .map-dest-label {
   background: #fff;
@@ -1369,6 +1369,10 @@ body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
   color: #111;
   white-space: nowrap;
   box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.map-dest-label.origin-label {
+  border-color: #bbf7d0;
+  color: #166534;
 }
 
 /* 길찾기 버튼 (식당 디테일 패널) */
