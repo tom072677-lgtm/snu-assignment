@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>샤랍</title>
-  <link rel="manifest" href="app.webmanifest?v=28" />
+  <link rel="manifest" href="app.webmanifest?v=29" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=28" />
+  <link rel="stylesheet" href="style.css?v=29" />
 </head>
 <body>
   <div class="app">
@@ -177,7 +177,18 @@
       <div class="map-route-actions">
         <button id="mapRouteSwapBtn" class="map-route-swap-btn" title="출발지/도착지 바꾸기">⇅</button>
         <button id="mapRouteGoBtn" class="map-route-go-btn">길찾기</button>
-        <button id="mapRouteClearBtn" class="map-route-clear-btn hidden">✕ 경로 지우기</button>
+        <button id="mapRouteClearBtn" class="map-route-clear-btn hidden">✕ 지우기</button>
+      </div>
+      <div id="mapRouteInfo" class="map-route-info hidden">
+        <div class="map-route-modes">
+          <button class="map-route-mode-btn active" data-mode="car">🚗 자동차</button>
+          <button class="map-route-mode-btn" data-mode="walk">🚶 도보</button>
+          <button class="map-route-mode-btn" data-mode="bike">🚲 자전거</button>
+        </div>
+        <div class="map-route-result">
+          <span id="mapRouteTime" class="map-route-time"></span>
+          <span id="mapRouteDist" class="map-route-dist"></span>
+        </div>
       </div>
       <ul id="mapRouteSuggestions" class="map-route-suggestions hidden"></ul>
     </div>
@@ -228,7 +239,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=28"></script>
+  <script src="script.js?v=29"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

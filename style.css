@@ -1122,6 +1122,35 @@ body.dark .rest-meal-tab.active {
   white-space: nowrap;
 }
 .map-route-clear-btn.hidden { display: none; }
+/* 경로 정보 */
+.map-route-info { display: flex; flex-direction: column; gap: 6px; }
+.map-route-info.hidden { display: none; }
+.map-route-modes { display: flex; gap: 6px; }
+.map-route-mode-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text-sub);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.map-route-mode-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.map-route-result {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+.map-route-time { font-size: 20px; font-weight: 700; color: var(--text); }
+.map-route-dist { font-size: 13px; color: var(--text-sub); }
+
 .map-route-suggestions {
   position: absolute;
   left: 12px;
@@ -1192,8 +1221,7 @@ body.dark .map-filter-btn { background: var(--app-bg); border-color: var(--borde
 body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
 
 #mapContainer {
-  height: calc(100vh - 285px);
-  min-height: 300px;
+  min-height: 200px;
   position: relative;
   z-index: 0;
   background: #eef2f7;
