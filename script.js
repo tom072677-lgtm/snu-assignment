@@ -1494,13 +1494,76 @@ function renderMapTab() {
   }
 
   setTimeout(() => {
-    if (!kakaoMap) return;
-    const center = kakaoMap.getCenter();
-    kakaoMap.relayout();
-    kakaoMap.setCenter(center);
+    resizeMapContainer();
   }, 80);
 
   initMapRouteSearch();
+}
+
+// 지도 컨테이너 높이를 실제 남은 공간에 맞게 동적 조정
+function resizeMapContainer() {
+  const el = document.getElementById("mapContainer");
+  if (!el || mapTab.classList.contains("hidden")) return;
+  const top = el.getBoundingClientRect().top + window.scrollY;
+  el.style.height = `${Math.max(200, window.innerHeight - top - 4)}px`;
+  if (kakaoMap) {
+    const center = kakaoMap.getCenter();
+    kakaoMap.relayout();
+    kakaoMap.setCenter(center);
+  }
+}
+window.addEventListener("resize", resizeMapContainer);
+
+// 저장된 경로 정보 (교통수단 전환용)
+let routeDistanceM = 0;
+let routeCarDurationS = 0;
+let currentRouteMode = "car";
+
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDuration(seconds) {
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m}분`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem > 0 ? `${h}시간 ${rem}분` : `${h}시간`;
+}
+
+function formatDistance(m) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+}
+
+function updateRouteInfoCard(mode) {
+  const infoEl = document.getElementById("mapRouteInfo");
+  const timeEl = document.getElementById("mapRouteTime");
+  const distEl = document.getElementById("mapRouteDist");
+  if (!infoEl || !routeDistanceM) return;
+
+  currentRouteMode = mode;
+  let duration;
+  let dist = routeDistanceM;
+  if (mode === "car") {
+    duration = routeCarDurationS;
+  } else if (mode === "walk") {
+    dist = dist * 1.3;
+    duration = dist / (4000 / 60); // 4km/h → 초
+  } else {
+    dist = dist * 1.2;
+    duration = dist / (15000 / 60); // 15km/h → 초
+  }
+
+  timeEl.textContent = formatDuration(duration);
+  distEl.textContent = formatDistance(dist);
+
+  infoEl.classList.remove("hidden");
+  resizeMapContainer();
 }
 
 function searchSNULocations(q) {
@@ -1509,8 +1572,10 @@ function searchSNULocations(q) {
   return SNU_LOCATIONS.filter((l) => {
     const candidates = [l.name, ...(l.aliases || [])];
     return candidates.some((n) => n.toLowerCase().includes(norm));
-  }).slice(0, 7);
+  }).slice(0, 5);
 }
+
+let routeSearchTimer = null;
 
 function initMapRouteSearch() {
   const originInput = document.getElementById("mapOriginInput");
@@ -1519,27 +1584,33 @@ function initMapRouteSearch() {
   const swapBtn = document.getElementById("mapRouteSwapBtn");
   const goBtn = document.getElementById("mapRouteGoBtn");
   const clearBtn = document.getElementById("mapRouteClearBtn");
+  const infoEl = document.getElementById("mapRouteInfo");
 
   if (!originInput || originInput.dataset.routeInit) return;
   originInput.dataset.routeInit = "true";
 
-  function showSuggestions(results, forInput) {
+  // 교통수단 모드 버튼
+  document.querySelectorAll(".map-route-mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      updateRouteInfoCard(btn.dataset.mode);
+    });
+  });
+
+  function renderSuggestions(results, forInput) {
     suggestions.innerHTML = "";
     if (!results.length) { suggestions.classList.add("hidden"); return; }
     results.forEach((loc) => {
       const li = document.createElement("li");
       li.className = "map-route-suggestion-item";
-      const icon = loc.type === "restaurant" ? "🍽️" : loc.type === "cafe" ? "☕" : "🏛️";
-      li.innerHTML = `<span class="suggestion-icon">${icon}</span><span class="suggestion-name">${escapeHtml(loc.name)}</span><span class="suggestion-note">${escapeHtml(loc.note || "")}</span>`;
+      const icon = loc.type === "restaurant" ? "🍽️" : loc.type === "cafe" ? "☕" : loc.type === "external" ? "📍" : "🏛️";
+      const sub = escapeHtml(loc.note || loc.address || "");
+      li.innerHTML = `<span class="suggestion-icon">${icon}</span><span class="suggestion-name">${escapeHtml(loc.name)}</span>${sub ? `<span class="suggestion-note">${sub}</span>` : ""}`;
       li.addEventListener("mousedown", (e) => {
         e.preventDefault();
-        if (forInput === "origin") {
-          mapOriginLoc = loc;
-          originInput.value = loc.name;
-        } else {
-          mapDestLoc = loc;
-          destInput.value = loc.name;
-        }
+        if (forInput === "origin") { mapOriginLoc = loc; originInput.value = loc.name; }
+        else { mapDestLoc = loc; destInput.value = loc.name; }
         suggestions.classList.add("hidden");
       });
       suggestions.appendChild(li);
@@ -1547,23 +1618,34 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
-  originInput.addEventListener("focus", () => {
-    if (originInput.value === "현재 위치") originInput.value = "";
-  });
+  async function fetchAndShow(q, forInput) {
+    if (!q.trim()) { suggestions.classList.add("hidden"); return; }
+    const local = searchSNULocations(q);
+    renderSuggestions(local, forInput);
+    clearTimeout(routeSearchTimer);
+    routeSearchTimer = setTimeout(async () => {
+      try {
+        const lat = latestPosition?.lat || 37.4651;
+        const lng = latestPosition?.lng || 126.9507;
+        const res = await fetch(`${SERVER_URL}/api/search-place?q=${encodeURIComponent(q)}&x=${lng}&y=${lat}`);
+        if (!res.ok) return;
+        const remote = await res.json();
+        const localNames = new Set(local.map((l) => l.name));
+        const merged = [...local, ...remote.filter((r) => !localNames.has(r.name)).map((r) => ({ ...r, type: "external" }))];
+        renderSuggestions(merged, forInput);
+      } catch { /* local only */ }
+    }, 350);
+  }
+
+  originInput.addEventListener("focus", () => { if (originInput.value === "현재 위치") originInput.value = ""; });
   originInput.addEventListener("blur", () => {
     if (!originInput.value.trim()) { originInput.value = "현재 위치"; mapOriginLoc = null; }
     setTimeout(() => suggestions.classList.add("hidden"), 200);
   });
-  originInput.addEventListener("input", () => {
-    showSuggestions(searchSNULocations(originInput.value), "origin");
-  });
+  originInput.addEventListener("input", () => fetchAndShow(originInput.value, "origin"));
 
-  destInput.addEventListener("blur", () => {
-    setTimeout(() => suggestions.classList.add("hidden"), 200);
-  });
-  destInput.addEventListener("input", () => {
-    showSuggestions(searchSNULocations(destInput.value), "dest");
-  });
+  destInput.addEventListener("blur", () => setTimeout(() => suggestions.classList.add("hidden"), 200));
+  destInput.addEventListener("input", () => fetchAndShow(destInput.value, "dest"));
 
   swapBtn.addEventListener("click", () => {
     const tmpLoc = mapOriginLoc;
@@ -1575,12 +1657,12 @@ function initMapRouteSearch() {
   });
 
   goBtn.addEventListener("click", async () => {
-    const originPos = mapOriginLoc
-      ? { lat: mapOriginLoc.lat, lng: mapOriginLoc.lng }
-      : latestPosition;
+    const originPos = mapOriginLoc ? { lat: mapOriginLoc.lat, lng: mapOriginLoc.lng } : latestPosition;
     if (!originPos) { showMapMessage("현재 위치를 찾는 중입니다."); return; }
     if (!mapDestLoc) { showMapMessage("도착지를 선택해주세요."); return; }
     clearBtn.classList.remove("hidden");
+    document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === "car"));
+    currentRouteMode = "car";
     await showRestaurantRoute({ lat: mapDestLoc.lat, lng: mapDestLoc.lng, name: mapDestLoc.name }, originPos);
   });
 
@@ -1588,7 +1670,10 @@ function initMapRouteSearch() {
     if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
     if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
     clearBtn.classList.add("hidden");
+    infoEl.classList.add("hidden");
+    routeDistanceM = 0;
     showMapMessage("");
+    resizeMapContainer();
   });
 }
 
@@ -1771,6 +1856,13 @@ async function showRestaurantRoute(loc, originPos) {
     bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
     kakaoMap.setBounds(bounds, 60);
     showMapMessage("");
+
+    // 경로 정보 카드 업데이트
+    const summary = route.summary || {};
+    routeDistanceM = summary.distance || haversineM(origin.lat, origin.lng, loc.lat, loc.lng);
+    routeCarDurationS = summary.duration || routeDistanceM / (40000 / 3600);
+    updateRouteInfoCard(currentRouteMode);
+    resizeMapContainer();
   } catch {
     showMapMessage("경로 불러오기 실패");
   }
