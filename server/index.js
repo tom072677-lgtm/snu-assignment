@@ -3,8 +3,7 @@ const cors = require("cors");
 const ical = require("node-ical");
 const https = require("https");
 const webpush = require("web-push");
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
 
 // VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
@@ -342,31 +341,47 @@ const pushStore = new Map();
 const sentKeys = new Set(); // "endpoint:etlId:Nh" - 중복 발송 방지
 const HOURLY_DEADLINE_TARGETS = Array.from({ length: 24 }, (_, i) => 24 - i);
 
-// ── 구독 파일 영속화 ──────────────────────────
-const STORE_FILE = path.join(__dirname, "push_store.json");
+// ── 구독 MongoDB 영속화 ──────────────────────
+const MONGO_URI = process.env.MONGO_URI;
+let dbCol = null; // subscriptions 컬렉션 (연결 전엔 null)
 
-function loadStore() {
-  try {
-    const raw = fs.readFileSync(STORE_FILE, "utf8");
-    const { entries } = JSON.parse(raw);
-    if (Array.isArray(entries)) {
-      entries.forEach(([k, v]) => pushStore.set(k, v));
-      console.log(`[push] 구독 로드: ${pushStore.size}개`);
-    }
-  } catch {
-    // 파일 없으면 빈 상태로 시작
+async function connectMongo() {
+  if (!MONGO_URI) {
+    console.warn("[mongo] MONGO_URI 없음 — 구독 메모리 전용");
+    return;
   }
-}
-
-function saveStore() {
   try {
-    fs.writeFileSync(STORE_FILE, JSON.stringify({ entries: [...pushStore.entries()] }));
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    dbCol = client.db("sharap").collection("subscriptions");
+    // 시작 시 저장된 구독 로드
+    const docs = await dbCol.find({}).toArray();
+    docs.forEach((doc) => pushStore.set(doc._id, { subscription: doc.subscription, tasks: doc.tasks || [] }));
+    console.log(`[mongo] 구독 로드: ${pushStore.size}개`);
   } catch (err) {
-    console.error("[push] 저장 실패:", err.message);
+    console.error("[mongo] 연결 실패:", err.message);
   }
 }
 
-loadStore();
+async function saveSubscription(endpoint, data) {
+  if (!dbCol) return;
+  try {
+    await dbCol.replaceOne({ _id: endpoint }, { _id: endpoint, ...data }, { upsert: true });
+  } catch (err) {
+    console.error("[mongo] 저장 실패:", err.message);
+  }
+}
+
+async function deleteSubscription(endpoint) {
+  if (!dbCol) return;
+  try {
+    await dbCol.deleteOne({ _id: endpoint });
+  } catch (err) {
+    console.error("[mongo] 삭제 실패:", err.message);
+  }
+}
+
+connectMongo();
 
 function buildBombProgressBar(diffH) {
   const totalBlocks = 12;
@@ -407,8 +422,9 @@ app.post("/api/push/subscribe", (req, res) => {
   if (!pushEnabled) return res.status(503).json({ error: "Push 비활성화" });
   const { subscription, tasks } = req.body;
   if (!subscription?.endpoint) return res.status(400).json({ error: "subscription 필요" });
-  pushStore.set(subscription.endpoint, { subscription, tasks: tasks || [] });
-  saveStore();
+  const data = { subscription, tasks: tasks || [] };
+  pushStore.set(subscription.endpoint, data);
+  saveSubscription(subscription.endpoint, data);
   console.log(`[push] 구독 등록: ${pushStore.size}개`);
   res.json({ ok: true });
 });
@@ -438,7 +454,7 @@ setInterval(async () => {
             console.log(`[push] 알림 발송: ${name} (${h}h)`);
           } catch (err) {
             console.error(`[push] 발송 실패:`, err.message);
-            if (err.statusCode === 410) { pushStore.delete(endpoint); saveStore(); }
+            if (err.statusCode === 410) { pushStore.delete(endpoint); deleteSubscription(endpoint); }
           }
         }
       }
