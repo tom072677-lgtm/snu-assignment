@@ -1409,7 +1409,7 @@ function loadKakaoMapsSdk() {
       });
     }
 
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false`;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false&libraries=services`;
     script.async = true;
     script.dataset.kakaoMapSdk = "true";
     script.onload = finishLoad;
@@ -1733,23 +1733,32 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
-  async function kakaoLocalSearch(q) {
-    const lat = latestPosition?.lat || 37.4651;
-    const lng = latestPosition?.lng || 126.9507;
-    const params = new URLSearchParams({ query: q, size: 10, x: lng, y: lat, radius: 30000, sort: "distance" });
-    const res = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?${params}`, {
-      headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` },
+  function kakaoLocalSearch(q) {
+    return new Promise((resolve, reject) => {
+      const ps = new kakao.maps.services.Places();
+      const lat = latestPosition?.lat || 37.4651;
+      const lng = latestPosition?.lng || 126.9507;
+      ps.keywordSearch(q, (result, status) => {
+        if (status === kakao.maps.services.Status.OK) {
+          resolve(result.map((d) => ({
+            name: d.place_name,
+            address: d.road_address_name || d.address_name,
+            lat: parseFloat(d.y),
+            lng: parseFloat(d.x),
+            category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
+            type: "kakao",
+          })));
+        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+          resolve([]);
+        } else {
+          reject(new Error("카카오 검색 실패"));
+        }
+      }, {
+        location: new kakao.maps.LatLng(lat, lng),
+        radius: 30000,
+        sort: kakao.maps.services.SortBy.DISTANCE,
+      });
     });
-    if (!res.ok) throw new Error("카카오 검색 실패");
-    const data = await res.json();
-    return (data.documents || []).map((d) => ({
-      name: d.place_name,
-      address: d.road_address_name || d.address_name,
-      lat: parseFloat(d.y),
-      lng: parseFloat(d.x),
-      category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
-      type: "kakao",
-    }));
   }
 
   async function fetchAndShow(q, forInput) {
