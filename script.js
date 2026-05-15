@@ -158,7 +158,12 @@ function getBombCountdownInfo(dateString, now = new Date()) {
 
 function renderBombSlot(task) {
   if (!parseDateValue(task.dueDate)) return "";
-  return `<div class="deadline-bomb hidden" data-due="${escapeHtml(task.dueDate)}"></div>`;
+  return `<div class="deadline-bomb hidden"
+    data-due="${escapeHtml(task.dueDate)}"
+    data-id="${escapeHtml(task.etlId || task.id)}"
+    data-title="${escapeHtml(task.title)}"
+    data-course="${escapeHtml(task.courseName || "")}"
+    data-url="${escapeHtml(task.url || "./")}"></div>`;
 }
 
 function ensureBombContent(el) {
@@ -179,6 +184,9 @@ function ensureBombContent(el) {
 }
 
 function updateDeadlineBombs() {
+  const notified = JSON.parse(localStorage.getItem("bomb_notified") || "{}");
+  let changed = false;
+
   document.querySelectorAll(".deadline-bomb").forEach((el) => {
     const info = getBombCountdownInfo(el.dataset.due);
     if (!info) {
@@ -196,7 +204,34 @@ function updateDeadlineBombs() {
 
     const timeEl = el.querySelector(".deadline-bomb-time");
     if (timeEl) timeEl.textContent = info.label;
+
+    // 24시간 진입 시 로컬 알림 최초 1회 트리거
+    const taskId = el.dataset.id;
+    if (taskId && !notified[taskId]) {
+      notified[taskId] = true;
+      changed = true;
+      triggerLocalBombNotification(el, info);
+    }
   });
+
+  if (changed) localStorage.setItem("bomb_notified", JSON.stringify(notified));
+}
+
+function triggerLocalBombNotification(el, info) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+  const diffMs = parseDateValue(el.dataset.due) - new Date();
+  const diffHours = Math.max(0, diffMs / (1000 * 60 * 60));
+  const task = {
+    id: el.dataset.id,
+    etlId: el.dataset.id,
+    title: el.dataset.title,
+    courseName: el.dataset.course,
+    url: el.dataset.url,
+  };
+  const label = `${Math.ceil(diffHours)}시간`;
+  const payload = buildDeadlineNotification(task, diffHours, label);
+  navigator.serviceWorker.controller.postMessage({ type: "LOCAL_NOTIFICATION", ...payload });
 }
 
 function startBombMotionTimer() {
