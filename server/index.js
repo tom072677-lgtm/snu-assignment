@@ -15,11 +15,16 @@ if (pushEnabled) {
   console.warn("VAPID 환경변수 없음 — Push 알림 비활성화");
 }
 
+const path = require("path");
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+
+// 정적 파일 서빙 (로컬: localhost:3001로 앱 접근 가능)
+app.use(express.static(path.join(__dirname, "..")));
 
 // ──────────────────────────────────────────
 // URL fetch (헤더 지원, 리다이렉트 자동 처리, POST 지원)
