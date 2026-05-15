@@ -13,7 +13,7 @@ const MEMO_KEY = "snu_assignment_app_memos";
 const COMPLETED_KEY = "snu_assignment_app_completed";
 const CALENDAR_KEY = "snu_calendar_events";
 const KAKAO_REST_KEY = "80493a22b9dfbe3ba266c2f2421b461b";
-const NAVER_MAP_CLIENT_ID = "YOUR_NAVER_CLIENT_ID"; // ← 네이버 클라우드 플랫폼 Client ID 입력
+const NAVER_MAP_CLIENT_ID = "posydcwi0l";
 const BOMB_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
 
 // 2026년 공휴일 및 대체공휴일
