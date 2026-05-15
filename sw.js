@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open("assignment-app-v36").then((cache) => {
+    caches.open("assignment-app-v37").then((cache) => {
       return cache.addAll([
         "./",
         "./index.html",
@@ -18,7 +18,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== "assignment-app-v36").map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== "assignment-app-v37").map((k) => caches.delete(k)))
     ).then(() => clients.claim())
   );
 });
