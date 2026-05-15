@@ -310,6 +310,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     calendarTab.classList.toggle("hidden", tab !== "calendar");
     restaurantTab.classList.toggle("hidden", tab !== "restaurant");
     mapTab.classList.toggle("hidden", tab !== "map");
+    document.body.classList.toggle("map-active", tab === "map");
     if (tab === "calendar") renderCalendar();
     if (tab === "restaurant") renderRestaurantTab();
     if (tab === "map") renderMapTab();
