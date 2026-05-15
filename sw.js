@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open("assignment-app-v26").then((cache) => {
+    caches.open("assignment-app-v27").then((cache) => {
       return cache.addAll([
         "./",
         "./index.html",
@@ -18,7 +18,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== "assignment-app-v26").map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== "assignment-app-v27").map((k) => caches.delete(k)))
     ).then(() => clients.claim())
   );
 });
@@ -48,4 +48,20 @@ self.addEventListener("notificationclick", (event) => {
     ? event.notification.data.url
     : "./";
   event.waitUntil(clients.openWindow(url));
+});
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "LOCAL_NOTIFICATION") return;
+  event.waitUntil(
+    self.registration.showNotification(data.title || "샤랍", {
+      body: data.body || "",
+      icon: data.icon || "./icon-192.png",
+      badge: data.badge || "./icon-192.png",
+      tag: data.tag || "sharap-alert",
+      renotify: true,
+      requireInteraction: true,
+      data: data.data || {},
+    })
+  );
 });
