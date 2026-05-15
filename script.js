@@ -1332,6 +1332,8 @@ function getRestaurantLoc(id, name) {
 
 // 카카오맵 상태
 let kakaoMap = null;
+let mapOriginLoc = null; // null = 현재 위치
+let mapDestLoc = null;
 let locationOverlay = null;
 let accuracyCircle = null;
 let orientationListenerAdded = false;
@@ -1497,6 +1499,97 @@ function renderMapTab() {
     kakaoMap.relayout();
     kakaoMap.setCenter(center);
   }, 80);
+
+  initMapRouteSearch();
+}
+
+function searchSNULocations(q) {
+  const norm = q.trim().toLowerCase();
+  if (!norm) return [];
+  return SNU_LOCATIONS.filter((l) => {
+    const candidates = [l.name, ...(l.aliases || [])];
+    return candidates.some((n) => n.toLowerCase().includes(norm));
+  }).slice(0, 7);
+}
+
+function initMapRouteSearch() {
+  const originInput = document.getElementById("mapOriginInput");
+  const destInput = document.getElementById("mapDestInput");
+  const suggestions = document.getElementById("mapRouteSuggestions");
+  const swapBtn = document.getElementById("mapRouteSwapBtn");
+  const goBtn = document.getElementById("mapRouteGoBtn");
+  const clearBtn = document.getElementById("mapRouteClearBtn");
+
+  if (!originInput || originInput.dataset.routeInit) return;
+  originInput.dataset.routeInit = "true";
+
+  function showSuggestions(results, forInput) {
+    suggestions.innerHTML = "";
+    if (!results.length) { suggestions.classList.add("hidden"); return; }
+    results.forEach((loc) => {
+      const li = document.createElement("li");
+      li.className = "map-route-suggestion-item";
+      const icon = loc.type === "restaurant" ? "🍽️" : loc.type === "cafe" ? "☕" : "🏛️";
+      li.innerHTML = `<span class="suggestion-icon">${icon}</span><span class="suggestion-name">${escapeHtml(loc.name)}</span><span class="suggestion-note">${escapeHtml(loc.note || "")}</span>`;
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        if (forInput === "origin") {
+          mapOriginLoc = loc;
+          originInput.value = loc.name;
+        } else {
+          mapDestLoc = loc;
+          destInput.value = loc.name;
+        }
+        suggestions.classList.add("hidden");
+      });
+      suggestions.appendChild(li);
+    });
+    suggestions.classList.remove("hidden");
+  }
+
+  originInput.addEventListener("focus", () => {
+    if (originInput.value === "현재 위치") originInput.value = "";
+  });
+  originInput.addEventListener("blur", () => {
+    if (!originInput.value.trim()) { originInput.value = "현재 위치"; mapOriginLoc = null; }
+    setTimeout(() => suggestions.classList.add("hidden"), 200);
+  });
+  originInput.addEventListener("input", () => {
+    showSuggestions(searchSNULocations(originInput.value), "origin");
+  });
+
+  destInput.addEventListener("blur", () => {
+    setTimeout(() => suggestions.classList.add("hidden"), 200);
+  });
+  destInput.addEventListener("input", () => {
+    showSuggestions(searchSNULocations(destInput.value), "dest");
+  });
+
+  swapBtn.addEventListener("click", () => {
+    const tmpLoc = mapOriginLoc;
+    const tmpVal = originInput.value;
+    mapOriginLoc = mapDestLoc;
+    originInput.value = mapDestLoc ? mapDestLoc.name : "현재 위치";
+    mapDestLoc = tmpLoc;
+    destInput.value = tmpVal === "현재 위치" ? "" : tmpVal;
+  });
+
+  goBtn.addEventListener("click", async () => {
+    const originPos = mapOriginLoc
+      ? { lat: mapOriginLoc.lat, lng: mapOriginLoc.lng }
+      : latestPosition;
+    if (!originPos) { showMapMessage("현재 위치를 찾는 중입니다."); return; }
+    if (!mapDestLoc) { showMapMessage("도착지를 선택해주세요."); return; }
+    clearBtn.classList.remove("hidden");
+    await showRestaurantRoute({ lat: mapDestLoc.lat, lng: mapDestLoc.lng, name: mapDestLoc.name }, originPos);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
+    if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
+    clearBtn.classList.add("hidden");
+    showMapMessage("");
+  });
 }
 
 function startLocationWatch() {
@@ -1613,11 +1706,12 @@ function requestOrientationPermission() {
 }
 
 // ─── 인앱 길찾기 ───
-async function showRestaurantRoute(loc) {
+async function showRestaurantRoute(loc, originPos) {
   // 지도 탭으로 전환
   document.querySelector('.tab-btn[data-tab="map"]').click();
 
-  if (!latestPosition) {
+  const origin = originPos || latestPosition;
+  if (!origin) {
     setTimeout(() => showMapMessage("위치를 확인 중입니다. 잠시 후 다시 시도해주세요."), 400);
     return;
   }
@@ -1644,7 +1738,7 @@ async function showRestaurantRoute(loc) {
     const res = await fetch(`${SERVER_URL}/api/directions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ origin: latestPosition, destination: { lat: loc.lat, lng: loc.lng } }),
+      body: JSON.stringify({ origin, destination: { lat: loc.lat, lng: loc.lng } }),
     });
     const data = await res.json();
     const route = data.routes?.[0];
@@ -1673,7 +1767,7 @@ async function showRestaurantRoute(loc) {
     routePolyline.setMap(kakaoMap);
 
     const bounds = new kakao.maps.LatLngBounds();
-    bounds.extend(new kakao.maps.LatLng(latestPosition.lat, latestPosition.lng));
+    bounds.extend(new kakao.maps.LatLng(origin.lat, origin.lng));
     bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
     kakaoMap.setBounds(bounds, 60);
     showMapMessage("");

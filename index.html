@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>샤랍</title>
-  <link rel="manifest" href="app.webmanifest?v=27" />
+  <link rel="manifest" href="app.webmanifest?v=28" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=28" />
 </head>
 <body>
   <div class="app">
@@ -160,6 +160,28 @@
 
   <!-- 지도 탭 -->
   <div id="mapTab" class="hidden">
+
+    <!-- 경로 검색 패널 -->
+    <div id="mapRoutePanel" class="map-route-panel">
+      <div class="map-route-fields">
+        <div class="map-route-field">
+          <span class="map-route-dot origin-dot"></span>
+          <input id="mapOriginInput" class="map-route-input" type="text" placeholder="출발지" value="현재 위치" autocomplete="off" />
+        </div>
+        <div class="map-route-separator"></div>
+        <div class="map-route-field">
+          <span class="map-route-dot dest-dot"></span>
+          <input id="mapDestInput" class="map-route-input" type="text" placeholder="도착지" autocomplete="off" />
+        </div>
+      </div>
+      <div class="map-route-actions">
+        <button id="mapRouteSwapBtn" class="map-route-swap-btn" title="출발지/도착지 바꾸기">⇅</button>
+        <button id="mapRouteGoBtn" class="map-route-go-btn">길찾기</button>
+        <button id="mapRouteClearBtn" class="map-route-clear-btn hidden">✕ 경로 지우기</button>
+      </div>
+      <ul id="mapRouteSuggestions" class="map-route-suggestions hidden"></ul>
+    </div>
+
     <div class="map-filter-bar">
       <button class="map-filter-btn active" data-filter="all">전체</button>
       <button class="map-filter-btn" data-filter="restaurant">🍽️ 식당</button>
@@ -206,7 +228,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=27"></script>
+  <script src="script.js?v=28"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
