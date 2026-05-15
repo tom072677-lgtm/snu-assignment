@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>샤랍</title>
-  <link rel="manifest" href="app.webmanifest?v=29" />
+  <link rel="manifest" href="app.webmanifest?v=30" />
   <meta name="theme-color" content="#ffffff" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=29" />
+  <link rel="stylesheet" href="style.css?v=30" />
 </head>
 <body>
   <div class="app">
@@ -181,9 +181,22 @@
       </div>
       <div id="mapRouteInfo" class="map-route-info hidden">
         <div class="map-route-modes">
-          <button class="map-route-mode-btn active" data-mode="car">🚗 자동차</button>
-          <button class="map-route-mode-btn" data-mode="walk">🚶 도보</button>
-          <button class="map-route-mode-btn" data-mode="bike">🚲 자전거</button>
+          <button class="map-route-mode-btn active" data-mode="car">
+            <span class="mode-icon">🚗</span>
+            <span class="mode-time" id="modeTime_car">-</span>
+          </button>
+          <button class="map-route-mode-btn" data-mode="transit">
+            <span class="mode-icon">🚌</span>
+            <span class="mode-time" id="modeTime_transit">-</span>
+          </button>
+          <button class="map-route-mode-btn" data-mode="walk">
+            <span class="mode-icon">🚶</span>
+            <span class="mode-time" id="modeTime_walk">-</span>
+          </button>
+          <button class="map-route-mode-btn" data-mode="bike">
+            <span class="mode-icon">🚲</span>
+            <span class="mode-time" id="modeTime_bike">-</span>
+          </button>
         </div>
         <div class="map-route-result">
           <span id="mapRouteTime" class="map-route-time"></span>
@@ -239,7 +252,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=29"></script>
+  <script src="script.js?v=30"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

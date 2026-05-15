@@ -1339,7 +1339,6 @@ let accuracyCircle = null;
 let orientationListenerAdded = false;
 let onOrientationHandler = null;
 let latestPosition = null;
-let routePolyline = null;
 let destOverlay = null;
 let kakaoMapsLoadPromise = null;
 let smoothedHeading = null;
@@ -1514,10 +1513,13 @@ function resizeMapContainer() {
 }
 window.addEventListener("resize", resizeMapContainer);
 
-// 저장된 경로 정보 (교통수단 전환용)
-let routeDistanceM = 0;
-let routeCarDurationS = 0;
+// 교통수단별 경로 데이터 { duration, distance, path: [[lat,lng],...], estimated? }
+let routeData = {};
+let currentPolyline = null;
 let currentRouteMode = "car";
+
+const MODE_COLORS = { car: "#2563eb", transit: "#7c3aed", walk: "#16a34a", bike: "#ea580c" };
+const MODE_STROKE = { car: "solid", transit: "dash", walk: "solid", bike: "shortdash" };
 
 function haversineM(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -1540,30 +1542,118 @@ function formatDistance(m) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
 }
 
-function updateRouteInfoCard(mode) {
-  const infoEl = document.getElementById("mapRouteInfo");
+async function fetchOsrmRoute(origin, dest, profile) {
+  const url = `${SERVER_URL}/api/route/osrm?profile=${profile}&olat=${origin.lat}&olng=${origin.lng}&dlat=${dest.lat}&dlng=${dest.lng}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("OSRM 실패");
+  return res.json();
+}
+
+async function fetchAllRoutes(origin, dest) {
+  routeData = {};
+  showMapMessage("경로를 불러오는 중...");
+
+  // 목적지 마커
+  if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
+  const destEl = document.createElement("div");
+  destEl.className = "map-dest-marker";
+  destEl.innerHTML = `<div class="map-dest-pin">📍</div><div class="map-dest-label">${escapeHtml(dest.name || "")}</div>`;
+  destOverlay = new kakao.maps.CustomOverlay({
+    position: new kakao.maps.LatLng(dest.lat, dest.lng),
+    content: destEl, yAnchor: 1.2, zIndex: 9,
+  });
+  destOverlay.setMap(kakaoMap);
+
+  // 탭 로딩 상태
+  document.querySelectorAll(".map-route-mode-btn").forEach((b) => {
+    b.classList.add("loading");
+    b.querySelector(".mode-time").textContent = "...";
+  });
+  document.getElementById("mapRouteInfo").classList.remove("hidden");
+  resizeMapContainer();
+
+  // 버스: 거리 기반 추정
+  const straight = haversineM(origin.lat, origin.lng, dest.lat, dest.lng);
+  routeData.transit = {
+    duration: straight * 1.5 / (18000 / 3600) + 8 * 60,
+    distance: straight * 1.5,
+    path: null,
+    estimated: true,
+  };
+
+  // 자동차, 도보, 자전거 병렬 호출
+  const [carRes, walkRes, bikeRes] = await Promise.allSettled([
+    (async () => {
+      const res = await fetch(`${SERVER_URL}/api/directions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination: { lat: dest.lat, lng: dest.lng } }),
+      });
+      const data = await res.json();
+      const route = data.routes?.[0];
+      if (!route || route.result_code !== 0) throw new Error("자동차 경로 없음");
+      const path = [];
+      for (const section of route.sections || []) {
+        for (const road of section.roads || []) {
+          const v = road.vertexes;
+          for (let i = 0; i < v.length - 1; i += 2) path.push([v[i + 1], v[i]]);
+        }
+      }
+      return { duration: route.summary?.duration, distance: route.summary?.distance, path };
+    })(),
+    fetchOsrmRoute(origin, dest, "foot"),
+    fetchOsrmRoute(origin, dest, "bicycle"),
+  ]);
+
+  if (carRes.status === "fulfilled") routeData.car = carRes.value;
+  else routeData.car = { duration: straight / (40000 / 3600), distance: straight, path: null, estimated: true };
+  if (walkRes.status === "fulfilled") routeData.walk = walkRes.value;
+  else routeData.walk = { duration: straight * 1.3 / (4000 / 3600), distance: straight * 1.3, path: null, estimated: true };
+  if (bikeRes.status === "fulfilled") routeData.bike = bikeRes.value;
+  else routeData.bike = { duration: straight * 1.2 / (15000 / 3600), distance: straight * 1.2, path: null, estimated: true };
+
+  // 모든 탭 시간 업데이트
+  ["car", "transit", "walk", "bike"].forEach((mode) => {
+    const el = document.getElementById(`modeTime_${mode}`);
+    const btn = document.querySelector(`.map-route-mode-btn[data-mode="${mode}"]`);
+    if (el && routeData[mode]) el.textContent = formatDuration(routeData[mode].duration);
+    if (btn) btn.classList.remove("loading");
+  });
+
+  // 지도 bounds 맞추기
+  const bounds = new kakao.maps.LatLngBounds();
+  bounds.extend(new kakao.maps.LatLng(origin.lat, origin.lng));
+  bounds.extend(new kakao.maps.LatLng(dest.lat, dest.lng));
+  kakaoMap.setBounds(bounds, 60);
+
+  setActiveMode(currentRouteMode);
+  showMapMessage("");
+}
+
+function setActiveMode(mode) {
+  currentRouteMode = mode;
+  document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+
+  if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
+
+  const data = routeData[mode];
   const timeEl = document.getElementById("mapRouteTime");
   const distEl = document.getElementById("mapRouteDist");
-  if (!infoEl || !routeDistanceM) return;
+  if (data) {
+    if (timeEl) timeEl.textContent = (data.estimated ? "약 " : "") + formatDuration(data.duration);
+    if (distEl) distEl.textContent = formatDistance(data.distance);
 
-  currentRouteMode = mode;
-  let duration;
-  let dist = routeDistanceM;
-  if (mode === "car") {
-    duration = routeCarDurationS;
-  } else if (mode === "walk") {
-    dist = dist * 1.3;
-    duration = dist / (4000 / 60); // 4km/h → 초
-  } else {
-    dist = dist * 1.2;
-    duration = dist / (15000 / 60); // 15km/h → 초
+    if (data.path && data.path.length && kakaoMap) {
+      currentPolyline = new kakao.maps.Polyline({
+        path: data.path.map(([lat, lng]) => new kakao.maps.LatLng(lat, lng)),
+        strokeWeight: 5,
+        strokeColor: MODE_COLORS[mode] || "#2563eb",
+        strokeOpacity: 0.9,
+        strokeStyle: MODE_STROKE[mode] || "solid",
+      });
+      currentPolyline.setMap(kakaoMap);
+    }
   }
-
-  timeEl.textContent = formatDuration(duration);
-  distEl.textContent = formatDistance(dist);
-
-  infoEl.classList.remove("hidden");
-  resizeMapContainer();
 }
 
 function searchSNULocations(q) {
@@ -1592,9 +1682,8 @@ function initMapRouteSearch() {
   // 교통수단 모드 버튼
   document.querySelectorAll(".map-route-mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      updateRouteInfoCard(btn.dataset.mode);
+      if (!routeData[btn.dataset.mode]) return;
+      setActiveMode(btn.dataset.mode);
     });
   });
 
@@ -1661,17 +1750,16 @@ function initMapRouteSearch() {
     if (!originPos) { showMapMessage("현재 위치를 찾는 중입니다."); return; }
     if (!mapDestLoc) { showMapMessage("도착지를 선택해주세요."); return; }
     clearBtn.classList.remove("hidden");
-    document.querySelectorAll(".map-route-mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === "car"));
     currentRouteMode = "car";
-    await showRestaurantRoute({ lat: mapDestLoc.lat, lng: mapDestLoc.lng, name: mapDestLoc.name }, originPos);
+    await fetchAllRoutes(originPos, { lat: mapDestLoc.lat, lng: mapDestLoc.lng, name: mapDestLoc.name });
   });
 
   clearBtn.addEventListener("click", () => {
-    if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
+    if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
     if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
     clearBtn.classList.add("hidden");
     infoEl.classList.add("hidden");
-    routeDistanceM = 0;
+    routeData = {};
     showMapMessage("");
     resizeMapContainer();
   });
@@ -1792,80 +1880,19 @@ function requestOrientationPermission() {
 
 // ─── 인앱 길찾기 ───
 async function showRestaurantRoute(loc, originPos) {
-  // 지도 탭으로 전환
   document.querySelector('.tab-btn[data-tab="map"]').click();
-
   const origin = originPos || latestPosition;
   if (!origin) {
     setTimeout(() => showMapMessage("위치를 확인 중입니다. 잠시 후 다시 시도해주세요."), 400);
     return;
   }
-
-  // 기존 경로/목적지 마커 제거
-  if (routePolyline) { routePolyline.setMap(null); routePolyline = null; }
-  if (destOverlay) { destOverlay.setMap(null); destOverlay = null; }
-
-  // 목적지 마커
-  const destEl = document.createElement("div");
-  destEl.className = "map-dest-marker";
-  destEl.innerHTML = `<div class="map-dest-pin">🍽️</div><div class="map-dest-label">${escapeHtml(loc.name)}</div>`;
-  destOverlay = new kakao.maps.CustomOverlay({
-    position: new kakao.maps.LatLng(loc.lat, loc.lng),
-    content: destEl,
-    yAnchor: 1.2,
-    zIndex: 9,
-  });
-  destOverlay.setMap(kakaoMap);
-
-  showMapMessage("경로를 불러오는 중...");
-
-  try {
-    const res = await fetch(`${SERVER_URL}/api/directions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ origin, destination: { lat: loc.lat, lng: loc.lng } }),
-    });
-    const data = await res.json();
-    const route = data.routes?.[0];
-    if (!route || route.result_code !== 0) {
-      showMapMessage("경로를 찾을 수 없습니다.");
-      return;
-    }
-
-    const path = [];
-    for (const section of route.sections || []) {
-      for (const road of section.roads || []) {
-        const v = road.vertexes;
-        for (let i = 0; i < v.length - 1; i += 2) {
-          path.push(new kakao.maps.LatLng(v[i + 1], v[i]));
-        }
-      }
-    }
-
-    routePolyline = new kakao.maps.Polyline({
-      path,
-      strokeWeight: 5,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.85,
-      strokeStyle: "solid",
-    });
-    routePolyline.setMap(kakaoMap);
-
-    const bounds = new kakao.maps.LatLngBounds();
-    bounds.extend(new kakao.maps.LatLng(origin.lat, origin.lng));
-    bounds.extend(new kakao.maps.LatLng(loc.lat, loc.lng));
-    kakaoMap.setBounds(bounds, 60);
-    showMapMessage("");
-
-    // 경로 정보 카드 업데이트
-    const summary = route.summary || {};
-    routeDistanceM = summary.distance || haversineM(origin.lat, origin.lng, loc.lat, loc.lng);
-    routeCarDurationS = summary.duration || routeDistanceM / (40000 / 3600);
-    updateRouteInfoCard(currentRouteMode);
-    resizeMapContainer();
-  } catch {
-    showMapMessage("경로 불러오기 실패");
-  }
+  // 도착지 입력창 업데이트
+  const destInput = document.getElementById("mapDestInput");
+  if (destInput) destInput.value = loc.name || "";
+  mapDestLoc = { lat: loc.lat, lng: loc.lng, name: loc.name };
+  currentRouteMode = "car";
+  document.getElementById("mapRouteClearBtn")?.classList.remove("hidden");
+  await fetchAllRoutes(origin, { lat: loc.lat, lng: loc.lng, name: loc.name });
 }
 
 function showMapMessage(msg) {

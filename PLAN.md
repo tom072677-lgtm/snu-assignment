@@ -1,30 +1,40 @@
-# PLAN: 24시간 폭탄 푸시 알림
+# PLAN: 네이버 지도 스타일 4종 교통수단 경로 검색
 
 ## 목표
-마감까지 24시간 초과로 남은 과제에는 앱 안 폭탄 UI를 숨기고, 24시간 이하로 들어오면 앱을 켜지 않아도 휴대폰 푸시 알림으로 남은 시간을 알려준다.
+버스·자동차·도보·자전거 4종 탭을 동시에 보여주고,
+탭 클릭 시 해당 교통수단의 실제 경로를 지도에 그리며 소요시간을 표시한다.
 
-## 가정
-- Web/PWA 알림은 OS 정책상 사용자가 직접 지우는 것을 완전히 막을 수 없다.
-- `requireInteraction`, 동일 `tag`, `renotify`로 가능한 한 오래 남고 갱신되는 알림에 가깝게 만든다.
-- 알림 안의 폭탄 감소 표현은 네이티브 애니메이션이 아니라 남은 시간과 텍스트 진행 바로 표현한다.
+## API 전략
+| 교통수단 | API | 비고 |
+|---|---|---|
+| 🚗 자동차 | Kakao Mobility `/v1/directions` | 이미 구현, 실제 경로+시간 |
+| 🚶 도보 | OSRM public `/route/v1/foot` | 무료, 키 없음, 실제 경로+시간 |
+| 🚲 자전거 | OSRM public `/route/v1/bicycle` | 무료, 키 없음, 실제 경로+시간 |
+| 🚌 버스 | ODsay API (가입 필요) or 거리 추정 | 1단계는 추정(15km/h), 2단계 ODsay |
 
-## 접근
-1. 앱 안 폭탄 UI는 다시 실제 24시간 이하에서만 보이게 한다.
-   - verify: 24시간 초과 D-1 과제에는 폭탄 UI가 보이지 않는다.
-2. 푸시 알림 payload와 로컬 알림 옵션에 `requireInteraction`, `tag`, `renotify`, 남은 시간 진행 바를 넣는다.
-   - verify: 서비스워커가 payload의 옵션을 알림에 전달한다.
-3. 서버 백그라운드 푸시 타깃을 24시간부터 1시간까지 매시간으로 늘린다.
-   - verify: 앱을 열지 않아도 서버가 등록된 과제에 대해 hourly push를 보낼 수 있다.
-4. 클라이언트 로컬 알림도 같은 형식으로 맞춰 중복되어도 같은 tag로 갱신되게 한다.
-   - verify: 앱이 열린 상태에서도 알림 형식이 동일하다.
-5. 캐시 버전 갱신, 문법 검증, 코드 리뷰 후 커밋/푸시한다.
-   - verify: `node --check script.js`, `node --check sw.js`, `node --check server/index.js`, `codex review --uncommitted` 통과.
+## UI 변경 (네이버 지도 스타일)
+- 길찾기 결과 나오면 4개 탭을 **동시에** 보여줌 (각 탭에 소요시간 표시)
+- 탭 클릭 → 해당 교통수단 경로를 지도에 다시 그림 (다른 색)
+  - 자동차: 파란 실선
+  - 도보: 초록 실선
+  - 자전거: 주황 점선
+  - 버스: 보라 실선 (추정이면 점선)
+- 경로 정보 카드: 소요시간(크게) + 거리(작게)
 
 ## 변경 파일
-- PLAN.md
-- PLAN_REVIEW.md
-- index.html
-- script.js
-- style.css
-- sw.js
-- server/index.js
+- `server/index.js`: OSRM 프록시 엔드포인트 추가 (`/api/route/walk`, `/api/route/bike`)
+- `script.js`: 4개 모드 병렬 호출, 모드별 폴리라인 저장, 탭 전환 로직
+- `style.css`: 모드 탭 소요시간 inline 표시 스타일
+- `index.html`: 모드 탭 구조 변경
+
+## 단계별 접근
+1. 서버에 OSRM 프록시 추가
+   - verify: `/api/route/walk?olat=37.46&olng=126.95&dlat=37.47&dlng=126.96` 응답에 duration, distance, geometry 포함
+2. 길찾기 시 4종 API 병렬 호출 (Promise.allSettled)
+   - verify: 하나 실패해도 나머지 정상 표시
+3. 탭에 소요시간 inline 표시 (예: "🚶 18분")
+   - verify: 길찾기 결과 나오면 모든 탭에 시간 뜸
+4. 탭 클릭 시 해당 경로 폴리라인으로 교체
+   - verify: 자동차 탭→파란선, 도보 탭→초록선
+5. 버전 v30, 문법 검증, 커밋/푸시
+   - verify: `node --check script.js`, `node --check server/index.js` 통과
