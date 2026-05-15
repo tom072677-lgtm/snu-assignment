@@ -1737,48 +1737,55 @@ function initMapRouteSearch() {
     const lat = latestPosition?.lat || 37.4651;
     const lng = latestPosition?.lng || 126.9507;
 
-    // 1순위: Kakao Maps SDK Places (카카오맵과 동일한 검색 엔진)
-    try {
-      if (!window.kakao?.maps?.services?.Places) {
-        await loadKakaoMapsSdk();
-      }
-      if (window.kakao?.maps?.services?.Places) {
-        return await new Promise((resolve, reject) => {
-          const ps = new kakao.maps.services.Places();
-          ps.keywordSearch(q, (result, status) => {
-            if (status === kakao.maps.services.Status.OK) {
-              resolve(result.map((d) => ({
-                name: d.place_name,
-                address: d.road_address_name || d.address_name,
-                lat: parseFloat(d.y),
-                lng: parseFloat(d.x),
-                category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
-                type: "kakao",
-              })));
-            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-              resolve([]);
-            } else {
-              reject(new Error("Places 검색 실패: " + status));
-            }
-          }, {
-            location: new kakao.maps.LatLng(lat, lng),
-            radius: 20000,
-            sort: kakao.maps.services.SortBy.ACCURACY,
+    async function searchOnce(keyword) {
+      // 1순위: SDK
+      try {
+        if (!window.kakao?.maps?.services?.Places) await loadKakaoMapsSdk();
+        if (window.kakao?.maps?.services?.Places) {
+          return await new Promise((resolve, reject) => {
+            const ps = new kakao.maps.services.Places();
+            ps.keywordSearch(keyword, (result, status) => {
+              if (status === kakao.maps.services.Status.OK) {
+                resolve(result.map((d) => ({
+                  name: d.place_name,
+                  address: d.road_address_name || d.address_name,
+                  lat: parseFloat(d.y),
+                  lng: parseFloat(d.x),
+                  category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
+                  type: "kakao",
+                })));
+              } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                resolve([]);
+              } else {
+                reject(new Error("Places: " + status));
+              }
+            }, { location: new kakao.maps.LatLng(lat, lng), radius: 20000, sort: kakao.maps.services.SortBy.ACCURACY });
           });
-        });
+        }
+      } catch (e) {
+        console.warn("[search] SDK 실패:", e.message);
       }
-    } catch (e) {
-      console.warn("[search] SDK 실패, 서버 프록시로:", e.message);
+      // 2순위: 서버 프록시
+      const params = new URLSearchParams({ q: keyword, x: lng, y: lat });
+      const res = await fetch(`${SERVER_URL}/api/search-place?${params}`);
+      if (!res.ok) throw new Error("서버 검색 실패: " + res.status);
+      return (await res.json()).map((d) => ({ ...d, type: "kakao" }));
     }
 
-    // 2순위: 서버 프록시 폴백
-    const params = new URLSearchParams({ q, x: lng, y: lat });
-    const res = await fetch(`${SERVER_URL}/api/search-place?${params}`);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error("서버 검색 실패: " + (body.error || res.status));
-    }
-    return (await res.json()).map((d) => ({ ...d, type: "kakao" }));
+    // 전체 쿼리로 검색
+    const results = await searchOnce(q);
+    if (results.length > 0) return results;
+
+    // 결과 없으면: 마지막 단어 제거 후 재검색 + 클라이언트 필터
+    const words = q.trim().split(/\s+/);
+    if (words.length < 2) return [];
+    const lastWord = words[words.length - 1].toLowerCase();
+    const baseQuery = words.slice(0, -1).join(" ");
+    const base = await searchOnce(baseQuery);
+    return base.filter((r) =>
+      r.name.toLowerCase().includes(lastWord) ||
+      r.address.toLowerCase().includes(lastWord)
+    );
   }
 
   async function fetchAndShow(q, forInput) {
