@@ -436,7 +436,7 @@ app.get("/api/search-place", async (req, res) => {
   const { q, x, y } = req.query;
   if (!q) return res.status(400).json({ error: "q 필요" });
   try {
-    let url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=7`;
+    let url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15`;
     if (x && y) url += `&x=${x}&y=${y}&radius=30000&sort=distance`;
     const text = await fetchText(url, 0, { Authorization: `KakaoAK ${KAKAO_REST_KEY}` });
     const data = JSON.parse(text);

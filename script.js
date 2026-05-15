@@ -1733,36 +1733,18 @@ function initMapRouteSearch() {
     suggestions.classList.remove("hidden");
   }
 
-  function kakaoLocalSearch(q) {
-    return new Promise((resolve, reject) => {
-      const ps = new kakao.maps.services.Places();
-      const lat = latestPosition?.lat || 37.4651;
-      const lng = latestPosition?.lng || 126.9507;
-      ps.keywordSearch(q, (result, status) => {
-        if (status === kakao.maps.services.Status.OK) {
-          resolve(result.map((d) => ({
-            name: d.place_name,
-            address: d.road_address_name || d.address_name,
-            lat: parseFloat(d.y),
-            lng: parseFloat(d.x),
-            category: d.category_group_name || d.category_name?.split(">")[0]?.trim() || "",
-            type: "kakao",
-          })));
-        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-          resolve([]);
-        } else {
-          reject(new Error("카카오 검색 실패"));
-        }
-      }, {
-        location: new kakao.maps.LatLng(lat, lng),
-        radius: 30000,
-        sort: kakao.maps.services.SortBy.DISTANCE,
-      });
-    });
+  async function kakaoServerSearch(q) {
+    const lat = latestPosition?.lat || 37.4651;
+    const lng = latestPosition?.lng || 126.9507;
+    const params = new URLSearchParams({ q, x: lng, y: lat });
+    const res = await fetch(`${SERVER_URL}/api/search-place?${params}`);
+    if (!res.ok) throw new Error("검색 실패");
+    const data = await res.json();
+    return data.map((d) => ({ ...d, type: "kakao" }));
   }
 
   async function fetchAndShow(q, forInput) {
-    if (q.trim().length < 2) { suggestions.classList.add("hidden"); return; }
+    if (q.trim().length < 1) { suggestions.classList.add("hidden"); return; }
 
     // 즉시 로컬 SNU 결과 표시
     const local = searchSNULocations(q);
@@ -1772,8 +1754,7 @@ function initMapRouteSearch() {
     clearTimeout(routeSearchTimer);
     routeSearchTimer = setTimeout(async () => {
       try {
-        await loadKakaoMapsSdk();
-        const remote = await kakaoLocalSearch(q);
+        const remote = await kakaoServerSearch(q);
         const localNames = new Set(local.map((l) => l.name));
         const merged = [...local, ...remote.filter((r) => !localNames.has(r.name))];
         renderSuggestions(merged, forInput);
