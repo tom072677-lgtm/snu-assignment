@@ -982,6 +982,7 @@ async function syncIcal(retrying = false) {
     if (!calendarTab.classList.contains("hidden")) renderCalendar();
     checkDeadlines();
     subscribePush();
+    lastSyncTime = Date.now();
     const now = new Date();
     const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     etlSyncStatus.textContent = `마지막 동기화: ${t} (${data.length}개)`;
@@ -998,6 +999,22 @@ async function syncIcal(retrying = false) {
     return false;
   }
 }
+
+// 자동 sync: 30분마다 + 탭 복귀 시
+let lastSyncTime = 0;
+setInterval(() => {
+  if (icalUrl) syncIcal();
+}, 30 * 60 * 1000);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && icalUrl) {
+    const now = Date.now();
+    if (now - lastSyncTime > 60 * 1000) { // 마지막 sync 후 1분 이상 지났을 때만
+      lastSyncTime = now;
+      syncIcal();
+    }
+  }
+});
 
 // ──────────────────────────────────────────
 // 알림 (Web Push)
