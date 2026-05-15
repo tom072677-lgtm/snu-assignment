@@ -413,6 +413,24 @@ function buildPushPayload(task, h, diffH) {
   };
 }
 
+// OSRM 도보/자전거 경로 프록시
+app.get("/api/route/osrm", async (req, res) => {
+  const { profile, olat, olng, dlat, dlng } = req.query;
+  if (!profile || !olat || !olng || !dlat || !dlng)
+    return res.status(400).json({ error: "파라미터 필요" });
+  try {
+    const url = `https://router.project-osrm.org/route/v1/${profile}/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
+    const text = await fetchText(url, 0);
+    const data = JSON.parse(text);
+    const route = data.routes?.[0];
+    if (!route) throw new Error("경로 없음");
+    const path = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    res.json({ duration: route.duration, distance: route.distance, path });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 장소 검색 (카카오 로컬 API 프록시)
 app.get("/api/search-place", async (req, res) => {
   const { q, x, y } = req.query;

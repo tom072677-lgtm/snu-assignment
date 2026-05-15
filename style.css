@@ -1123,25 +1123,32 @@ body.dark .rest-meal-tab.active {
 }
 .map-route-clear-btn.hidden { display: none; }
 /* 경로 정보 */
-.map-route-info { display: flex; flex-direction: column; gap: 6px; }
+.map-route-info { display: flex; flex-direction: column; gap: 8px; }
 .map-route-info.hidden { display: none; }
 .map-route-modes { display: flex; gap: 6px; }
 .map-route-mode-btn {
   flex: 1;
-  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 4px;
   border: 1.5px solid var(--border);
-  border-radius: 20px;
+  border-radius: 12px;
   background: var(--bg);
   color: var(--text-sub);
-  font-size: 12px;
   cursor: pointer;
   font-family: inherit;
+  gap: 2px;
+  transition: background 0.15s, color 0.15s;
 }
 .map-route-mode-btn.active {
   background: #2563eb;
   color: #fff;
   border-color: #2563eb;
 }
+.map-route-mode-btn.loading { opacity: 0.5; }
+.mode-icon { font-size: 18px; line-height: 1; }
+.mode-time { font-size: 11px; font-weight: 700; }
 .map-route-result {
   display: flex;
   align-items: baseline;
