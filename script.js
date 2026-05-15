@@ -1763,7 +1763,7 @@ function initMapRouteSearch() {
           }, {
             location: new kakao.maps.LatLng(lat, lng),
             radius: 20000,
-            sort: kakao.maps.services.SortBy.DISTANCE,
+            sort: kakao.maps.services.SortBy.ACCURACY,
           });
         });
       }
