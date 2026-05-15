@@ -49,9 +49,6 @@ body {
   color: var(--text);
   transition: background 0.2s, color 0.2s;
 }
-body.map-active {
-  overflow: hidden;
-}
 
 .app {
   max-width: 760px;
@@ -1233,10 +1230,6 @@ body.dark .rest-meal-tab.active {
 body.dark .map-filter-btn { background: var(--app-bg); border-color: var(--border); color: var(--text-sub); }
 body.dark .map-filter-btn.active { background: #2563eb; border-color: #2563eb; }
 
-#mapContainer,
-#mapContainer * {
-  touch-action: none;
-}
 #mapContainer {
   min-height: 200px;
   position: relative;

@@ -310,7 +310,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     calendarTab.classList.toggle("hidden", tab !== "calendar");
     restaurantTab.classList.toggle("hidden", tab !== "restaurant");
     mapTab.classList.toggle("hidden", tab !== "map");
-    document.body.classList.toggle("map-active", tab === "map");
     if (tab === "calendar") renderCalendar();
     if (tab === "restaurant") renderRestaurantTab();
     if (tab === "map") renderMapTab();
@@ -1493,6 +1492,14 @@ function renderMapTab() {
       requestOrientationPermission();
     });
     container.appendChild(btn);
+
+    // 모바일에서 지도 영역 터치 시 페이지 스크롤 방지
+    container.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+    }, { passive: true });
+    container.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   setTimeout(() => {
