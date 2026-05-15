@@ -1587,12 +1587,6 @@ async function fetchAllRoutes(origin, dest) {
   });
   destOverlay.setMap(kakaoMap);
 
-  // 출발지·도착지 모두 보이도록 지도 범위 맞추기
-  const bounds = new kakao.maps.LatLngBounds();
-  bounds.extend(new kakao.maps.LatLng(origin.lat, origin.lng));
-  bounds.extend(new kakao.maps.LatLng(dest.lat, dest.lng));
-  kakaoMap.setBounds(bounds, 60, 60, 60, 60);
-
   // 탭 로딩 상태
   document.querySelectorAll(".map-route-mode-btn").forEach((b) => {
     b.classList.add("loading");
