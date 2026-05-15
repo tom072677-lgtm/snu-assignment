@@ -1185,9 +1185,12 @@ body.dark .rest-meal-tab.active {
 }
 .map-route-suggestion-item:hover,
 .map-route-suggestion-item:active { background: var(--bg); }
-.suggestion-icon { font-size: 16px; flex-shrink: 0; }
-.suggestion-name { font-weight: 500; flex: 1; color: var(--text); }
-.suggestion-note { font-size: 12px; color: var(--text-sub); }
+.map-route-suggestion-item.suggestion-loading { color: var(--text-sub); cursor: default; font-size: 13px; }
+.suggestion-icon { font-size: 18px; flex-shrink: 0; }
+.suggestion-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.suggestion-name { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggestion-addr { font-size: 11px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggestion-cat { font-size: 11px; color: var(--text-sub); flex-shrink: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
 
 .map-filter-bar {
   display: none;
