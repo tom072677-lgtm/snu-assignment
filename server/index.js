@@ -3,6 +3,8 @@ const cors = require("cors");
 const ical = require("node-ical");
 const https = require("https");
 const webpush = require("web-push");
+const fs = require("fs");
+const path = require("path");
 
 // VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
@@ -340,6 +342,32 @@ const pushStore = new Map();
 const sentKeys = new Set(); // "endpoint:etlId:Nh" - 중복 발송 방지
 const HOURLY_DEADLINE_TARGETS = Array.from({ length: 24 }, (_, i) => 24 - i);
 
+// ── 구독 파일 영속화 ──────────────────────────
+const STORE_FILE = path.join(__dirname, "push_store.json");
+
+function loadStore() {
+  try {
+    const raw = fs.readFileSync(STORE_FILE, "utf8");
+    const { entries } = JSON.parse(raw);
+    if (Array.isArray(entries)) {
+      entries.forEach(([k, v]) => pushStore.set(k, v));
+      console.log(`[push] 구독 로드: ${pushStore.size}개`);
+    }
+  } catch {
+    // 파일 없으면 빈 상태로 시작
+  }
+}
+
+function saveStore() {
+  try {
+    fs.writeFileSync(STORE_FILE, JSON.stringify({ entries: [...pushStore.entries()] }));
+  } catch (err) {
+    console.error("[push] 저장 실패:", err.message);
+  }
+}
+
+loadStore();
+
 function buildBombProgressBar(diffH) {
   const totalBlocks = 12;
   const remainingRatio = Math.max(0, Math.min(1, diffH / 24));
@@ -380,6 +408,7 @@ app.post("/api/push/subscribe", (req, res) => {
   const { subscription, tasks } = req.body;
   if (!subscription?.endpoint) return res.status(400).json({ error: "subscription 필요" });
   pushStore.set(subscription.endpoint, { subscription, tasks: tasks || [] });
+  saveStore();
   console.log(`[push] 구독 등록: ${pushStore.size}개`);
   res.json({ ok: true });
 });
@@ -409,7 +438,7 @@ setInterval(async () => {
             console.log(`[push] 알림 발송: ${name} (${h}h)`);
           } catch (err) {
             console.error(`[push] 발송 실패:`, err.message);
-            if (err.statusCode === 410) pushStore.delete(endpoint);
+            if (err.statusCode === 410) { pushStore.delete(endpoint); saveStore(); }
           }
         }
       }
