@@ -780,6 +780,90 @@ app.post("/api/directions", async (req, res) => {
   }
 });
 
+// ──────────────────────────────────────────
+// FCM (Flutter 앱 푸시 알림)
+// ──────────────────────────────────────────
+const FCM_SERVER_KEY = process.env.FCM_SERVER_KEY; // Firebase Admin SDK 서비스 계정 키 JSON (Base64)
+
+let fcmAdmin = null;
+if (FCM_SERVER_KEY) {
+  try {
+    const admin = require("firebase-admin");
+    const serviceAccount = JSON.parse(Buffer.from(FCM_SERVER_KEY, "base64").toString("utf8"));
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    fcmAdmin = admin.messaging();
+    console.log("[FCM] Firebase Admin SDK 초기화 완료");
+  } catch (err) {
+    console.warn("[FCM] 초기화 실패:", err.message);
+  }
+} else {
+  console.warn("[FCM] FCM_SERVER_KEY 없음 — Flutter 푸시 알림 비활성화");
+}
+
+// FCM 토큰 저장소 { token → { tasks: [...] } }
+const fcmTokenStore = new Map();
+
+// Flutter 앱이 FCM 토큰 등록
+app.post("/api/fcm/register", (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: "token 필요" });
+  if (!fcmTokenStore.has(token)) {
+    fcmTokenStore.set(token, { tasks: [] });
+    console.log(`[FCM] 토큰 등록: ${token.slice(0, 20)}...`);
+  }
+  res.json({ ok: true });
+});
+
+// Flutter 앱이 과제 목록 동기화 (알림 스케줄용)
+app.post("/api/fcm/sync-tasks", (req, res) => {
+  const { token, tasks } = req.body;
+  if (!token) return res.status(400).json({ error: "token 필요" });
+  fcmTokenStore.set(token, { tasks: tasks || [] });
+  console.log(`[FCM] 과제 동기화: ${token.slice(0, 20)}... (${(tasks || []).length}개)`);
+  res.json({ ok: true });
+});
+
+// 5분마다 FCM 알림 체크 (기존 Web Push 로직과 동일한 24h~1h 타이밍)
+if (fcmAdmin) {
+  setInterval(async () => {
+    const now = new Date();
+    const WINDOW = 6 / 60;
+
+    for (const [token, { tasks }] of fcmTokenStore) {
+      for (const task of tasks) {
+        const due = new Date(task.dueDate);
+        const diffH = (due - now) / (1000 * 60 * 60);
+        if (diffH < 0) continue;
+
+        for (const h of HOURLY_DEADLINE_TARGETS) {
+          if (diffH <= h + WINDOW && diffH > h - WINDOW) {
+            const key = `fcm:${token}:${task.etlId}:${h}`;
+            if (sentKeys.has(key)) continue;
+            sentKeys.add(key);
+
+            try {
+              await fcmAdmin.send({
+                token,
+                notification: {
+                  title: `💣 ${task.courseName || task.title}`,
+                  body: `${task.title} 마감 ${h}시간 전`,
+                },
+                android: { priority: "high" },
+              });
+              console.log(`[FCM] 발송: ${task.title} (${h}h)`);
+            } catch (err) {
+              console.error("[FCM] 발송 실패:", err.message);
+              if (err.code === "messaging/registration-token-not-registered") {
+                fcmTokenStore.delete(token);
+              }
+            }
+          }
+        }
+      }
+    }
+  }, 5 * 60 * 1000);
+}
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });
