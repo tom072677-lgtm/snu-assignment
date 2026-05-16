@@ -1382,7 +1382,7 @@ function loadNaverMapsSdk() {
       reject(new Error("Naver Maps SDK load timeout"));
     }, 12000);
 
-    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_MAP_CLIENT_ID}`;
+    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_MAP_CLIENT_ID}`;
     script.async = true;
     script.onload = () => {
       clearTimeout(timeoutId);
@@ -1835,6 +1835,7 @@ function startLocationWatch() {
 
   navigator.geolocation.watchPosition(
     (pos) => {
+      if (!naverMap || !isNaverMapsReady()) return;
       const { latitude: lat, longitude: lng, accuracy } = pos.coords;
       const position = new naver.maps.LatLng(lat, lng);
       latestPosition = { lat, lng };
@@ -2261,3 +2262,12 @@ if (icalUrl) {
 
 setInterval(() => { if (icalUrl) syncIcal(); }, 10 * 60 * 1000);
 setInterval(() => { fetch(`${SERVER_URL}/health`).catch(() => {}); }, 14 * 60 * 1000);
+
+// URL 해시로 탭 직접 이동 (#map, #calendar, #restaurant, #alerts)
+const hashTab = location.hash.replace("#", "");
+if (["map", "calendar", "restaurant", "alerts"].includes(hashTab)) {
+  history.replaceState(null, "", location.pathname + location.search); // 해시 제거 (네이버 인증 URL 불일치 방지)
+  closeSettings();
+  const btn = document.querySelector(`.tab-btn[data-tab="${hashTab}"]`);
+  if (btn) btn.click();
+}
