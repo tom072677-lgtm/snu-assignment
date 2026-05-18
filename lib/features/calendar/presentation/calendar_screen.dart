@@ -53,7 +53,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     // 공휴일 맵
     final holidayMap = <DateTime, List<CalendarEvent>>{};
-    for (final h in holidays2026) {
+    for (final h in [...holidays2026, ...holidays2027]) {
       final d = DateTime.parse(h.date);
       holidayMap
           .putIfAbsent(d, () => [])

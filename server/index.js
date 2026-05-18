@@ -1,5 +1,4 @@
 const express = require("express");
-const cors = require("cors");
 const ical = require("node-ical");
 const https = require("https");
 const webpush = require("web-push");
@@ -15,16 +14,10 @@ if (pushEnabled) {
   console.warn("VAPID 환경변수 없음 — Push 알림 비활성화");
 }
 
-const path = require("path");
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: "*" }));
 app.use(express.json());
-
-// 정적 파일 서빙 (로컬: localhost:3001로 앱 접근 가능)
-app.use(express.static(path.join(__dirname, "..")));
 
 // ──────────────────────────────────────────
 // URL fetch (헤더 지원, 리다이렉트 자동 처리, POST 지원)
@@ -137,8 +130,13 @@ app.post("/api/sync-ical", async (req, res) => {
 
   icalUrl = icalUrl.trim().replace(/^webcal:\/\//i, "https://");
 
-  if (!icalUrl.startsWith("https://")) {
-    return res.status(400).json({ error: "유효한 eTL iCal URL을 입력해주세요." });
+  try {
+    const parsed = new URL(icalUrl);
+    if (parsed.protocol !== "https:" || parsed.hostname !== "myetl.snu.ac.kr") {
+      return res.status(400).json({ error: "유효한 eTL iCal URL을 입력해주세요. (myetl.snu.ac.kr 만 허용)" });
+    }
+  } catch {
+    return res.status(400).json({ error: "유효한 URL을 입력해주세요." });
   }
 
   try {
@@ -554,13 +552,8 @@ app.get("/api/instagram/callback", async (req, res) => {
     const { access_token: longToken } = JSON.parse(longRes);
     igAccessToken = longToken;
 
-    console.log("[ig] 액세스 토큰 발급 완료!");
-    console.log("[ig] 토큰 (Render 환경변수 IG_ACCESS_TOKEN에 저장하세요):", longToken);
-    res.send(`
-      <h2>✅ Instagram 연결 완료!</h2>
-      <p>아래 토큰을 Render 환경변수 <b>IG_ACCESS_TOKEN</b>에 저장하세요.</p>
-      <textarea rows="4" cols="80">${longToken}</textarea>
-    `);
+    console.log("[ig] 액세스 토큰 발급 완료! Render 환경변수 IG_ACCESS_TOKEN에 저장하세요.");
+    res.send("<h2>✅ Instagram 연결 완료!</h2><p>Render 대시보드 → Environment → IG_ACCESS_TOKEN에 토큰을 저장하세요.</p>");
   } catch (err) {
     console.error("[ig] 토큰 발급 오류:", err.message);
     res.status(500).send("토큰 발급 실패: " + err.message);
@@ -763,7 +756,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 // ──────────────────────────────────────────
 // 카카오 길찾기 프록시 (CORS 방지)
 // ──────────────────────────────────────────
-const KAKAO_REST_KEY = "80493a22b9dfbe3ba266c2f2421b461b";
+const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY;
 
 app.post("/api/directions", async (req, res) => {
   const { origin, destination } = req.body || {};
@@ -802,23 +795,60 @@ if (FCM_SERVER_KEY) {
 
 // FCM 토큰 저장소 { token → { tasks: [...] } }
 const fcmTokenStore = new Map();
+let fcmCol = null; // MongoDB fcm_tokens 컬렉션
+
+async function connectFcmMongo() {
+  if (!MONGO_URI) return;
+  try {
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    fcmCol = client.db("sharap").collection("fcm_tokens");
+    const docs = await fcmCol.find({}).toArray();
+    docs.forEach((doc) => fcmTokenStore.set(doc._id, { tasks: doc.tasks || [] }));
+    console.log(`[FCM] 토큰 로드: ${fcmTokenStore.size}개`);
+  } catch (err) {
+    console.error("[FCM] MongoDB 연결 실패:", err.message);
+  }
+}
+
+async function saveFcmToken(token, data) {
+  if (!fcmCol) return;
+  try {
+    await fcmCol.replaceOne({ _id: token }, { _id: token, ...data }, { upsert: true });
+  } catch (err) {
+    console.error("[FCM] 저장 실패:", err.message);
+  }
+}
+
+async function deleteFcmToken(token) {
+  if (!fcmCol) return;
+  try {
+    await fcmCol.deleteOne({ _id: token });
+  } catch (err) {
+    console.error("[FCM] 삭제 실패:", err.message);
+  }
+}
+
+connectFcmMongo();
 
 // Flutter 앱이 FCM 토큰 등록
-app.post("/api/fcm/register", (req, res) => {
+app.post("/api/fcm/register", async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "token 필요" });
-  if (!fcmTokenStore.has(token)) {
-    fcmTokenStore.set(token, { tasks: [] });
-    console.log(`[FCM] 토큰 등록: ${token.slice(0, 20)}...`);
-  }
+  const existing = fcmTokenStore.get(token);
+  fcmTokenStore.set(token, { tasks: existing?.tasks || [] });
+  await saveFcmToken(token, { tasks: existing?.tasks || [] });
+  console.log(`[FCM] 토큰 등록: ${token.slice(0, 20)}...`);
   res.json({ ok: true });
 });
 
 // Flutter 앱이 과제 목록 동기화 (알림 스케줄용)
-app.post("/api/fcm/sync-tasks", (req, res) => {
+app.post("/api/fcm/sync-tasks", async (req, res) => {
   const { token, tasks } = req.body;
   if (!token) return res.status(400).json({ error: "token 필요" });
-  fcmTokenStore.set(token, { tasks: tasks || [] });
+  const data = { tasks: tasks || [] };
+  fcmTokenStore.set(token, data);
+  await saveFcmToken(token, data);
   console.log(`[FCM] 과제 동기화: ${token.slice(0, 20)}... (${(tasks || []).length}개)`);
   res.json({ ok: true });
 });
@@ -855,6 +885,7 @@ if (fcmAdmin) {
               console.error("[FCM] 발송 실패:", err.message);
               if (err.code === "messaging/registration-token-not-registered") {
                 fcmTokenStore.delete(token);
+                deleteFcmToken(token);
               }
             }
           }
@@ -863,6 +894,13 @@ if (fcmAdmin) {
     }
   }, 5 * 60 * 1000);
 }
+
+// sentKeys 주기적 정리 (7일마다 전체 초기화 — 이미 발송된 만료 과제 키 제거)
+setInterval(() => {
+  const before = sentKeys.size;
+  sentKeys.clear();
+  console.log(`[sentKeys] 정리 완료 (${before}개 제거)`);
+}, 7 * 24 * 60 * 60 * 1000);
 
 // 식당 메뉴 서버 시작 시 즉시 로드 + 1시간마다 갱신 (사용자 요청 전에 캐시 warm-up)
 fetchSnucoMenu().catch(err => console.error('[snuco] 초기 로드 실패:', err.message));

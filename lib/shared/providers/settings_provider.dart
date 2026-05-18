@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 
@@ -30,10 +31,25 @@ final icalUrlProvider = StateNotifierProvider<StringSettingNotifier, String?>((r
   return StringSettingNotifier(prefs, kIcalUrl);
 });
 
-final canvasTokenProvider = StateNotifierProvider<StringSettingNotifier, String?>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return StringSettingNotifier(prefs, kCanvasToken);
+// Canvas API 토큰 — flutter_secure_storage 사용 (main.dart에서 override)
+final canvasTokenProvider =
+    StateNotifierProvider<CanvasTokenNotifier, String?>((ref) {
+  throw UnimplementedError('canvasTokenProvider must be overridden in main');
 });
+
+class CanvasTokenNotifier extends StateNotifier<String?> {
+  CanvasTokenNotifier(String? initial) : super(initial);
+  static const _storage = FlutterSecureStorage();
+
+  void set(String? value) {
+    state = value;
+    if (value == null) {
+      _storage.delete(key: kCanvasToken).ignore();
+    } else {
+      _storage.write(key: kCanvasToken, value: value).ignore();
+    }
+  }
+}
 
 class StringSettingNotifier extends StateNotifier<String?> {
   StringSettingNotifier(this._prefs, this._key) : super(_prefs.getString(_key));

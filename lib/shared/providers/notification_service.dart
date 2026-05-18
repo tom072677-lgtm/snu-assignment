@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import '../../core/dio_client.dart';
-import 'settings_provider.dart';
 
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
@@ -78,12 +77,11 @@ class NotificationService {
   }
 
   /// FCM 토큰을 서버에 전송 (서버는 FCM 발송에 사용)
+  /// 서버 재시작 후 토큰이 소멸될 수 있으므로 항상 등록
   Future<void> _registerToken(String token) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final old = prefs.getString(kFcmToken);
-      if (old == token) return; // 변경 없으면 스킵
       await DioClient.instance.post('/api/fcm/register', data: {'token': token});
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(kFcmToken, token);
       debugPrint('[FCM] 토큰 등록 완료');
     } catch (e) {

@@ -63,3 +63,25 @@ const List<({String title, String date})> holidays2026 = [
   (title: '한글날', date: '2026-10-09'),
   (title: '성탄절', date: '2026-12-25'),
 ];
+
+const List<({String title, String date})> holidays2027 = [
+  (title: '신정', date: '2027-01-01'),
+  (title: '설날 연휴', date: '2027-02-05'),
+  (title: '설날', date: '2027-02-06'),
+  (title: '설날 연휴', date: '2027-02-08'),
+  (title: '삼일절', date: '2027-03-01'),
+  (title: '어린이날', date: '2027-05-05'),
+  (title: '부처님오신날', date: '2027-05-13'),
+  (title: '현충일', date: '2027-06-06'),
+  (title: '대체공휴일(현충일)', date: '2027-06-07'),
+  (title: '광복절', date: '2027-08-15'),
+  (title: '대체공휴일(광복절)', date: '2027-08-16'),
+  (title: '추석 연휴', date: '2027-09-13'),
+  (title: '추석', date: '2027-09-14'),
+  (title: '추석 연휴', date: '2027-09-15'),
+  (title: '대체공휴일(추석)', date: '2027-09-16'),
+  (title: '개천절', date: '2027-10-03'),
+  (title: '한글날', date: '2027-10-09'),
+  (title: '대체공휴일(한글날)', date: '2027-10-11'),
+  (title: '성탄절', date: '2027-12-25'),
+];

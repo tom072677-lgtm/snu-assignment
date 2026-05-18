@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
+import '../../../shared/providers/notification_service.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../domain/assignment.dart';
 
@@ -47,7 +48,23 @@ class AssignmentsNotifier
         .map((e) => Assignment.fromJson(e as Map<String, dynamic>))
         .toList();
     _saveCache(icalUrl, list);
+    // FCM 알림 스케줄 서버 동기화
+    _syncNotifications(list);
     return list;
+  }
+
+  void _syncNotifications(List<Assignment> list) {
+    final notifService = ref.read(notificationServiceProvider);
+    final tasks = list
+        .map((a) => {
+              'etlId': a.etlId,
+              'title': a.title,
+              'courseName': a.courseName,
+              'dueDate': a.dueDate.toIso8601String(),
+              'url': a.url,
+            })
+        .toList();
+    notifService.syncTasksForNotification(tasks).ignore();
   }
 
   List<Assignment>? _loadCache(String currentIcalUrl) {
@@ -57,6 +74,12 @@ class AssignmentsNotifier
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       if (json['icalUrl'] != currentIcalUrl) return null;
+      // 30분 TTL: 초과 시 캐시 무효화
+      final cachedAt = DateTime.tryParse(json['cachedAt'] as String? ?? '');
+      if (cachedAt == null ||
+          DateTime.now().difference(cachedAt).inMinutes > 30) {
+        return null;
+      }
       return (json['data'] as List)
           .map((e) => Assignment.fromJson(e as Map<String, dynamic>))
           .toList();

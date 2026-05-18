@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
@@ -37,10 +38,24 @@ Future<void> main() async {
   // SharedPreferences 초기화
   final prefs = await SharedPreferences.getInstance();
 
+  // Canvas 토큰: SecureStorage에서 읽기 (기존 SharedPreferences 값 마이그레이션)
+  const secureStorage = FlutterSecureStorage();
+  String? canvasToken = await secureStorage.read(key: kCanvasToken);
+  if (canvasToken == null) {
+    final legacy = prefs.getString(kCanvasToken);
+    if (legacy != null && legacy.isNotEmpty) {
+      await secureStorage.write(key: kCanvasToken, value: legacy);
+      await prefs.remove(kCanvasToken);
+      canvasToken = legacy;
+    }
+  }
+
   runApp(
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
+        canvasTokenProvider
+            .overrideWith((ref) => CanvasTokenNotifier(canvasToken)),
       ],
       child: const _AppInit(),
     ),

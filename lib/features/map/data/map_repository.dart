@@ -86,13 +86,3 @@ class MapRepository {
 }
 
 final mapRepositoryProvider = Provider<MapRepository>((_) => MapRepository());
-
-// 검색 쿼리 provider
-final mapSearchQueryProvider = StateProvider<String>((ref) => '');
-
-final mapSearchResultsProvider =
-    FutureProvider.autoDispose.family<List<PlaceResult>, String>((ref, query) async {
-  if (query.isEmpty) return [];
-  final repo = ref.watch(mapRepositoryProvider);
-  return repo.searchPlace(query, null, null);
-});
