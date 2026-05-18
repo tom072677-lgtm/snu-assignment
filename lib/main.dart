@@ -1,0 +1,68 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'app.dart';
+import 'core/constants.dart';
+import 'firebase_options.dart';
+import 'shared/providers/notification_service.dart';
+import 'shared/providers/settings_provider.dart';
+
+/// 백그라운드 FCM 메시지 핸들러 (top-level 함수여야 함)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('[FCM BG] ${message.notification?.title}');
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase 초기화
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // 네이버 지도 SDK 초기화 (NCP 신규 인증 방식)
+  await FlutterNaverMap().init(
+    clientId: naverMapClientId,
+    onAuthFailed: (e) => debugPrint('[NaverMap] 인증 실패: $e'),
+  );
+
+  // 한국어 날짜 포맷 초기화
+  await initializeDateFormatting('ko');
+
+  // SharedPreferences 초기화
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+      ],
+      child: const _AppInit(),
+    ),
+  );
+}
+
+/// 알림 서비스 초기화를 앱 시작 시 한 번만 실행
+class _AppInit extends ConsumerWidget {
+  const _AppInit();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 최초 빌드 시 알림 초기화 (한 번만)
+    ref.listen<Object?>(
+      _notifInitProvider,
+      (_, __) {},
+    );
+    return const SharapApp();
+  }
+}
+
+final _notifInitProvider = FutureProvider<void>((ref) async {
+  final service = ref.watch(notificationServiceProvider);
+  await service.initialize();
+});

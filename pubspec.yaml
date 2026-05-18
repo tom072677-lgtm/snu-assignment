@@ -1,0 +1,56 @@
+name: sharap
+description: SNU 서울대학교 생활 앱 - 과제/달력/식당/지도
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 상태관리
+  flutter_riverpod: ^2.5.1
+
+  # 네트워크
+  dio: ^5.4.3
+
+  # 로컬 저장소
+  shared_preferences: ^2.2.3
+
+  # 지도
+  flutter_naver_map: ^1.4.4
+  geolocator: ^13.0.1
+  sensors_plus: ^5.0.1
+
+  # 달력 UI
+  table_calendar: ^3.1.2
+
+  # 알림
+  firebase_core: ^3.4.0
+  firebase_messaging: ^15.1.0
+  flutter_local_notifications: ^17.2.2
+
+  # 유틸
+  intl: ^0.19.0
+  uuid: ^4.4.0
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/marker_restaurant.png
+    - assets/marker_cafe.png
+    - assets/marker_building.png
