@@ -864,6 +864,12 @@ if (fcmAdmin) {
   }, 5 * 60 * 1000);
 }
 
+// 식당 메뉴 서버 시작 시 즉시 로드 + 1시간마다 갱신 (사용자 요청 전에 캐시 warm-up)
+fetchSnucoMenu().catch(err => console.error('[snuco] 초기 로드 실패:', err.message));
+setInterval(() => {
+  fetchSnucoMenu().catch(err => console.error('[snuco] 주기적 갱신 실패:', err.message));
+}, 60 * 60 * 1000);
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });

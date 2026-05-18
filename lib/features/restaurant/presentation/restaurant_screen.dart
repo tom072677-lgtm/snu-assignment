@@ -29,7 +29,7 @@ class RestaurantScreen extends ConsumerWidget {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(restaurantProvider),
+            onRefresh: () => ref.read(restaurantProvider.notifier).refresh(),
             child: ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: restaurants.length,

@@ -47,7 +47,7 @@ class AssignmentsScreen extends ConsumerWidget {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(assignmentsProvider),
+                  onRefresh: () => ref.read(assignmentsProvider.notifier).refresh(),
                   child: ListView(
                     padding: const EdgeInsets.all(12),
                     children: [
