@@ -56,9 +56,15 @@ class MapRepository {
         .map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    // 3) 로컬 결과 우선, 서버 결과에서 중복(이름 기준) 제거 후 병합
-    final localNames = local.map((r) => r.name).toSet();
-    final deduped = server.where((r) => !localNames.contains(r.name)).toList();
+    // 3) 로컬 결과 우선, 서버 결과 중복 제거 후 병합
+    // 정규화: "서울대학교", "서울대", 공백 제거 후 비교
+    String _norm(String s) => s
+        .replaceAll('서울대학교', '')
+        .replaceAll('서울대', '')
+        .replaceAll(' ', '')
+        .toLowerCase();
+    final localNorms = local.map((r) => _norm(r.name)).toSet();
+    final deduped = server.where((r) => !localNorms.contains(_norm(r.name))).toList();
     return [...local, ...deduped];
   }
 
