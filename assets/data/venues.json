@@ -1,0 +1,615 @@
+[
+  {
+    "id": "학생회관식당",
+    "name": "학생회관식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "학생회관 63동 1F·B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4609,
+    "lng": 126.9518,
+    "phone": "02-880-5543",
+    "tags": ["학식", "한식"],
+    "snucoName": "학생회관식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:00","close":"14:30"},{"open":"17:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"11:30","close":"14:00"},{"open":"17:00","close":"19:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "두레미담",
+    "name": "두레미담",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "75-1동 5F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4596,
+    "lng": 126.9505,
+    "phone": "02-880-9358",
+    "tags": ["학식", "한식", "전통"],
+    "snucoName": "두레미담",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"14:00"},{"open":"17:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "자하연식당",
+    "name": "자하연식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "109동 2·3F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4614,
+    "lng": 126.9527,
+    "phone": "02-880-7888",
+    "tags": ["학식", "한식"],
+    "snucoName": "자하연식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"14:00"},{"open":"17:00","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "소담마루",
+    "name": "소담마루",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "75-1동 3·4F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4600,
+    "lng": 126.9494,
+    "phone": "02-880-5545",
+    "tags": ["학식", "한식"],
+    "snucoName": "소담마루",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"14:00"},{"open":"17:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "감골식당",
+    "name": "감골식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "아시아연구소 101동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4625,
+    "lng": 126.9530,
+    "phone": "02-880-5544",
+    "tags": ["학식", "할랄", "채식"],
+    "snucoName": "감골식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"13:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "동원관식당",
+    "name": "동원관식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "동원관 113동 2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4613,
+    "lng": 126.9532,
+    "phone": "02-880-8697",
+    "tags": ["학식", "한식"],
+    "snucoName": "동원관식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"14:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "공학연구원1식당",
+    "name": "공학연구원1식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "공학연구원 301동 B1·1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4596,
+    "lng": 126.9501,
+    "phone": "02-889-8955",
+    "tags": ["학식", "한식"],
+    "snucoName": "공학연구원1식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"13:30"},{"open":"17:00","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "공학연구원2식당",
+    "name": "공학연구원2식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "302동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4599,
+    "lng": 126.9504,
+    "phone": "02-880-1939",
+    "tags": ["학식", "한식"],
+    "snucoName": "공학연구원2식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "220동식당",
+    "name": "220동식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "자유전공학부 220동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4587,
+    "lng": 126.9530,
+    "phone": "02-875-0240",
+    "tags": ["학식", "한식"],
+    "snucoName": "220동식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"13:10"},{"open":"17:00","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "관악사중앙식당",
+    "name": "관악사중앙식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "관악사 900동 2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4573,
+    "lng": 126.9555,
+    "phone": "02-881-9201",
+    "tags": ["학식", "기숙사", "한식"],
+    "snucoName": "관악사중앙식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"09:00"},{"open":"11:00","close":"14:00"},{"open":"17:30","close":"19:30"},{"open":"21:00","close":"23:30"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"09:00"},{"open":"11:00","close":"14:00"},{"open":"17:30","close":"19:30"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:00","close":"09:00"},{"open":"11:00","close":"14:00"},{"open":"17:30","close":"19:30"}], "closed": false }
+    }
+  },
+  {
+    "id": "919식당",
+    "name": "기숙사식당 (919동)",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "919동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4570,
+    "lng": 126.9560,
+    "phone": "02-881-9072",
+    "tags": ["학식", "기숙사", "한식"],
+    "snucoName": "기숙사식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "롯데리아",
+    "name": "롯데리아",
+    "category": "restaurant",
+    "type": "static",
+    "building": "관정도서관 62-1동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4653,
+    "lng": 126.9479,
+    "phone": null,
+    "tags": ["패스트푸드", "버거"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"21:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"09:00","close":"21:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"09:00","close":"21:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "BBQ",
+    "name": "BBQ 프리미엄 카페",
+    "category": "restaurant",
+    "type": "static",
+    "building": "글로벌공학교육센터 38동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4605,
+    "lng": 126.9515,
+    "phone": "02-878-6690",
+    "tags": ["치킨", "맥주"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"11:00","close":"22:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "락구정",
+    "name": "락구정",
+    "category": "restaurant",
+    "type": "static",
+    "building": "글로벌공학교육센터 38동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4605,
+    "lng": 126.9515,
+    "phone": "02-875-8840",
+    "tags": ["한식", "갈비탕", "불고기"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"17:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "BHC",
+    "name": "BHC치킨",
+    "category": "restaurant",
+    "type": "static",
+    "building": "관악사 900동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4573,
+    "lng": 126.9555,
+    "phone": "02-881-9222",
+    "tags": ["치킨", "맥주"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"23:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"11:00","close":"23:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"11:00","close":"23:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "강여사집밥",
+    "name": "강여사집밥",
+    "category": "restaurant",
+    "type": "instagram",
+    "building": "낙성대 인근",
+    "address": "서울 관악구 조원로 92-1",
+    "lat": 37.4730,
+    "lng": 126.9637,
+    "phone": null,
+    "tags": ["한식", "가정식", "외부"],
+    "snucoName": null,
+    "instagramHandle": "@sgon1476",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"16:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "투썸플레이스",
+    "name": "투썸플레이스",
+    "category": "cafe",
+    "type": "static",
+    "building": "자연과학대학 500동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4590,
+    "lng": 126.9511,
+    "phone": "02-884-2385",
+    "tags": ["카페", "디저트"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "파스쿠찌",
+    "name": "파스쿠찌",
+    "category": "cafe",
+    "type": "static",
+    "building": "111동 1·2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4620,
+    "lng": 126.9520,
+    "phone": "02-882-8497",
+    "tags": ["카페", "이탈리안"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "공차",
+    "name": "공차",
+    "category": "cafe",
+    "type": "static",
+    "building": "학생회관 63동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4609,
+    "lng": 126.9518,
+    "phone": "02-874-3370",
+    "tags": ["카페", "버블티"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"21:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"09:00","close":"18:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "더벤티",
+    "name": "더벤티",
+    "category": "cafe",
+    "type": "static",
+    "building": "농업생명과학대학 200동 2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4574,
+    "lng": 126.9505,
+    "phone": null,
+    "tags": ["카페", "저가커피"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"22:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "느티나무-관정",
+    "name": "느티나무카페 (관정점)",
+    "category": "cafe",
+    "type": "static",
+    "building": "관정도서관 62동 3F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4643,
+    "lng": 126.9479,
+    "phone": "02-880-5546",
+    "tags": ["카페", "학교카페"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"22:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "느티나무-137",
+    "name": "느티나무카페 (언어교육원점)",
+    "category": "cafe",
+    "type": "static",
+    "building": "언어교육원 137-1동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4607,
+    "lng": 126.9526,
+    "phone": "02-880-5552",
+    "tags": ["카페", "학교카페"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "느티나무-동원관",
+    "name": "느티나무카페 (동원관점)",
+    "category": "cafe",
+    "type": "static",
+    "building": "동원관 113동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4613,
+    "lng": 126.9532,
+    "phone": "02-880-8694",
+    "tags": ["카페", "학교카페"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:15","close":"17:45"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "느티나무-109",
+    "name": "느티나무카페 (자하연점)",
+    "category": "cafe",
+    "type": "static",
+    "building": "109동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4614,
+    "lng": 126.9527,
+    "phone": "02-880-7889",
+    "tags": ["카페", "학교카페"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:30","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "컴포즈커피",
+    "name": "컴포즈커피",
+    "category": "cafe",
+    "type": "static",
+    "building": "신양관 16-1동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4624,
+    "lng": 126.9528,
+    "phone": null,
+    "tags": ["카페", "저가커피"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"21:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"09:00","close":"18:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "더로스터59",
+    "name": "더로스터59",
+    "category": "cafe",
+    "type": "static",
+    "building": "경영대학 59-1동 2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4661,
+    "lng": 126.9484,
+    "phone": "02-873-8880",
+    "tags": ["카페", "스페셜티"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "CU-관정",
+    "name": "CU (관정도서관)",
+    "category": "convenience",
+    "type": "static",
+    "building": "관정도서관 62-1동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4643,
+    "lng": 126.9479,
+    "phone": null,
+    "tags": ["편의점", "CU"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "CU-공대",
+    "name": "CU (공대 32동)",
+    "category": "convenience",
+    "type": "static",
+    "building": "32-1동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4565,
+    "lng": 126.9523,
+    "phone": null,
+    "tags": ["편의점", "CU"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "CU-301",
+    "name": "CU (공학연구원 301동)",
+    "category": "convenience",
+    "type": "static",
+    "building": "301동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4596,
+    "lng": 126.9501,
+    "phone": null,
+    "tags": ["편의점", "CU"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "CU-917",
+    "name": "CU (기숙사 917동)",
+    "category": "convenience",
+    "type": "static",
+    "building": "917동",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4573,
+    "lng": 126.9555,
+    "phone": null,
+    "tags": ["편의점", "CU", "기숙사"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:00","close":"23:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "GS25-관악사",
+    "name": "GS25 (관악사 24시간)",
+    "category": "convenience",
+    "type": "static",
+    "building": "관악사 900동 B2",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4573,
+    "lng": 126.9555,
+    "phone": "02-881-9215",
+    "tags": ["편의점", "GS25", "24시간", "기숙사"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"00:00","close":"23:59"}], "closed": false },
+      "saturday": { "ranges": [{"open":"00:00","close":"23:59"}], "closed": false },
+      "sunday": { "ranges": [{"open":"00:00","close":"23:59"}], "closed": false }
+    }
+  },
+  {
+    "id": "세븐-학생회관",
+    "name": "세븐일레븐 (학생회관)",
+    "category": "convenience",
+    "type": "static",
+    "building": "학생회관 63동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4609,
+    "lng": 126.9518,
+    "phone": null,
+    "tags": ["편의점", "세븐일레븐"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "세븐-동원관",
+    "name": "세븐일레븐 (동원관)",
+    "category": "convenience",
+    "type": "static",
+    "building": "동원관 113동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4613,
+    "lng": 126.9532,
+    "phone": null,
+    "tags": ["편의점", "세븐일레븐"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "세븐-919",
+    "name": "세븐일레븐 (919동)",
+    "category": "convenience",
+    "type": "static",
+    "building": "919동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4570,
+    "lng": 126.9560,
+    "phone": "02-881-9068",
+    "tags": ["편의점", "세븐일레븐", "기숙사"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false }
+    }
+  }
+]

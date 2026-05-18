@@ -37,6 +37,9 @@ dependencies:
   firebase_messaging: ^15.1.0
   flutter_local_notifications: ^17.2.2
 
+  # 음성 인식
+  speech_to_text: ^7.3.0
+
   # 유틸
   intl: ^0.19.0
   uuid: ^4.4.0
@@ -52,6 +55,7 @@ flutter:
 
   assets:
     - assets/
+    - assets/data/
     - assets/marker_restaurant.png
     - assets/marker_cafe.png
     - assets/marker_building.png
