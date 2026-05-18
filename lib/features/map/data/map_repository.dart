@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
+import 'snu_places.dart';
 
 class PlaceResult {
   final String name;
@@ -40,6 +41,10 @@ class RouteResult {
 class MapRepository {
   Future<List<PlaceResult>> searchPlace(
       String query, double? lat, double? lng) async {
+    // 1) 로컬 SNU DB에서 먼저 매칭
+    final local = searchSnuLocal(query);
+
+    // 2) 서버(Kakao 이중 검색) 호출
     final params = <String, dynamic>{'q': query};
     if (lat != null && lng != null) {
       params['x'] = lng.toString();
@@ -47,10 +52,14 @@ class MapRepository {
     }
     final response =
         await DioClient.instance.get('/api/search-place', queryParameters: params);
-    final list = (response.data as List)
+    final server = (response.data as List)
         .map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
         .toList();
-    return list;
+
+    // 3) 로컬 결과 우선, 서버 결과에서 중복(이름 기준) 제거 후 병합
+    final localNames = local.map((r) => r.name).toSet();
+    final deduped = server.where((r) => !localNames.contains(r.name)).toList();
+    return [...local, ...deduped];
   }
 
   Future<RouteResult> getOsrmRoute({

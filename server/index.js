@@ -438,21 +438,42 @@ app.get("/api/route/osrm", async (req, res) => {
 });
 
 // 장소 검색 (카카오 로컬 API 프록시)
+// 좌표가 제공된 경우: "서울대학교 {q}" + "{q}" 이중 검색 후 SNU 결과 우선 병합
 app.get("/api/search-place", async (req, res) => {
   const { q, x, y } = req.query;
   if (!q) return res.status(400).json({ error: "q 필요" });
+  const BASE = "https://dapi.kakao.com/v2/local/search/keyword.json";
+  const headers = { Authorization: `KakaoAK ${KAKAO_REST_KEY}` };
+  const toResult = (d) => ({
+    name: d.place_name,
+    address: d.road_address_name || d.address_name,
+    lat: parseFloat(d.y),
+    lng: parseFloat(d.x),
+    category: d.category_group_name || "",
+  });
   try {
-    let url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15`;
-    if (x && y) url += `&x=${x}&y=${y}&radius=20000&sort=accuracy`;
-    const text = await fetchText(url, 0, { Authorization: `KakaoAK ${KAKAO_REST_KEY}` });
-    const data = JSON.parse(text);
-    res.json((data.documents || []).map((d) => ({
-      name: d.place_name,
-      address: d.road_address_name || d.address_name,
-      lat: parseFloat(d.y),
-      lng: parseFloat(d.x),
-      category: d.category_group_name || "",
-    })));
+    if (x && y) {
+      // SNU 캠퍼스 좌표 제공 시 이중 검색: "서울대학교 {q}" 결과를 앞에 배치
+      const coords = `&x=${x}&y=${y}&radius=5000&sort=accuracy`;
+      const [snuText, generalText] = await Promise.all([
+        fetchText(`${BASE}?query=${encodeURIComponent("서울대학교 " + q)}&size=5${coords}`, 0, headers),
+        fetchText(`${BASE}?query=${encodeURIComponent(q)}&size=15${coords}`, 0, headers),
+      ]);
+      const snuDocs = JSON.parse(snuText).documents || [];
+      const generalDocs = JSON.parse(generalText).documents || [];
+      const seen = new Set();
+      const merged = [];
+      for (const d of [...snuDocs, ...generalDocs]) {
+        if (!seen.has(d.place_name)) {
+          seen.add(d.place_name);
+          merged.push(toResult(d));
+        }
+      }
+      return res.json(merged.slice(0, 15));
+    }
+    // 좌표 없으면 일반 검색
+    const text = await fetchText(`${BASE}?query=${encodeURIComponent(q)}&size=15`, 0, headers);
+    res.json((JSON.parse(text).documents || []).map(toResult));
   } catch (err) {
     console.error("[search-place]", err.message);
     res.status(500).json({ error: err.message });
