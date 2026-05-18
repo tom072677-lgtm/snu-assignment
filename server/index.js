@@ -419,19 +419,134 @@ function buildPushPayload(task, h, diffH) {
   };
 }
 
-// OSRM 도보/자전거 경로 프록시
-app.get("/api/route/osrm", async (req, res) => {
-  const { profile, olat, olng, dlat, dlng } = req.query;
-  if (!profile || !olat || !olng || !dlat || !dlng)
+// ── T Map 도보 경로 ──────────────────────────────────────────────────────────
+app.post("/api/route/tmap/pedestrian", async (req, res) => {
+  const { olat, olng, dlat, dlng } = req.body;
+  if (!olat || !olng || !dlat || !dlng)
     return res.status(400).json({ error: "파라미터 필요" });
   try {
-    const url = `https://router.project-osrm.org/route/v1/${profile}/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
-    const text = await fetchText(url, 0);
-    const data = JSON.parse(text);
-    const route = data.routes?.[0];
-    if (!route) throw new Error("경로 없음");
-    const path = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-    res.json({ duration: route.duration, distance: route.distance, path });
+    const TMAP_KEY = process.env.TMAP_API_KEY;
+    const url = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
+    const body = {
+      startX: String(olng), startY: String(olat),
+      endX:   String(dlng), endY:   String(dlat),
+      reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO",
+      startName: "출발", endName: "도착",
+    };
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", appKey: TMAP_KEY },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    const feature = data.features?.[0];
+    if (!feature) throw new Error("T Map 경로 없음");
+    const props = feature.properties;
+    // 경로 좌표 수집 (LineString features만)
+    const path = [];
+    for (const f of data.features) {
+      if (f.geometry.type === "LineString") {
+        for (const [x, y] of f.geometry.coordinates) {
+          path.push([y, x]); // [lat, lng]
+        }
+      }
+    }
+    res.json({
+      duration: props.totalTime,
+      distance: props.totalDistance,
+      path,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── T Map 자동차 경로 ─────────────────────────────────────────────────────────
+app.post("/api/route/tmap/car", async (req, res) => {
+  const { olat, olng, dlat, dlng } = req.body;
+  if (!olat || !olng || !dlat || !dlng)
+    return res.status(400).json({ error: "파라미터 필요" });
+  try {
+    const TMAP_KEY = process.env.TMAP_API_KEY;
+    const url = "https://apis.openapi.sk.com/tmap/routes?version=1";
+    const body = {
+      startX: String(olng), startY: String(olat),
+      endX:   String(dlng), endY:   String(dlat),
+      reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO",
+      startName: "출발", endName: "도착",
+    };
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", appKey: TMAP_KEY },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    const feature = data.features?.[0];
+    if (!feature) throw new Error("T Map 자동차 경로 없음");
+    const props = feature.properties;
+    const path = [];
+    for (const f of data.features) {
+      if (f.geometry.type === "LineString") {
+        for (const [x, y] of f.geometry.coordinates) {
+          path.push([y, x]);
+        }
+      }
+    }
+    res.json({
+      duration: props.totalTime,
+      distance: props.totalDistance,
+      path,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ODSAY 대중교통 경로 ───────────────────────────────────────────────────────
+app.get("/api/route/odsay/transit", async (req, res) => {
+  const { olat, olng, dlat, dlng } = req.query;
+  if (!olat || !olng || !dlat || !dlng)
+    return res.status(400).json({ error: "파라미터 필요" });
+  try {
+    const ODSAY_KEY = encodeURIComponent(process.env.ODSAY_API_KEY);
+    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${ODSAY_KEY}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const path0 = data.result?.path?.[0];
+    if (!path0) throw new Error("ODSAY 경로 없음");
+
+    const info = path0.info;
+    const duration = (info.totalTime || 0) * 60; // 분 → 초
+    const distance = (info.totalDistance || 0);
+
+    // legs 구성
+    const legs = [];
+    const allCoords = [];
+    for (const sub of path0.subPath) {
+      const type = sub.trafficType === 1 ? 'subway'
+                 : sub.trafficType === 2 ? 'bus'
+                 : 'walk';
+      const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
+      const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
+      legs.push({
+        type,
+        name,
+        color: color.startsWith('#') ? color : `#${color}`,
+        duration: (sub.sectionTime || 0) * 60,
+        distance: sub.distance || 0,
+      });
+      // 경유 좌표
+      const stations = sub.passStopList?.stations || [];
+      for (const st of stations) {
+        if (st.x && st.y) allCoords.push([parseFloat(st.y), parseFloat(st.x)]);
+      }
+      // 도보 구간은 startX/Y ~ endX/Y
+      if (type === 'walk' && sub.startX && sub.startY) {
+        allCoords.unshift([parseFloat(sub.startY), parseFloat(sub.startX)]);
+      }
+    }
+
+    res.json({ duration, distance, path: allCoords, legs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -928,6 +1043,16 @@ fetchSnucoMenu().catch(err => console.error('[snuco] 초기 로드 실패:', err
 setInterval(() => {
   fetchSnucoMenu().catch(err => console.error('[snuco] 주기적 갱신 실패:', err.message));
 }, 60 * 60 * 1000);
+
+// 서버 공인 IP 확인용 (ODSAY 등록 후 삭제 가능)
+app.get('/api/myip', async (req, res) => {
+  try {
+    const text = await fetchText('https://api.ipify.org');
+    res.json({ ip: text.trim() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
