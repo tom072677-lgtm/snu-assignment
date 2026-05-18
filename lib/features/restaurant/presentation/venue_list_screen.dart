@@ -29,11 +29,14 @@ class VenueListScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: sorted.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-        itemBuilder: (_, i) => _VenueRow(venue: sorted[i]),
+      body: SafeArea(
+        top: false,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: sorted.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+          itemBuilder: (_, i) => _VenueRow(venue: sorted[i]),
+        ),
       ),
     );
   }
@@ -45,7 +48,9 @@ class _VenueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = venue.isOpenAt(DateTime.now());
+    final now = DateTime.now();
+    final isOpen = venue.isOpenAt(now);
+    final timeLabel = venue.statusTimeLabel(now);
     final preview = venue.lunchPreview;
 
     return ListTile(
@@ -68,9 +73,23 @@ class _VenueRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 2),
-          Text(
-            venue.building,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          // 건물 · 시간 한 줄
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: venue.building,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              if (timeLabel != null)
+                TextSpan(
+                  text: ' · $timeLabel',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isOpen ? Colors.green[700] : Colors.orange[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ]),
           ),
           if (preview != null && preview.isNotEmpty) ...[
             const SizedBox(height: 3),

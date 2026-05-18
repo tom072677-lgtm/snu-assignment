@@ -99,32 +99,43 @@ class Venue {
         instagramHandle: j['instagramHandle'] as String?,
       );
 
+  DayHours _dayHours(DateTime kst) {
+    final w = kst.weekday;
+    if (w == 6) return hours.saturday;
+    if (w == 7) return hours.sunday;
+    return hours.weekday;
+  }
+
   /// Returns true if venue is open at [t] in KST (UTC+9).
   bool isOpenAt(DateTime t) {
-    // Convert to KST
     final kst = t.toUtc().add(const Duration(hours: 9));
-    final weekday = kst.weekday; // Mon=1 … Sun=7
-
-    final DayHours day;
-    if (weekday == 6) {
-      day = hours.saturday;
-    } else if (weekday == 7) {
-      day = hours.sunday;
-    } else {
-      day = hours.weekday;
-    }
-
+    final day = _dayHours(kst);
     if (day.closed || day.ranges.isEmpty) return false;
-
     final now = kst.hour * 60 + kst.minute;
     for (final r in day.ranges) {
       final open = _toMinutes(r.open);
       var close = _toMinutes(r.close);
-      // Handle overnight (e.g. 08:00–02:00)
-      if (close < open) close += 24 * 60;
+      if (close < open) close += 24 * 60; // overnight
       if (now >= open && now < close) return true;
     }
     return false;
+  }
+
+  /// Returns a short time label for the list row, e.g. "~18:30 종료" or "17:00 오픈".
+  /// Returns null when today's schedule is unknown or all ranges have passed.
+  String? statusTimeLabel(DateTime t) {
+    final kst = t.toUtc().add(const Duration(hours: 9));
+    final day = _dayHours(kst);
+    if (day.closed || day.ranges.isEmpty) return null;
+    final now = kst.hour * 60 + kst.minute;
+    for (final r in day.ranges) {
+      final open = _toMinutes(r.open);
+      var close = _toMinutes(r.close);
+      if (close < open) close += 24 * 60; // overnight
+      if (now >= open && now < close) return '~${r.close} 종료';
+      if (now < open) return '${r.open} 오픈';
+    }
+    return null; // all ranges passed today — no ambiguous tomorrow info
   }
 
   static int _toMinutes(String hhmm) {
