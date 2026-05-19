@@ -420,81 +420,52 @@ function buildPushPayload(task, h, diffH) {
 }
 
 // ── T Map 도보 경로 ──────────────────────────────────────────────────────────
+// ── 도보 경로 (OSRM foot) ──────────────────────────────────────────────────────
 app.post("/api/route/tmap/pedestrian", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.body;
   if (!olat || !olng || !dlat || !dlng)
     return res.status(400).json({ error: "파라미터 필요" });
   try {
-    const TMAP_KEY = process.env.TMAP_API_KEY;
-    const url = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
-    const body = {
-      startX: String(olng), startY: String(olat),
-      endX:   String(dlng), endY:   String(dlat),
-      reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO",
-      startName: "출발", endName: "도착",
-    };
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", appKey: TMAP_KEY },
-      body: JSON.stringify(body),
-    });
+    const url = `https://router.project-osrm.org/route/v1/foot/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
+    const resp = await fetch(url);
     const data = await resp.json();
-    const feature = data.features?.[0];
-    if (!feature) throw new Error("T Map 경로 없음");
-    const props = feature.properties;
-    // 경로 좌표 수집 (LineString features만)
-    const path = [];
-    for (const f of data.features) {
-      if (f.geometry.type === "LineString") {
-        for (const [x, y] of f.geometry.coordinates) {
-          path.push([y, x]); // [lat, lng]
-        }
-      }
-    }
-    res.json({
-      duration: props.totalTime,
-      distance: props.totalDistance,
-      path,
-    });
+    const route = data.routes?.[0];
+    if (!route) throw new Error("OSRM 도보 경로 없음");
+    const path = route.geometry.coordinates.map(([x, y]) => [y, x]);
+    res.json({ duration: route.duration, distance: route.distance, path });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── T Map 자동차 경로 ─────────────────────────────────────────────────────────
+// ── 자동차 경로 (Kakao Mobility) ──────────────────────────────────────────────
 app.post("/api/route/tmap/car", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.body;
   if (!olat || !olng || !dlat || !dlng)
     return res.status(400).json({ error: "파라미터 필요" });
   try {
-    const TMAP_KEY = process.env.TMAP_API_KEY;
-    const url = "https://apis.openapi.sk.com/tmap/routes?version=1";
-    const body = {
-      startX: String(olng), startY: String(olat),
-      endX:   String(dlng), endY:   String(dlat),
-      reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO",
-      startName: "출발", endName: "도착",
-    };
+    const KAKAO_KEY = process.env.KAKAO_REST_KEY;
+    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${olng},${olat}&destination=${dlng},${dlat}&summary=false`;
     const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", appKey: TMAP_KEY },
-      body: JSON.stringify(body),
+      headers: { Authorization: `KakaoAK ${KAKAO_KEY}` },
     });
     const data = await resp.json();
-    const feature = data.features?.[0];
-    if (!feature) throw new Error("T Map 자동차 경로 없음");
-    const props = feature.properties;
+    const route = data.routes?.[0];
+    if (!route || route.result_code !== 0) throw new Error(`카카오 경로 오류: ${route?.result_msg || JSON.stringify(data)}`);
+    const sections = route.sections || [];
     const path = [];
-    for (const f of data.features) {
-      if (f.geometry.type === "LineString") {
-        for (const [x, y] of f.geometry.coordinates) {
-          path.push([y, x]);
+    for (const sec of sections) {
+      for (const road of (sec.roads || [])) {
+        const vx = road.vertexes || [];
+        for (let i = 0; i < vx.length - 1; i += 2) {
+          path.push([vx[i + 1], vx[i]]); // [lat, lng]
         }
       }
     }
+    const summary = route.summary || {};
     res.json({
-      duration: props.totalTime,
-      distance: props.totalDistance,
+      duration: summary.duration || 0,
+      distance: summary.distance || 0,
       path,
     });
   } catch (err) {
@@ -512,8 +483,9 @@ app.get("/api/route/odsay/transit", async (req, res) => {
     const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${ODSAY_KEY}`;
     const resp = await fetch(url);
     const data = await resp.json();
+    if (data.error) throw new Error(`ODSAY 오류: ${JSON.stringify(data.error)}`);
     const path0 = data.result?.path?.[0];
-    if (!path0) throw new Error("ODSAY 경로 없음");
+    if (!path0) throw new Error(`ODSAY 경로 없음 (raw: ${JSON.stringify(data).slice(0,200)})`);
 
     const info = path0.info;
     const duration = (info.totalTime || 0) * 60; // 분 → 초
