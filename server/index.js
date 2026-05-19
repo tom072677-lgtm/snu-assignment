@@ -420,54 +420,68 @@ function buildPushPayload(task, h, diffH) {
 }
 
 // ── T Map 도보 경로 ──────────────────────────────────────────────────────────
-// ── 도보 경로 (OSRM foot) ──────────────────────────────────────────────────────
+// ── T Map 공통 헬퍼 ───────────────────────────────────────────────────────────
+async function fetchTmapRoute(tmapUrl, body) {
+  const key = process.env.TMAP_API_KEY;
+  if (!key) throw new Error("TMAP_API_KEY not configured");
+  const resp = await fetch(tmapUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", appKey: key },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`T Map HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (data.error) throw new Error(`T Map error: ${data.error.id} ${data.error.code}`);
+  const features = data.features || [];
+  // summary는 totalTime/totalDistance가 있는 첫 번째 feature
+  const summary = features.find(
+    f => f.properties?.totalTime != null && f.properties?.totalDistance != null
+  );
+  if (!summary) throw new Error("T Map: no route found");
+  const path = [];
+  for (const f of features) {
+    if (f.geometry?.type === "LineString") {
+      for (const [x, y] of f.geometry.coordinates) {
+        path.push([y, x]); // T Map [lng,lat] → [lat,lng]
+      }
+    }
+  }
+  return {
+    duration: summary.properties.totalTime,     // seconds
+    distance: summary.properties.totalDistance, // meters
+    path,
+  };
+}
+
+// ── 도보 경로 (T Map pedestrian) ──────────────────────────────────────────────
 app.post("/api/route/tmap/pedestrian", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.body;
-  if (!olat || !olng || !dlat || !dlng)
+  if (olat == null || olng == null || dlat == null || dlng == null)
     return res.status(400).json({ error: "파라미터 필요" });
   try {
-    const url = `https://router.project-osrm.org/route/v1/foot/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    const route = data.routes?.[0];
-    if (!route) throw new Error("OSRM 도보 경로 없음");
-    const path = route.geometry.coordinates.map(([x, y]) => [y, x]);
-    res.json({ duration: route.duration, distance: route.distance, path });
+    const result = await fetchTmapRoute(
+      "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1",
+      { startX: String(olng), startY: String(olat), endX: String(dlng), endY: String(dlat),
+        reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO", startName: "start", endName: "end" }
+    );
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── 자동차 경로 (Kakao Mobility) ──────────────────────────────────────────────
+// ── 자동차 경로 (T Map car) ───────────────────────────────────────────────────
 app.post("/api/route/tmap/car", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.body;
-  if (!olat || !olng || !dlat || !dlng)
+  if (olat == null || olng == null || dlat == null || dlng == null)
     return res.status(400).json({ error: "파라미터 필요" });
   try {
-    const KAKAO_KEY = process.env.KAKAO_REST_KEY;
-    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${olng},${olat}&destination=${dlng},${dlat}&summary=false`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${KAKAO_KEY}` },
-    });
-    const data = await resp.json();
-    const route = data.routes?.[0];
-    if (!route || route.result_code !== 0) throw new Error(`카카오 경로 오류: ${route?.result_msg || JSON.stringify(data)}`);
-    const sections = route.sections || [];
-    const path = [];
-    for (const sec of sections) {
-      for (const road of (sec.roads || [])) {
-        const vx = road.vertexes || [];
-        for (let i = 0; i < vx.length - 1; i += 2) {
-          path.push([vx[i + 1], vx[i]]); // [lat, lng]
-        }
-      }
-    }
-    const summary = route.summary || {};
-    res.json({
-      duration: summary.duration || 0,
-      distance: summary.distance || 0,
-      path,
-    });
+    const result = await fetchTmapRoute(
+      "https://apis.openapi.sk.com/tmap/routes?version=1",
+      { startX: String(olng), startY: String(olat), endX: String(dlng), endY: String(dlat),
+        reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO", startName: "start", endName: "end" }
+    );
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
