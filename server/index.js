@@ -1,6 +1,7 @@
 const express = require("express");
 const ical = require("node-ical");
 const https = require("https");
+const http = require("http");
 const webpush = require("web-push");
 const { MongoClient } = require("mongodb");
 
@@ -45,7 +46,8 @@ function fetchText(url, redirectCount = 0, extraHeaders = {}, method = "GET", bo
       },
     };
 
-    const req = https.request(options, (res) => {
+    const transport = parsed.protocol === "https:" ? https : http;
+    const req = transport.request(options, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         return fetchText(res.headers.location, redirectCount + 1, extraHeaders).then(resolve).catch(reject);
@@ -494,49 +496,89 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
-// ── 버스 실시간 도착 정보 (서울 버스 API) ─────────────────────────────────────
-app.post("/api/transit/arrival", async (req, res) => {
+// ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
+async function fetchBusArrival(routeName, startStation) {
   const key = process.env.SEOUL_BUS_API_KEY;
-  if (!key) return res.json({ arrmsg: null }); // 키 미설정 시 조용히 null 반환
+  if (!key) return null;
 
-  const { routeName, startStation } = req.body;
+  // Step 1: 정류장명 → arsId
+  const stationUrl = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByName`
+    + `?serviceKey=${encodeURIComponent(key)}`
+    + `&stSrch=${encodeURIComponent(startStation)}`
+    + `&resultType=json`;
+  const stationData = JSON.parse(await fetchText(stationUrl));
+  const stations = stationData.msgBody?.itemList ?? [];
+  if (stations.length === 0) return null;
+
+  const exact = stations.find(s => s.stNm === startStation);
+  const arsId = (exact ?? stations[0]).arsId;
+
+  // Step 2: arsId → 실시간 도착
+  const arrUrl = `http://ws.bus.go.kr/api/rest/arrive/getStationByUidList`
+    + `?serviceKey=${encodeURIComponent(key)}`
+    + `&arsId=${arsId}`
+    + `&resultType=json`;
+  const arrData = JSON.parse(await fetchText(arrUrl));
+  const arrivals = arrData.msgBody?.itemList ?? [];
+
+  // Step 3: 노선 번호 매칭
+  const clean = (s) => String(s ?? '').replace(/\s/g, '');
+  const match = arrivals.find(a =>
+    clean(a.rtNm) === clean(routeName) ||
+    clean(a.busRouteAbrv) === clean(routeName)
+  );
+  return match?.arrmsg1 ?? null;
+}
+
+async function fetchSubwayArrival(routeName, startStation, subwayCode) {
+  const key = process.env.SEOUL_SUBWAY_API_KEY;
+  if (!key) return null;
+
+  // 역명 정리: 괄호 제거, "역" 접미사 제거
+  const cleanStation = startStation
+    .replace(/\(.*?\)/g, '')
+    .replace(/역$/, '')
+    .trim();
+
+  const url = `http://swopenAPI.seoul.go.kr/api/subway`
+    + `/${encodeURIComponent(key)}/json/realtimeStationArrival/0/5`
+    + `/${encodeURIComponent(cleanStation)}`;
+  const data = JSON.parse(await fetchText(url));
+
+  const list = data.realtimeArrivalList ?? data.errorMessage?.list ?? [];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  // ODSAY subwayCode → Seoul API subwayId 매핑
+  const codeMap = {
+    1:1001, 2:1002, 3:1003, 4:1004, 5:1005,
+    6:1006, 7:1007, 8:1008, 9:1009,
+    21:1063, 22:1065, 101:1067, 104:1075, 108:1077,
+    109:1092, 110:1093,
+  };
+  const targetId = subwayCode ? String(codeMap[subwayCode] ?? '') : '';
+
+  // subwayCode 매칭 우선, 없으면 routeName 부분 매칭
+  const match = list.find(a => targetId && a.subwayId === targetId)
+    ?? list.find(a => a.trainLineNm?.includes(routeName));
+
+  return match?.arvlMsg2 ?? null;
+}
+
+app.post("/api/transit/arrival", async (req, res) => {
+  const { legType, routeName, startStation, subwayCode } = req.body;
   if (!routeName || !startStation)
     return res.status(400).json({ error: "파라미터 필요" });
-
   try {
-    // Step 1: 정류장명으로 arsId 조회
-    const stationUrl = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByName`
-      + `?serviceKey=${encodeURIComponent(key)}`
-      + `&stSrch=${encodeURIComponent(startStation)}`
-      + `&resultType=json`;
-    const stationData = JSON.parse(await fetchText(stationUrl));
-    const stations = stationData.msgBody?.itemList ?? [];
-    if (stations.length === 0) return res.json({ arrmsg: null });
-
-    // arsId 후보 (정류장명 정확 매칭 우선, 없으면 첫 번째)
-    const exact = stations.find(s => s.stNm === startStation);
-    const arsId = (exact ?? stations[0]).arsId;
-
-    // Step 2: 해당 정류장의 실시간 도착 정보 조회
-    const arrUrl = `http://ws.bus.go.kr/api/rest/arrive/getStationByUidList`
-      + `?serviceKey=${encodeURIComponent(key)}`
-      + `&arsId=${arsId}`
-      + `&resultType=json`;
-    const arrData = JSON.parse(await fetchText(arrUrl));
-    const arrivals = arrData.msgBody?.itemList ?? [];
-
-    // Step 3: 노선 번호 매칭 (rtNm 또는 busRouteAbrv)
-    const clean = (s) => String(s ?? '').replace(/\s/g, '');
-    const match = arrivals.find(a =>
-      clean(a.rtNm) === clean(routeName) ||
-      clean(a.busRouteAbrv) === clean(routeName)
-    );
-
-    if (!match) return res.json({ arrmsg: null });
-    res.json({ arrmsg: match.arrmsg1 ?? null, arrmsg2: match.arrmsg2 ?? null });
+    let arrmsg = null;
+    if (legType === "subway") {
+      arrmsg = await fetchSubwayArrival(routeName, startStation, subwayCode);
+    } else if (legType === "bus") {
+      arrmsg = await fetchBusArrival(routeName, startStation);
+    }
+    res.json({ arrmsg });
   } catch (err) {
     console.error("[transit/arrival]", err.message);
-    res.json({ arrmsg: null }); // 실패해도 클라이언트 에러 없이 null 반환
+    res.json({ arrmsg: null });
   }
 });
 
@@ -578,6 +620,7 @@ function buildOdsayRoute(pathObj) {
                : 'walk';
     const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
     const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
+    const subwayCode = type === 'subway' ? (sub.lane?.[0]?.subwayCode ?? null) : null;
     legs.push({
       type,
       name,
@@ -586,6 +629,7 @@ function buildOdsayRoute(pathObj) {
       distance: sub.distance || 0,
       startStation: sub.startName || null,
       endStation: sub.endName || null,
+      subwayCode,
     });
     if (type === 'walk' && sub.startX && sub.startY) {
       allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);

@@ -36,6 +36,7 @@ class RouteLeg {
   final int distanceMeters;
   final String? startStation;
   final String? endStation;
+  final int? subwayCode; // ODSAY 지하철 코드 (subway만 해당)
 
   const RouteLeg({
     required this.type,
@@ -45,6 +46,7 @@ class RouteLeg {
     required this.distanceMeters,
     this.startStation,
     this.endStation,
+    this.subwayCode,
   });
 
   factory RouteLeg.fromJson(Map<String, dynamic> j) => RouteLeg(
@@ -55,6 +57,7 @@ class RouteLeg {
         distanceMeters: (j['distance'] as num? ?? 0).toInt(),
         startStation: j['startStation'] as String?,
         endStation: j['endStation'] as String?,
+        subwayCode: j['subwayCode'] as int?,
       );
 }
 
@@ -134,15 +137,22 @@ class MapRepository {
     );
   }
 
-  /// 버스 실시간 도착 메시지 반환. 키 미설정/실패 시 null.
+  /// 버스/지하철 실시간 도착 메시지 반환. 키 미설정/실패 시 null.
   Future<String?> getTransitArrival({
+    required String legType,
     required String routeName,
     required String startStation,
+    int? subwayCode,
   }) async {
     try {
       final response = await DioClient.instance.post(
         '/api/transit/arrival',
-        data: {'routeName': routeName, 'startStation': startStation},
+        data: {
+          'legType': legType,
+          'routeName': routeName,
+          'startStation': startStation,
+          if (subwayCode != null) 'subwayCode': subwayCode,
+        },
       );
       return response.data['arrmsg'] as String?;
     } catch (_) {

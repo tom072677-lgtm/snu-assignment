@@ -161,12 +161,12 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     if (routes.isEmpty) return;
     final route = routes[_selectedTransitIndex.clamp(0, routes.length - 1)];
 
-    // 첫 번째 버스 leg 찾기 (subway 제외)
-    RouteLeg? busLeg;
+    // 경로 순서대로 첫 번째 버스 또는 지하철 leg 선택
+    RouteLeg? transitLeg;
     for (final leg in route.legs) {
-      if (leg.type == 'bus') { busLeg = leg; break; }
+      if (leg.type == 'bus' || leg.type == 'subway') { transitLeg = leg; break; }
     }
-    if (busLeg == null || busLeg.startStation == null || busLeg.name.isEmpty) {
+    if (transitLeg == null || transitLeg.startStation == null || transitLeg.name.isEmpty) {
       setState(() { _arrivalMsg = null; _arrivalLoading = false; });
       return;
     }
@@ -175,8 +175,10 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     setState(() { _arrivalLoading = true; _arrivalMsg = null; });
 
     final msg = await ref.read(mapRepositoryProvider).getTransitArrival(
-      routeName: busLeg.name,
-      startStation: busLeg.startStation!,
+      legType: transitLeg.type,
+      routeName: transitLeg.name,
+      startStation: transitLeg.startStation!,
+      subwayCode: transitLeg.subwayCode,
     );
 
     if (!mounted || reqId != _arrivalReqId) return;
