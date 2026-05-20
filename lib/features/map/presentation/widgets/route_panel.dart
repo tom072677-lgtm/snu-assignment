@@ -36,20 +36,42 @@ class RouteOverlayPanel extends ConsumerStatefulWidget {
   ConsumerState<RouteOverlayPanel> createState() => _RouteOverlayPanelState();
 }
 
-class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
+class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
+    with SingleTickerProviderStateMixin {
   RouteMode _mode = RouteMode.transit;
   int _selectedTransitIndex = 0;
   late Map<RouteMode, _ModeState> _states;
   late final DateTime _requestedAt;
 
+  // 버스 실시간 도착 정보
+  String? _arrivalMsg;
+  bool _arrivalLoading = false;
+  int _arrivalReqId = 0;
+
+  // 드래그/스냅 상태
+  late final AnimationController _anim;
+  double _panelHeight = 0;
+  double _dragOffset = 0; // 현재 드래그 중인 추가 오프셋
+  static const double _peekHeight = 90.0; // 최소 표시 높이 (탭 바 높이)
+
   @override
   void initState() {
     super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
     _requestedAt = DateTime.now();
     _states = {
       for (final m in RouteMode.values) m: const _ModeState(loading: true)
     };
     _fetchAll();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchAll() async {
@@ -97,7 +119,10 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
       }
       if (!mounted) return;
       setState(() => _states = {..._states, mode: _ModeState(routes: routes)});
-      if (mode == _mode) _notifyMap(mode, routes);
+      if (mode == _mode) {
+        _notifyMap(mode, routes);
+        if (mode == RouteMode.transit) _fetchArrival(routes);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() =>
@@ -127,8 +152,35 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
   void _selectTransitRoute(int index) {
     final routes = _states[RouteMode.transit]!.routes;
     if (index < 0 || index >= routes.length) return;
-    setState(() => _selectedTransitIndex = index);
+    setState(() { _selectedTransitIndex = index; _arrivalMsg = null; });
     widget.onRouteLoaded(routes[index], RouteMode.transit);
+    _fetchArrival(routes);
+  }
+
+  Future<void> _fetchArrival(List<RouteResult> routes) async {
+    if (routes.isEmpty) return;
+    final route = routes[_selectedTransitIndex.clamp(0, routes.length - 1)];
+
+    // 첫 번째 버스 leg 찾기 (subway 제외)
+    RouteLeg? busLeg;
+    for (final leg in route.legs) {
+      if (leg.type == 'bus') { busLeg = leg; break; }
+    }
+    if (busLeg == null || busLeg.startStation == null || busLeg.name.isEmpty) {
+      setState(() { _arrivalMsg = null; _arrivalLoading = false; });
+      return;
+    }
+
+    final reqId = ++_arrivalReqId;
+    setState(() { _arrivalLoading = true; _arrivalMsg = null; });
+
+    final msg = await ref.read(mapRepositoryProvider).getTransitArrival(
+      routeName: busLeg.name,
+      startStation: busLeg.startStation!,
+    );
+
+    if (!mounted || reqId != _arrivalReqId) return;
+    setState(() { _arrivalMsg = msg; _arrivalLoading = false; });
   }
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -196,8 +248,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      height: screenHeight * 0.5 + bottomInset,
+    _panelHeight = screenHeight * 0.5 + bottomInset;
+    final collapsedOffset = _panelHeight - _peekHeight;
+
+    final panel = Container(
+      height: _panelHeight,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -223,6 +278,41 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
           Expanded(child: _buildContent()),
           SizedBox(height: bottomInset),
         ],
+      ),
+    );
+
+    return GestureDetector(
+      onVerticalDragUpdate: (d) {
+        setState(() => _dragOffset += d.delta.dy);
+      },
+      onVerticalDragEnd: (d) {
+        final velocity = d.primaryVelocity ?? 0;
+        final currentOffset =
+            _anim.value * collapsedOffset + _dragOffset;
+
+        if (velocity > 300 || currentOffset > collapsedOffset * 0.5) {
+          // 접기
+          _anim.value = (currentOffset / collapsedOffset).clamp(0.0, 1.0);
+          _anim.animateTo(1.0, curve: Curves.easeOut);
+          setState(() { _dragOffset = 0; });
+        } else {
+          // 펼치기
+          _anim.value = (currentOffset / collapsedOffset).clamp(0.0, 1.0);
+          _anim.animateTo(0.0, curve: Curves.easeOut);
+          setState(() { _dragOffset = 0; });
+        }
+      },
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (context, child) {
+          final offset = (_anim.value * collapsedOffset + _dragOffset)
+              .clamp(0.0, collapsedOffset + 40);
+          return Transform.translate(
+            offset: Offset(0, offset),
+            child: child,
+          );
+        },
+        child: panel,
       ),
     );
   }
@@ -429,6 +519,32 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
                 _buildStationNames(result.legs),
                 const SizedBox(height: 8),
                 _buildLegChipRow(result.legs),
+                if (_arrivalLoading) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    SizedBox(
+                      width: 12, height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: cardColor,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text('버스 도착 정보 조회 중...',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  ]),
+                ] else if (_arrivalMsg != null) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Icon(Icons.directions_bus, size: 13, color: cardColor),
+                    const SizedBox(width: 4),
+                    Text(_arrivalMsg!,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cardColor,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                ],
               ],
             ],
           ],

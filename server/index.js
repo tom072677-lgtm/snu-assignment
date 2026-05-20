@@ -494,6 +494,52 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
+// ── 버스 실시간 도착 정보 (서울 버스 API) ─────────────────────────────────────
+app.post("/api/transit/arrival", async (req, res) => {
+  const key = process.env.SEOUL_BUS_API_KEY;
+  if (!key) return res.json({ arrmsg: null }); // 키 미설정 시 조용히 null 반환
+
+  const { routeName, startStation } = req.body;
+  if (!routeName || !startStation)
+    return res.status(400).json({ error: "파라미터 필요" });
+
+  try {
+    // Step 1: 정류장명으로 arsId 조회
+    const stationUrl = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByName`
+      + `?serviceKey=${encodeURIComponent(key)}`
+      + `&stSrch=${encodeURIComponent(startStation)}`
+      + `&resultType=json`;
+    const stationData = JSON.parse(await fetchText(stationUrl));
+    const stations = stationData.msgBody?.itemList ?? [];
+    if (stations.length === 0) return res.json({ arrmsg: null });
+
+    // arsId 후보 (정류장명 정확 매칭 우선, 없으면 첫 번째)
+    const exact = stations.find(s => s.stNm === startStation);
+    const arsId = (exact ?? stations[0]).arsId;
+
+    // Step 2: 해당 정류장의 실시간 도착 정보 조회
+    const arrUrl = `http://ws.bus.go.kr/api/rest/arrive/getStationByUidList`
+      + `?serviceKey=${encodeURIComponent(key)}`
+      + `&arsId=${arsId}`
+      + `&resultType=json`;
+    const arrData = JSON.parse(await fetchText(arrUrl));
+    const arrivals = arrData.msgBody?.itemList ?? [];
+
+    // Step 3: 노선 번호 매칭 (rtNm 또는 busRouteAbrv)
+    const clean = (s) => String(s ?? '').replace(/\s/g, '');
+    const match = arrivals.find(a =>
+      clean(a.rtNm) === clean(routeName) ||
+      clean(a.busRouteAbrv) === clean(routeName)
+    );
+
+    if (!match) return res.json({ arrmsg: null });
+    res.json({ arrmsg: match.arrmsg1 ?? null, arrmsg2: match.arrmsg2 ?? null });
+  } catch (err) {
+    console.error("[transit/arrival]", err.message);
+    res.json({ arrmsg: null }); // 실패해도 클라이언트 에러 없이 null 반환
+  }
+});
+
 // ── 자전거 경로 (OSRM) ────────────────────────────────────────────────────────
 app.post("/api/route/osrm/bike", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.body;

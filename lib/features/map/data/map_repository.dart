@@ -134,6 +134,22 @@ class MapRepository {
     );
   }
 
+  /// 버스 실시간 도착 메시지 반환. 키 미설정/실패 시 null.
+  Future<String?> getTransitArrival({
+    required String routeName,
+    required String startStation,
+  }) async {
+    try {
+      final response = await DioClient.instance.post(
+        '/api/transit/arrival',
+        data: {'routeName': routeName, 'startStation': startStation},
+      );
+      return response.data['arrmsg'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 대중교통 경로 최대 3개 반환 (첫 번째가 최적 경로)
   Future<List<RouteResult>> getTransitRoutes({
     required double olat,
