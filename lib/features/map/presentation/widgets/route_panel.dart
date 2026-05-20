@@ -177,8 +177,9 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     final msg = await ref.read(mapRepositoryProvider).getTransitArrival(
       legType: transitLeg.type,
       routeName: transitLeg.name,
-      startStation: transitLeg.startStation!,
+      startStation: transitLeg.startStation,
       subwayCode: transitLeg.subwayCode,
+      arsId: transitLeg.arsId,
     );
 
     if (!mounted || reqId != _arrivalReqId) return;
