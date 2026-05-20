@@ -1067,23 +1067,27 @@ app.get('/api/myip', async (req, res) => {
 
 // ODSAY 디버그 (임시)
 app.get('/api/debug/odsay', async (req, res) => {
+  const crypto = require('crypto');
   const key = process.env.ODSAY_API_KEY?.trim() || '';
   const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
-  const params = new URLSearchParams({ SX: '126.9780', SY: '37.5665', EX: '126.9516', EY: '37.4603', apiKey: key });
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   const results = {};
-  // H1: api.odsay.com vs lab.odsay.com
-  for (const domain of ['api.odsay.com', 'lab.odsay.com']) {
-    const url = `https://${domain}/v1/api/searchPubTransPathT?${params}`;
-    try {
-      const resp = await fetch(url);
-      const text = await resp.text();
-      try { results[domain] = JSON.parse(text); }
-      catch { results[domain] = { raw: text.slice(0, 200) }; }
-    } catch (e) {
-      results[domain] = { error: e.message };
-    }
-  }
-  res.json({ ip: ipText, keyLen: key.length, results });
+
+  // searchPubTransPathT (대중교통 경로)
+  const params1 = new URLSearchParams({ SX: '126.9780', SY: '37.5665', EX: '126.9516', EY: '37.4603', apiKey: key });
+  try {
+    const r = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params1}`);
+    results.transit = await r.json();
+  } catch (e) { results.transit = { error: e.message }; }
+
+  // searchBusLane (버스 노선 - 단순 엔드포인트)
+  const params2 = new URLSearchParams({ busID: '100100118', apiKey: key });
+  try {
+    const r = await fetch(`https://api.odsay.com/v1/api/searchBusLane?${params2}`);
+    results.busLane = await r.json();
+  } catch (e) { results.busLane = { error: e.message }; }
+
+  res.json({ ip: ipText, keyLen: key.length, keyHash, results });
 });
 
 app.listen(PORT, () => {
