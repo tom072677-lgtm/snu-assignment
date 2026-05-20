@@ -1068,7 +1068,8 @@ app.get('/api/myip', async (req, res) => {
 // ODSAY 디버그 (임시)
 app.get('/api/debug/odsay', async (req, res) => {
   const crypto = require('crypto');
-  const key = process.env.ODSAY_API_KEY?.trim() || '';
+  // ?key= 파라미터로 대체 키 테스트 가능 (임시)
+  const key = (req.query.key || process.env.ODSAY_API_KEY)?.trim() || '';
   const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   const results = {};
