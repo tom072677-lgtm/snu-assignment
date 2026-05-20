@@ -570,15 +570,17 @@ app.get("/api/debug/transit", async (req, res) => {
   const subwayKey = process.env.SEOUL_SUBWAY_API_KEY;
   const result = { busKeySet: !!busKey, subwayKeySet: !!subwayKey };
   try {
-    // 버스 정류장 조회 테스트
     const stationUrl = `http://ws.bus.go.kr/api/rest/stationinfo/getStationByName`
       + `?serviceKey=${encodeURIComponent(busKey ?? '')}&stSrch=${encodeURIComponent('서울대입구역')}&resultType=json`;
-    const sd = JSON.parse(await fetchText(stationUrl));
+    const raw = await fetchText(stationUrl);
+    const sd = JSON.parse(raw);
+    result.busMsgHeader = sd.msgHeader;
     result.busStationCount = (sd.msgBody?.itemList ?? []).length;
     result.busStationSample = (sd.msgBody?.itemList ?? []).slice(0, 2).map(s => ({ stNm: s.stNm, arsId: s.arsId }));
+    // itemList가 null인 경우 msgBody 전체 확인
+    if (!sd.msgBody?.itemList) result.busMsgBodyKeys = Object.keys(sd.msgBody ?? {});
   } catch (e) { result.busError = e.message; }
   try {
-    // 지하철 도착 조회 테스트
     const subUrl = `http://swopenAPI.seoul.go.kr/api/subway`
       + `/${encodeURIComponent(subwayKey ?? '')}/json/realtimeStationArrival/0/5`
       + `/${encodeURIComponent('서울대입구')}`;
@@ -586,7 +588,8 @@ app.get("/api/debug/transit", async (req, res) => {
     const list = sd2.realtimeArrivalList ?? [];
     result.subwayCount = list.length;
     result.subwaySample = list.slice(0, 2).map(a => ({ subwayId: a.subwayId, trainLineNm: a.trainLineNm, arvlMsg2: a.arvlMsg2 }));
-    result.subwayErrorMsg = sd2.errorMessage;
+    result.subwayRawKeys = Object.keys(sd2);
+    result.subwayErrorMessage = sd2.errorMessage;
   } catch (e) { result.subwayError = e.message; }
   res.json(result);
 });
