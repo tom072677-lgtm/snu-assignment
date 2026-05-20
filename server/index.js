@@ -1069,7 +1069,9 @@ app.get('/api/myip', async (req, res) => {
 app.get('/api/debug/odsay', async (req, res) => {
   const key = process.env.ODSAY_API_KEY?.trim() || '';
   const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
-  const keyInfo = `len=${key.length} start=${key.slice(0,4)} end=${key.slice(-4)}`;
+  // 특수문자 시각화 (+는 [P], 공백은 [SP])
+  const keyViz = key.replace(/\+/g, '[P]').replace(/ /g, '[SP]').replace(/%/g, '[PCT]');
+  const keyInfo = `len=${key.length} viz=${keyViz}`;
   const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=126.9780&SY=37.5665&EX=126.9516&EY=37.4603&apiKey=${key}`;
   try {
     const resp = await fetch(url);
