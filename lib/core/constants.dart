@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-const String serverUrl = 'https://snu-assignment-server.onrender.com';
+const String serverUrl = kDebugMode
+    ? 'http://localhost:3001'
+    : 'https://snu-assignment-server.onrender.com';
 
 const String naverMapClientId = 'NAVER_MAP_CLIENT_ID';
 

@@ -17,6 +17,13 @@ if (pushEnabled) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 
 // ──────────────────────────────────────────
@@ -492,23 +499,40 @@ app.get("/api/route/odsay/transit", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.query;
   if (!olat || !olng || !dlat || !dlng)
     return res.status(400).json({ error: "파라미터 필요" });
+
+  const odsayKey = process.env.ODSAY_API_KEY?.trim();
+  if (!odsayKey)
+    return res.status(500).json({ error: "ODSAY_API_KEY not configured" });
+
   try {
-    const ODSAY_KEY = encodeURIComponent(process.env.ODSAY_API_KEY);
-    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${ODSAY_KEY}`;
+    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${encodeURIComponent(odsayKey)}`;
     const resp = await fetch(url);
-    const data = await resp.json();
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(`ODSAY HTTP ${resp.status}: ${body.slice(0, 200)}`);
+    }
+    let data;
+    try { data = await resp.json(); }
+    catch { throw new Error("ODSAY 응답이 JSON이 아닙니다"); }
+
     if (data.error) throw new Error(`ODSAY 오류: ${JSON.stringify(data.error)}`);
+
     const path0 = data.result?.path?.[0];
-    if (!path0) throw new Error(`ODSAY 경로 없음 (raw: ${JSON.stringify(data).slice(0,200)})`);
+    if (!path0) throw new Error(`ODSAY 경로 없음 (raw: ${JSON.stringify(data).slice(0, 200)})`);
 
     const info = path0.info;
+    if (!info) throw new Error("ODSAY info 없음");
+
+    const subPaths = Array.isArray(path0.subPath) ? path0.subPath : null;
+    if (!subPaths) throw new Error("ODSAY subPath 없음");
+
     const duration = (info.totalTime || 0) * 60; // 분 → 초
     const distance = (info.totalDistance || 0);
 
     // legs 구성
     const legs = [];
     const allCoords = [];
-    for (const sub of path0.subPath) {
+    for (const sub of subPaths) {
       const type = sub.trafficType === 1 ? 'subway'
                  : sub.trafficType === 2 ? 'bus'
                  : 'walk';
@@ -521,14 +545,14 @@ app.get("/api/route/odsay/transit", async (req, res) => {
         duration: (sub.sectionTime || 0) * 60,
         distance: sub.distance || 0,
       });
-      // 경유 좌표
+      // 도보 구간: startX/Y 추가
+      if (type === 'walk' && sub.startX && sub.startY) {
+        allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);
+      }
+      // 경유 정류장 좌표
       const stations = sub.passStopList?.stations || [];
       for (const st of stations) {
         if (st.x && st.y) allCoords.push([parseFloat(st.y), parseFloat(st.x)]);
-      }
-      // 도보 구간은 startX/Y ~ endX/Y
-      if (type === 'walk' && sub.startX && sub.startY) {
-        allCoords.unshift([parseFloat(sub.startY), parseFloat(sub.startX)]);
       }
     }
 
