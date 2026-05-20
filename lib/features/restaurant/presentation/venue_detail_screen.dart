@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../domain/venue.dart';
+import '../../map/data/map_repository.dart';
 import '../../map/presentation/widgets/route_panel.dart';
 
 class VenueDetailScreen extends StatelessWidget {
@@ -70,15 +71,21 @@ class VenueDetailScreen extends StatelessWidget {
   }
 
   void _openDirections(BuildContext context) {
+    final dest = PlaceResult(
+      name: venue.name,
+      address: venue.address ?? '',
+      lat: venue.lat,
+      lng: venue.lng,
+      category: '',
+    );
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => RoutePanel(
-        mapCtrl: null,
-        initialDestName: venue.name,
-        initialDestLat: venue.lat,
-        initialDestLng: venue.lng,
+      builder: (ctx) => RouteOverlayPanel(
+        dest: dest,
+        onClose: () => Navigator.pop(ctx),
+        onRouteLoaded: (_, __) {}, // 지도 없는 맥락: 경로 정보만 표시
       ),
     );
   }

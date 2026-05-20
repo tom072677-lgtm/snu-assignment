@@ -545,6 +545,8 @@ app.get("/api/route/odsay/transit", async (req, res) => {
         color: color.startsWith('#') ? color : `#${color}`,
         duration: (sub.sectionTime || 0) * 60,
         distance: sub.distance || 0,
+        startStation: sub.startName || null,
+        endStation: sub.endName || null,
       });
       // 도보 구간: startX/Y 추가
       if (type === 'walk' && sub.startX && sub.startY) {
@@ -557,7 +559,8 @@ app.get("/api/route/odsay/transit", async (req, res) => {
       }
     }
 
-    res.json({ duration, distance, path: allCoords, legs });
+    const fare = info.payment || 0;
+    res.json({ duration, distance, fare, path: allCoords, legs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
