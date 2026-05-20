@@ -494,6 +494,25 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
+// ── 자전거 경로 (OSRM) ────────────────────────────────────────────────────────
+app.post("/api/route/osrm/bike", async (req, res) => {
+  const { olat, olng, dlat, dlng } = req.body;
+  if (olat == null || olng == null || dlat == null || dlng == null)
+    return res.status(400).json({ error: "파라미터 필요" });
+  try {
+    const url = `https://routing.openstreetmap.de/routed-bike/route/v1/bike/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
+    const data = JSON.parse(await fetchText(url));
+    if (data.code !== "Ok" || !data.routes || data.routes.length === 0)
+      return res.status(404).json({ error: `자전거 경로 없음 (${data.code ?? "unknown"})` });
+    const route = data.routes[0];
+    const coords = route.geometry?.coordinates ?? [];
+    const path = coords.map(([lng, lat]) => [lat, lng]); // OSRM은 [lng,lat] → [lat,lng]으로 변환
+    res.json({ duration: route.duration, distance: route.distance, path });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── ODSAY 단일 경로 객체 → 클라이언트 shape 변환 ─────────────────────────────
 function buildOdsayRoute(pathObj) {
   const info = pathObj.info;

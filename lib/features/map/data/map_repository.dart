@@ -115,22 +115,21 @@ class MapRepository {
       return routes.first;
     }
 
-    final tmapMode = mode == RouteMode.car ? 'car' : 'pedestrian';
+    final String endpoint = switch (mode) {
+      RouteMode.bike => '/api/route/osrm/bike',
+      RouteMode.car  => '/api/route/tmap/car',
+      _              => '/api/route/tmap/pedestrian',
+    };
     final response = await DioClient.instance.post(
-      '/api/route/tmap/$tmapMode',
+      endpoint,
       data: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
     );
     final data = response.data as Map<String, dynamic>;
     final path = _parsePath(data['path'] as List);
-    final distanceMeters = (data['distance'] as num).toDouble();
-
-    final durationSeconds = mode == RouteMode.bike
-        ? distanceMeters / (15000 / 3600)
-        : (data['duration'] as num).toDouble();
 
     return RouteResult(
-      durationSeconds: durationSeconds,
-      distanceMeters: distanceMeters,
+      durationSeconds: (data['duration'] as num).toDouble(),
+      distanceMeters: (data['distance'] as num).toDouble(),
       path: path,
     );
   }
