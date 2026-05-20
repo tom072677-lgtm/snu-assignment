@@ -1065,6 +1065,21 @@ app.get('/api/myip', async (req, res) => {
   }
 });
 
+// ODSAY 디버그 (임시)
+app.get('/api/debug/odsay', async (req, res) => {
+  const key = process.env.ODSAY_API_KEY?.trim() || '';
+  const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
+  const keyInfo = `len=${key.length} start=${key.slice(0,4)} end=${key.slice(-4)}`;
+  const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=126.9780&SY=37.5665&EX=126.9516&EY=37.4603&apiKey=${key}`;
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    res.json({ ip: ipText, keyInfo, odsay: data });
+  } catch (e) {
+    res.json({ ip: ipText, keyInfo, error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });
