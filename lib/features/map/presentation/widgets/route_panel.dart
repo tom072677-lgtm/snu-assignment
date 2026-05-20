@@ -14,9 +14,9 @@ const _modeOrder = [
 
 class _ModeState {
   final bool loading;
-  final RouteResult? result;
+  final List<RouteResult> routes; // 비어 있으면 미로드 상태
   final String? error;
-  const _ModeState({this.loading = false, this.result, this.error});
+  const _ModeState({this.loading = false, this.routes = const [], this.error});
 }
 
 class RouteOverlayPanel extends ConsumerStatefulWidget {
@@ -38,6 +38,7 @@ class RouteOverlayPanel extends ConsumerStatefulWidget {
 
 class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
   RouteMode _mode = RouteMode.transit;
+  int _selectedTransitIndex = 0;
   late Map<RouteMode, _ModeState> _states;
   late final DateTime _requestedAt;
 
@@ -60,7 +61,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
           timeLimit: Duration(seconds: 10),
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       const errState = _ModeState(error: '위치를 가져올 수 없습니다');
       setState(() {
@@ -71,25 +72,32 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
     }
 
     if (!mounted) return;
-
-    // 모든 모드 병렬 fetch — 각각 내부에서 에러 catch
-    await Future.wait(
-      RouteMode.values.map((m) => _fetchMode(m, pos)),
-    );
+    await Future.wait(RouteMode.values.map((m) => _fetchMode(m, pos)));
   }
 
   Future<void> _fetchMode(RouteMode mode, Position pos) async {
     try {
-      final result = await ref.read(mapRepositoryProvider).getRoute(
-            mode: mode,
-            olat: pos.latitude,
-            olng: pos.longitude,
-            dlat: widget.dest.lat,
-            dlng: widget.dest.lng,
-          );
+      final List<RouteResult> routes;
+      if (mode == RouteMode.transit) {
+        routes = await ref.read(mapRepositoryProvider).getTransitRoutes(
+              olat: pos.latitude,
+              olng: pos.longitude,
+              dlat: widget.dest.lat,
+              dlng: widget.dest.lng,
+            );
+      } else {
+        final r = await ref.read(mapRepositoryProvider).getRoute(
+              mode: mode,
+              olat: pos.latitude,
+              olng: pos.longitude,
+              dlat: widget.dest.lat,
+              dlng: widget.dest.lng,
+            );
+        routes = [r];
+      }
       if (!mounted) return;
-      setState(() => _states = {..._states, mode: _ModeState(result: result)});
-      if (mode == _mode) widget.onRouteLoaded(result, mode);
+      setState(() => _states = {..._states, mode: _ModeState(routes: routes)});
+      if (mode == _mode) _notifyMap(mode, routes);
     } catch (e) {
       if (!mounted) return;
       setState(() =>
@@ -98,11 +106,29 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
     }
   }
 
+  void _notifyMap(RouteMode mode, List<RouteResult> routes) {
+    if (routes.isEmpty) {
+      widget.onRouteLoaded(null, mode);
+      return;
+    }
+    final idx = mode == RouteMode.transit
+        ? _selectedTransitIndex.clamp(0, routes.length - 1)
+        : 0;
+    widget.onRouteLoaded(routes[idx], mode);
+  }
+
   void _selectMode(RouteMode mode) {
     if (_mode == mode) return;
     setState(() => _mode = mode);
     final state = _states[mode]!;
-    widget.onRouteLoaded(state.result, mode);
+    _notifyMap(mode, state.routes);
+  }
+
+  void _selectTransitRoute(int index) {
+    final routes = _states[RouteMode.transit]!.routes;
+    if (index < 0 || index >= routes.length) return;
+    setState(() => _selectedTransitIndex = index);
+    widget.onRouteLoaded(routes[index], RouteMode.transit);
   }
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -140,10 +166,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
   }
 
   String _arrivalTime(double durationSeconds) {
-    final arrival =
-        _requestedAt.add(Duration(seconds: durationSeconds.round()));
-    return '${arrival.hour.toString().padLeft(2, '0')}:'
-        '${arrival.minute.toString().padLeft(2, '0')}';
+    final t = _requestedAt.add(Duration(seconds: durationSeconds.round()));
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   }
 
   String _formatFare(int won) {
@@ -151,10 +175,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
     return '${won.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}원';
   }
 
-  int _transferCount(List<RouteLeg> legs) {
-    final transitLegs = legs.where((l) => l.type != 'walk').length;
-    return (transitLegs - 1).clamp(0, 99);
-  }
+  int _transferCount(List<RouteLeg> legs) =>
+      (legs.where((l) => l.type != 'walk').length - 1).clamp(0, 99);
 
   Color _parseLegColor(String hexColor) {
     try {
@@ -180,13 +202,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
-          BoxShadow(
-              color: Colors.black26, blurRadius: 12, offset: Offset(0, -2)),
+          BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, -2)),
         ],
       ),
       child: Column(
         children: [
-          // 드래그 핸들
           Container(
             margin: const EdgeInsets.only(top: 10, bottom: 4),
             width: 36,
@@ -196,13 +216,10 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // ① 모드 탭 (최상단 — 네이버지도 동일)
           _buildModeTabs(),
           const Divider(height: 1),
-          // ② 출발 / 도착 헤더
           _buildHeader(),
           const Divider(height: 1),
-          // ③ 경로 결과
           Expanded(child: _buildContent()),
           SizedBox(height: bottomInset),
         ],
@@ -221,8 +238,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
         final String timeText;
         if (state.loading) {
           timeText = '···';
-        } else if (state.result != null) {
-          timeText = _formatDuration(state.result!.durationSeconds);
+        } else if (state.routes.isNotEmpty) {
+          timeText = _formatDuration(state.routes.first.durationSeconds);
         } else {
           timeText = '-';
         }
@@ -245,18 +262,17 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
                 children: [
                   Icon(_modeIcon(mode), color: color, size: 20),
                   const SizedBox(height: 2),
-                  Text(
-                    _modeLabel(mode),
-                    style: TextStyle(fontSize: 10, color: color),
-                  ),
+                  Text(_modeLabel(mode),
+                      style: TextStyle(fontSize: 10, color: color)),
                   const SizedBox(height: 2),
                   Text(
                     timeText,
                     style: TextStyle(
                       fontSize: 12,
                       color: color,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -281,13 +297,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
                   Icon(Icons.my_location, size: 14, color: Colors.blue),
                   SizedBox(width: 8),
                   Text('현재 위치',
-                      style:
-                          TextStyle(fontSize: 13, color: Colors.grey)),
+                      style: TextStyle(fontSize: 13, color: Colors.grey)),
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  const Icon(Icons.location_on,
-                      size: 14, color: Colors.red),
+                  const Icon(Icons.location_on, size: 14, color: Colors.red),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -301,10 +315,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: widget.onClose,
-          ),
+          IconButton(icon: const Icon(Icons.close), onPressed: widget.onClose),
         ],
       ),
     );
@@ -312,10 +323,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
 
   Widget _buildContent() {
     final state = _states[_mode]!;
-
-    if (state.loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (state.loading) return const Center(child: CircularProgressIndicator());
     if (state.error != null) {
       return Center(
         child: Padding(
@@ -325,35 +333,141 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 32),
               const SizedBox(height: 8),
-              Text(
-                state.error!,
-                style:
-                    const TextStyle(color: Colors.red, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
+              Text(state.error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                  textAlign: TextAlign.center),
             ],
           ),
         ),
       );
     }
+    if (state.routes.isEmpty) return const SizedBox.shrink();
 
-    final result = state.result!;
+    if (_mode == RouteMode.transit) {
+      return _buildTransitRoutes(state.routes);
+    }
+    return _buildSingleResult(state.routes.first);
+  }
+
+  // ── 대중교통: 카드 목록 ─────────────────────────────────────
+
+  Widget _buildTransitRoutes(List<RouteResult> routes) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      itemCount: routes.length,
+      itemBuilder: (_, i) => _buildTransitCard(routes[i], i),
+    );
+  }
+
+  Widget _buildTransitCard(RouteResult result, int index) {
+    final isSelected = index == _selectedTransitIndex;
     final transfers = _transferCount(result.legs);
+    final cardColor = _modeColor(RouteMode.transit);
 
+    return GestureDetector(
+      onTap: () => _selectTransitRoute(index),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? cardColor.withValues(alpha: 0.04)
+              : Colors.white,
+          border: Border.all(
+            color: isSelected ? cardColor : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 상단: 도착시각 / 소요시간 / 거리 / 요금
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '도착 ${_arrivalTime(result.durationSeconds)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _formatDuration(result.durationSeconds),
+                  style: TextStyle(
+                    fontSize: isSelected ? 22 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? cardColor : Colors.black87,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatDistance(result.distanceMeters),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const Spacer(),
+                if (result.fare > 0)
+                  Text(
+                    _formatFare(result.fare),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+              ],
+            ),
+            // 환승 횟수
+            if (result.legs.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                transfers == 0 ? '직행' : '환승 $transfers회',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 8),
+              // 구간 바
+              _buildMiniBar(result.legs, height: isSelected ? 10 : 7),
+              // 선택된 카드만 상세 정보 표시
+              if (isSelected) ...[
+                const SizedBox(height: 8),
+                _buildStationNames(result.legs),
+                const SizedBox(height: 8),
+                _buildLegChipRow(result.legs),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBar(List<RouteLeg> legs, {double height = 8}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: height,
+        child: Row(
+          children: legs.map((leg) {
+            final flex = max(1, leg.durationSeconds);
+            final color = leg.type == 'walk'
+                ? Colors.grey[300]!
+                : _parseLegColor(leg.color);
+            return Expanded(flex: flex, child: Container(color: color));
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ── 도보/자전거/자동차: 단일 결과 ───────────────────────────
+
+  Widget _buildSingleResult(RouteResult result) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 도착 시각
           Text(
             '도착 ${_arrivalTime(result.durationSeconds)}',
-            style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600]),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           const SizedBox(height: 4),
-          // 소요시간 + 거리
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -373,76 +487,62 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
               ),
             ],
           ),
-          // 대중교통: 요금 + 환승
-          if (_mode == RouteMode.transit && result.legs.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (result.fare > 0) ...[
-                  Text('요금 ${_formatFare(result.fare)}',
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey[600])),
-                  const SizedBox(width: 12),
-                ],
-                if (transfers >= 0)
-                  Text(
-                    transfers == 0 ? '환승 없음' : '환승 $transfers회',
-                    style: TextStyle(
-                        fontSize: 13, color: Colors.grey[600]),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSegmentBar(result.legs),
+        ],
+      ),
+    );
+  }
+
+  // ── 공통 위젯 ────────────────────────────────────────────────
+
+  Widget _buildStationNames(List<RouteLeg> legs) {
+    final stations = <String>[];
+    bool firstTransit = true;
+    for (final leg in legs) {
+      if (leg.type == 'walk') continue;
+      if (firstTransit && leg.startStation != null) {
+        stations.add(leg.startStation!);
+        firstTransit = false;
+      } else {
+        firstTransit = false;
+      }
+      if (leg.endStation != null) stations.add(leg.endStation!);
+    }
+    if (stations.isEmpty) return const SizedBox.shrink();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (int i = 0; i < stations.length; i++) ...[
+            if (i > 0)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+                child: Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+              ),
+            Text(stations[i],
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildSegmentBar(List<RouteLeg> legs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 컬러 구간 바
-        ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: SizedBox(
-            height: 10,
-            child: Row(
-              children: legs.map((leg) {
-                final flex = max(1, leg.durationSeconds);
-                final color = leg.type == 'walk'
-                    ? Colors.grey[300]!
-                    : _parseLegColor(leg.color);
-                return Expanded(
-                    flex: flex, child: Container(color: color));
-              }).toList(),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // 역 이름 행
-        _buildStationNames(legs),
-        const SizedBox(height: 10),
-        // 구간 칩 행
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (int i = 0; i < legs.length; i++) ...[
-                _buildLegChip(legs[i]),
-                if (i < legs.length - 1)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: Icon(Icons.chevron_right,
-                        size: 14, color: Colors.grey),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ],
+  Widget _buildLegChipRow(List<RouteLeg> legs) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (int i = 0; i < legs.length; i++) ...[
+            _buildLegChip(legs[i]),
+            if (i < legs.length - 1)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+                child:
+                    Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -453,10 +553,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
         children: [
           Icon(Icons.directions_walk, size: 14, color: Colors.grey[500]),
           const SizedBox(width: 2),
-          Text(
-            _formatDuration(leg.durationSeconds.toDouble()),
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-          ),
+          Text(_formatDuration(leg.durationSeconds.toDouble()),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
         ],
       );
     }
@@ -483,43 +581,6 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel> {
                   fontSize: 11,
                   color: color,
                   fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStationNames(List<RouteLeg> legs) {
-    final stations = <String>[];
-    bool firstTransit = true;
-    for (final leg in legs) {
-      if (leg.type == 'walk') continue;
-      if (firstTransit && leg.startStation != null) {
-        stations.add(leg.startStation!);
-        firstTransit = false;
-      } else {
-        firstTransit = false;
-      }
-      if (leg.endStation != null) stations.add(leg.endStation!);
-    }
-    if (stations.isEmpty) return const SizedBox.shrink();
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (int i = 0; i < stations.length; i++) ...[
-            if (i > 0)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Icon(Icons.arrow_forward,
-                    size: 12, color: Colors.grey),
-              ),
-            Text(
-              stations[i],
-              style:
-                  const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-          ],
         ],
       ),
     );

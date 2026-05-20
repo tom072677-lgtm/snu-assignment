@@ -111,7 +111,8 @@ class MapRepository {
     required double dlng,
   }) async {
     if (mode == RouteMode.transit) {
-      return _getTransitRoute(olat: olat, olng: olng, dlat: dlat, dlng: dlng);
+      final routes = await getTransitRoutes(olat: olat, olng: olng, dlat: dlat, dlng: dlng);
+      return routes.first;
     }
 
     final tmapMode = mode == RouteMode.car ? 'car' : 'pedestrian';
@@ -134,7 +135,8 @@ class MapRepository {
     );
   }
 
-  Future<RouteResult> _getTransitRoute({
+  /// 대중교통 경로 최대 3개 반환 (첫 번째가 최적 경로)
+  Future<List<RouteResult>> getTransitRoutes({
     required double olat,
     required double olng,
     required double dlat,
@@ -145,16 +147,26 @@ class MapRepository {
       queryParameters: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
     );
     final data = response.data as Map<String, dynamic>;
-    final path = _parsePath(data['path'] as List);
-    final legs = (data['legs'] as List? ?? [])
+
+    // 새 서버 응답(routes 배열) 또는 구형 flat 응답 모두 처리
+    final List<dynamic> rawRoutes = data.containsKey('routes')
+        ? data['routes'] as List
+        : [data];
+
+    if (rawRoutes.isEmpty) throw Exception('경로 없음');
+
+    return rawRoutes.map((r) => _routeFromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  RouteResult _routeFromJson(Map<String, dynamic> r) {
+    final path = _parsePath(r['path'] as List);
+    final legs = (r['legs'] as List? ?? [])
         .map((e) => RouteLeg.fromJson(e as Map<String, dynamic>))
         .toList();
-    final fare = (data['fare'] as num? ?? 0).toInt();
-
     return RouteResult(
-      durationSeconds: (data['duration'] as num).toDouble(),
-      distanceMeters: (data['distance'] as num).toDouble(),
-      fare: fare,
+      durationSeconds: (r['duration'] as num).toDouble(),
+      distanceMeters: (r['distance'] as num).toDouble(),
+      fare: (r['fare'] as num? ?? 0).toInt(),
       path: path,
       legs: legs,
     );

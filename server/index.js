@@ -494,6 +494,46 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
+// ── ODSAY 단일 경로 객체 → 클라이언트 shape 변환 ─────────────────────────────
+function buildOdsayRoute(pathObj) {
+  const info = pathObj.info;
+  if (!info) throw new Error("ODSAY info 없음");
+  const subPaths = Array.isArray(pathObj.subPath) ? pathObj.subPath : null;
+  if (!subPaths) throw new Error("ODSAY subPath 없음");
+
+  const duration = (info.totalTime || 0) * 60; // 분 → 초
+  const distance = info.totalDistance || 0;
+  const fare = info.payment || 0;
+
+  const legs = [];
+  const allCoords = [];
+  for (const sub of subPaths) {
+    const type = sub.trafficType === 1 ? 'subway'
+               : sub.trafficType === 2 ? 'bus'
+               : 'walk';
+    const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
+    const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
+    legs.push({
+      type,
+      name,
+      color: color.startsWith('#') ? color : `#${color}`,
+      duration: (sub.sectionTime || 0) * 60,
+      distance: sub.distance || 0,
+      startStation: sub.startName || null,
+      endStation: sub.endName || null,
+    });
+    if (type === 'walk' && sub.startX && sub.startY) {
+      allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);
+    }
+    const stations = sub.passStopList?.stations || [];
+    for (const st of stations) {
+      if (st.x && st.y) allCoords.push([parseFloat(st.y), parseFloat(st.x)]);
+    }
+  }
+
+  return { duration, distance, fare, path: allCoords, legs };
+}
+
 // ── ODSAY 대중교통 경로 ───────────────────────────────────────────────────────
 app.get("/api/route/odsay/transit", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.query;
@@ -518,49 +558,20 @@ app.get("/api/route/odsay/transit", async (req, res) => {
 
     if (data.error) throw new Error(`ODSAY 오류: ${JSON.stringify(data.error)}`);
 
-    const path0 = data.result?.path?.[0];
-    if (!path0) throw new Error(`ODSAY 경로 없음 (raw: ${JSON.stringify(data).slice(0, 200)})`);
+    const rawPaths = data.result?.path || [];
+    if (rawPaths.length === 0)
+      throw new Error(`ODSAY 경로 없음 (raw: ${JSON.stringify(data).slice(0, 200)})`);
 
-    const info = path0.info;
-    if (!info) throw new Error("ODSAY info 없음");
-
-    const subPaths = Array.isArray(path0.subPath) ? path0.subPath : null;
-    if (!subPaths) throw new Error("ODSAY subPath 없음");
-
-    const duration = (info.totalTime || 0) * 60; // 분 → 초
-    const distance = (info.totalDistance || 0);
-
-    // legs 구성
-    const legs = [];
-    const allCoords = [];
-    for (const sub of subPaths) {
-      const type = sub.trafficType === 1 ? 'subway'
-                 : sub.trafficType === 2 ? 'bus'
-                 : 'walk';
-      const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
-      const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
-      legs.push({
-        type,
-        name,
-        color: color.startsWith('#') ? color : `#${color}`,
-        duration: (sub.sectionTime || 0) * 60,
-        distance: sub.distance || 0,
-        startStation: sub.startName || null,
-        endStation: sub.endName || null,
-      });
-      // 도보 구간: startX/Y 추가
-      if (type === 'walk' && sub.startX && sub.startY) {
-        allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);
-      }
-      // 경유 정류장 좌표
-      const stations = sub.passStopList?.stations || [];
-      for (const st of stations) {
-        if (st.x && st.y) allCoords.push([parseFloat(st.y), parseFloat(st.x)]);
-      }
+    // 최대 3개 경로 변환 (변환 실패한 경로는 건너뜀)
+    const routes = [];
+    for (const pathObj of rawPaths.slice(0, 3)) {
+      try { routes.push(buildOdsayRoute(pathObj)); }
+      catch (_) { /* invalid path — skip */ }
     }
+    if (routes.length === 0) throw new Error("유효한 경로를 찾을 수 없습니다");
 
-    const fare = info.payment || 0;
-    res.json({ duration, distance, fare, path: allCoords, legs });
+    // routes 배열 반환 + 하위 호환을 위해 routes[0] 필드도 함께
+    res.json({ routes, ...routes[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
