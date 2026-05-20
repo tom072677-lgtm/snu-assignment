@@ -118,9 +118,15 @@ class _MapScreenState extends State<MapScreen> {
     _mapCtrl?.clearOverlays();
   }
 
-  Future<void> _onRouteLoaded(RouteResult result, RouteMode mode) async {
+  Future<void> _onRouteLoaded(RouteResult? result, RouteMode mode) async {
     final ctrl = _mapCtrl;
-    if (ctrl == null || result.path.length < 2) return;
+    if (ctrl == null) return;
+
+    // result == null → 오버레이만 클리어
+    if (result == null || result.path.length < 2) {
+      await ctrl.clearOverlays();
+      return;
+    }
 
     // 기존 경로 제거
     await ctrl.clearOverlays();
@@ -184,6 +190,9 @@ class _MapScreenState extends State<MapScreen> {
             onMapReady: (controller) {
               _mapCtrl = controller;
               _initLocation();
+            },
+            onMapTapped: (point, latLng) {
+              if (_routeDest != null) _onRoutePanelClose();
             },
           ),
 

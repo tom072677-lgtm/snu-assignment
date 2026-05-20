@@ -73,7 +73,7 @@ class VenueDetailScreen extends StatelessWidget {
   void _openDirections(BuildContext context) {
     final dest = PlaceResult(
       name: venue.name,
-      address: venue.address ?? '',
+      address: venue.address,
       lat: venue.lat,
       lng: venue.lng,
       category: '',
@@ -85,7 +85,7 @@ class VenueDetailScreen extends StatelessWidget {
       builder: (ctx) => RouteOverlayPanel(
         dest: dest,
         onClose: () => Navigator.pop(ctx),
-        onRouteLoaded: (_, __) {}, // 지도 없는 맥락: 경로 정보만 표시
+        onRouteLoaded: (result, mode) {}, // 지도 없는 맥락: 경로 정보만 표시
       ),
     );
   }
