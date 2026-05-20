@@ -497,25 +497,18 @@ app.post("/api/route/tmap/car", async (req, res) => {
 });
 
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
-async function fetchBusArrival(routeName, arsId) {
+async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
-  if (!key || !arsId) return null;
+  if (!key || !stId || !busRouteId) return null;
 
-  // ODSAY startArsID로 바로 실시간 도착 조회 (stationinfo 불필요)
-  const arrUrl = `http://ws.bus.go.kr/api/rest/arrive/getStationByUidList`
+  // getArrInfoByRoute: 노선+정류소 ID로 도착 예정 조회
+  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
     + `?serviceKey=${encodeURIComponent(key)}`
-    + `&arsId=${arsId}`
-    + `&resultType=json`;
-  const arrData = JSON.parse(await fetchText(arrUrl));
-  const arrivals = arrData.msgBody?.itemList ?? [];
-
-  // 노선 번호 매칭
-  const clean = (s) => String(s ?? '').replace(/\s/g, '');
-  const match = arrivals.find(a =>
-    clean(a.rtNm) === clean(routeName) ||
-    clean(a.busRouteAbrv) === clean(routeName)
-  );
-  return match?.arrmsg1 ?? null;
+    + `&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
+  const data = JSON.parse(await fetchText(url));
+  const items = data.msgBody?.itemList ?? [];
+  if (!items.length) return null;
+  return items[0]?.arrmsg1 ?? null;
 }
 
 async function fetchSubwayArrival(routeName, startStation, subwayCode) {
@@ -557,16 +550,15 @@ app.get("/api/debug/transit", async (req, res) => {
   const busKey = process.env.SEOUL_BUS_API_KEY;
   const subwayKey = process.env.SEOUL_SUBWAY_API_KEY;
   const result = { busKeySet: !!busKey, subwayKeySet: !!subwayKey };
-  // 버스: 승인된 getLowArrInfoByStIdList 테스트 (stId = ODSAY startStationID)
-  // stId 121000369 = 서울대입구역 근처 테스트값
-  for (const endpoint of ['getStationByUidList', 'getLowArrInfoByStIdList']) {
-    try {
-      const param = endpoint === 'getStationByUidList' ? 'arsId=22565' : 'stId=121000369';
-      const url = `http://ws.bus.go.kr/api/rest/arrive/${endpoint}?serviceKey=${encodeURIComponent(busKey ?? '')}&${param}&resultType=json`;
-      const sd = JSON.parse(await fetchText(url));
-      result[`bus_${endpoint}`] = { header: sd.msgHeader, count: (sd.msgBody?.itemList ?? []).length };
-    } catch (e) { result[`bus_${endpoint}_err`] = e.message.slice(0, 120); }
-  }
+  // 버스: getArrInfoByRoute 테스트 (실제 작동하는 endpoint)
+  // stId=119000295, busRouteId=100100124 는 테스트용 고정값
+  try {
+    const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
+      + `?serviceKey=${encodeURIComponent(busKey ?? '')}&stId=119000295&busRouteId=100100124&resultType=json`;
+    const sd = JSON.parse(await fetchText(url));
+    result.bus_getArrInfoByRoute = { header: sd.msgHeader, count: (sd.msgBody?.itemList ?? []).length,
+      sample: (sd.msgBody?.itemList ?? []).slice(0,1) };
+  } catch (e) { result.bus_err = e.message.slice(0, 150); }
   // 지하철: 강남역으로 테스트 (더 확실한 데이터)
   for (const station of ['강남', '서울대입구']) {
     try {
@@ -583,15 +575,14 @@ app.get("/api/debug/transit", async (req, res) => {
 });
 
 app.post("/api/transit/arrival", async (req, res) => {
-  const { legType, routeName, startStation, subwayCode, arsId } = req.body;
-  if (!routeName)
-    return res.status(400).json({ error: "파라미터 필요" });
+  const { legType, routeName, startStation, subwayCode, stId, busRouteId } = req.body;
+  if (!legType) return res.status(400).json({ error: "파라미터 필요" });
   try {
     let arrmsg = null;
     if (legType === "subway") {
       arrmsg = await fetchSubwayArrival(routeName, startStation, subwayCode);
     } else if (legType === "bus") {
-      arrmsg = await fetchBusArrival(routeName, arsId);
+      arrmsg = await fetchBusArrival(stId, busRouteId);
     }
     res.json({ arrmsg });
   } catch (err) {
@@ -639,7 +630,8 @@ function buildOdsayRoute(pathObj) {
     const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
     const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
     const subwayCode = type === 'subway' ? (sub.lane?.[0]?.subwayCode ?? null) : null;
-    const arsId = type === 'bus' ? (sub.startArsID || null) : null;
+    const stId = type === 'bus' ? (sub.startStationID ? String(sub.startStationID) : null) : null;
+    const busRouteId = type === 'bus' ? (sub.lane?.[0]?.busRouteId ? String(sub.lane[0].busRouteId) : null) : null;
     legs.push({
       type,
       name,
@@ -649,7 +641,8 @@ function buildOdsayRoute(pathObj) {
       startStation: sub.startName || null,
       endStation: sub.endName || null,
       subwayCode,
-      arsId,
+      stId,
+      busRouteId,
     });
     if (type === 'walk' && sub.startX && sub.startY) {
       allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);

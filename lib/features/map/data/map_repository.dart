@@ -36,8 +36,9 @@ class RouteLeg {
   final int distanceMeters;
   final String? startStation;
   final String? endStation;
-  final int? subwayCode; // ODSAY 지하철 코드 (subway만 해당)
-  final String? arsId;   // 버스 정류장 ID (bus만 해당, ODSAY startArsID)
+  final int? subwayCode;   // ODSAY 지하철 코드 (subway만 해당)
+  final String? stId;      // 버스 정류장 내부 ID (bus만 해당, ODSAY startStationID)
+  final String? busRouteId; // 버스 노선 ID (bus만 해당, ODSAY lane[0].busRouteId)
 
   const RouteLeg({
     required this.type,
@@ -48,7 +49,8 @@ class RouteLeg {
     this.startStation,
     this.endStation,
     this.subwayCode,
-    this.arsId,
+    this.stId,
+    this.busRouteId,
   });
 
   factory RouteLeg.fromJson(Map<String, dynamic> j) => RouteLeg(
@@ -60,7 +62,8 @@ class RouteLeg {
         startStation: j['startStation'] as String?,
         endStation: j['endStation'] as String?,
         subwayCode: j['subwayCode'] as int?,
-        arsId: j['arsId'] as String?,
+        stId: j['stId'] as String?,
+        busRouteId: j['busRouteId'] as String?,
       );
 }
 
@@ -146,7 +149,8 @@ class MapRepository {
     required String routeName,
     String? startStation,
     int? subwayCode,
-    String? arsId,
+    String? stId,
+    String? busRouteId,
   }) async {
     try {
       final response = await DioClient.instance.post(
@@ -156,7 +160,8 @@ class MapRepository {
           'routeName': routeName,
           if (startStation != null) 'startStation': startStation,
           if (subwayCode != null) 'subwayCode': subwayCode,
-          if (arsId != null) 'arsId': arsId,
+          if (stId != null) 'stId': stId,
+          if (busRouteId != null) 'busRouteId': busRouteId,
         },
       );
       return response.data['arrmsg'] as String?;

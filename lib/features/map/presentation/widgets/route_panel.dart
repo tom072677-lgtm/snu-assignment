@@ -166,7 +166,12 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     for (final leg in route.legs) {
       if (leg.type == 'bus' || leg.type == 'subway') { transitLeg = leg; break; }
     }
-    if (transitLeg == null || transitLeg.startStation == null || transitLeg.name.isEmpty) {
+    // 버스: stId+busRouteId 필요 / 지하철: startStation 필요
+    final bool canFetch = transitLeg != null && (
+      (transitLeg.type == 'bus' && transitLeg.stId != null && transitLeg.busRouteId != null) ||
+      (transitLeg.type == 'subway' && transitLeg.startStation != null && transitLeg.name.isNotEmpty)
+    );
+    if (!canFetch) {
       setState(() { _arrivalMsg = null; _arrivalLoading = false; });
       return;
     }
@@ -179,7 +184,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       routeName: transitLeg.name,
       startStation: transitLeg.startStation,
       subwayCode: transitLeg.subwayCode,
-      arsId: transitLeg.arsId,
+      stId: transitLeg.stId,
+      busRouteId: transitLeg.busRouteId,
     );
 
     if (!mounted || reqId != _arrivalReqId) return;
