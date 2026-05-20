@@ -1069,17 +1069,21 @@ app.get('/api/myip', async (req, res) => {
 app.get('/api/debug/odsay', async (req, res) => {
   const key = process.env.ODSAY_API_KEY?.trim() || '';
   const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
-  // 특수문자 시각화 (+는 [P], 공백은 [SP])
-  const keyViz = key.replace(/\+/g, '[P]').replace(/ /g, '[SP]').replace(/%/g, '[PCT]');
-  const keyInfo = `len=${key.length} viz=${keyViz}`;
-  const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=126.9780&SY=37.5665&EX=126.9516&EY=37.4603&apiKey=${key}`;
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
-    res.json({ ip: ipText, keyInfo, odsay: data });
-  } catch (e) {
-    res.json({ ip: ipText, keyInfo, error: e.message });
+  const params = new URLSearchParams({ SX: '126.9780', SY: '37.5665', EX: '126.9516', EY: '37.4603', apiKey: key });
+  const results = {};
+  // H1: api.odsay.com vs lab.odsay.com
+  for (const domain of ['api.odsay.com', 'lab.odsay.com']) {
+    const url = `https://${domain}/v1/api/searchPubTransPathT?${params}`;
+    try {
+      const resp = await fetch(url);
+      const text = await resp.text();
+      try { results[domain] = JSON.parse(text); }
+      catch { results[domain] = { raw: text.slice(0, 200) }; }
+    } catch (e) {
+      results[domain] = { error: e.message };
+    }
   }
+  res.json({ ip: ipText, keyLen: key.length, results });
 });
 
 app.listen(PORT, () => {
