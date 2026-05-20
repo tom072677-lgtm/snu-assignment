@@ -505,7 +505,8 @@ app.get("/api/route/odsay/transit", async (req, res) => {
     return res.status(500).json({ error: "ODSAY_API_KEY not configured" });
 
   try {
-    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${encodeURIComponent(odsayKey)}`;
+    // NOTE: ODSAY may not URL-decode %2B → pass key raw (+ as literal +)
+    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${odsayKey}`;
     const resp = await fetch(url);
     if (!resp.ok) {
       const body = await resp.text();
