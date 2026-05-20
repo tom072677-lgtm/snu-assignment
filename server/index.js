@@ -505,8 +505,8 @@ app.get("/api/route/odsay/transit", async (req, res) => {
     return res.status(500).json({ error: "ODSAY_API_KEY not configured" });
 
   try {
-    // NOTE: ODSAY may not URL-decode %2B → pass key raw (+ as literal +)
-    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${olng}&SY=${olat}&EX=${dlng}&EY=${dlat}&apiKey=${odsayKey}`;
+    const params = new URLSearchParams({ SX: String(olng), SY: String(olat), EX: String(dlng), EY: String(dlat), apiKey: odsayKey });
+    const url = `https://api.odsay.com/v1/api/searchPubTransPathT?${params}`;
     const resp = await fetch(url);
     if (!resp.ok) {
       const body = await resp.text();
@@ -1065,31 +1065,6 @@ app.get('/api/myip', async (req, res) => {
   }
 });
 
-// ODSAY 디버그 (임시)
-app.get('/api/debug/odsay', async (req, res) => {
-  const crypto = require('crypto');
-  // ?key= 파라미터로 대체 키 테스트 가능 (임시)
-  const key = (req.query.key || process.env.ODSAY_API_KEY)?.trim() || '';
-  const ipText = await fetchText('https://api.ipify.org').catch(e => e.message);
-  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-  const results = {};
-
-  // searchPubTransPathT (대중교통 경로)
-  const params1 = new URLSearchParams({ SX: '126.9780', SY: '37.5665', EX: '126.9516', EY: '37.4603', apiKey: key });
-  try {
-    const r = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params1}`);
-    results.transit = await r.json();
-  } catch (e) { results.transit = { error: e.message }; }
-
-  // searchBusLane (버스 노선 - 단순 엔드포인트)
-  const params2 = new URLSearchParams({ busID: '100100118', apiKey: key });
-  try {
-    const r = await fetch(`https://api.odsay.com/v1/api/searchBusLane?${params2}`);
-    results.busLane = await r.json();
-  } catch (e) { results.busLane = { error: e.message }; }
-
-  res.json({ ip: ipText, keyLen: key.length, keyHash, results });
-});
 
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
