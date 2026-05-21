@@ -701,6 +701,7 @@ app.get("/api/route/odsay/transit", async (req, res) => {
 
 // 장소 검색 (카카오 로컬 API 프록시)
 // 좌표가 제공된 경우: "서울대학교 {q}" + "{q}" 이중 검색 후 SNU 결과 우선 병합
+// "~역" 쿼리: SW8(지하철역) 카테고리 검색 결과를 맨 앞에 추가
 app.get("/api/search-place", async (req, res) => {
   const { q, x, y } = req.query;
   if (!q) return res.status(400).json({ error: "q 필요" });
@@ -713,7 +714,30 @@ app.get("/api/search-place", async (req, res) => {
     lng: parseFloat(d.x),
     category: d.category_group_name || "",
   });
+  const deduped = (docs) => {
+    const seen = new Set();
+    const out = [];
+    for (const d of docs) {
+      const key = d.place_name + "|" + (d.road_address_name || d.address_name);
+      if (!seen.has(key)) { seen.add(key); out.push(d); }
+    }
+    return out;
+  };
+  // "~역"으로 끝나는 쿼리면 SW8(지하철역) 키워드 검색을 별도로 실행
+  const isStationQuery = q.trim().endsWith("역");
   try {
+    // SW8 지하철역 검색 (실패해도 무시)
+    let stationDocs = [];
+    if (isStationQuery) {
+      try {
+        const stText = await fetchText(
+          `${BASE}?query=${encodeURIComponent(q.trim())}&category_group_code=SW8&size=5`,
+          0, headers
+        );
+        stationDocs = JSON.parse(stText).documents || [];
+      } catch (_) { /* SW8 검색 실패 시 무시 */ }
+    }
+
     if (x && y) {
       // SNU 캠퍼스 좌표 제공 시 이중 검색: "서울대학교 {q}" 결과를 앞에 배치
       const coords = `&x=${x}&y=${y}&radius=5000&sort=accuracy`;
@@ -723,19 +747,15 @@ app.get("/api/search-place", async (req, res) => {
       ]);
       const snuDocs = JSON.parse(snuText).documents || [];
       const generalDocs = JSON.parse(generalText).documents || [];
-      const seen = new Set();
-      const merged = [];
-      for (const d of [...snuDocs, ...generalDocs]) {
-        if (!seen.has(d.place_name)) {
-          seen.add(d.place_name);
-          merged.push(toResult(d));
-        }
-      }
-      return res.json(merged.slice(0, 15));
+      // 병합 순서: 지하철역 → SNU → 일반 (중복 제거)
+      const merged = deduped([...stationDocs, ...snuDocs, ...generalDocs]);
+      return res.json(merged.slice(0, 15).map(toResult));
     }
     // 좌표 없으면 일반 검색
     const text = await fetchText(`${BASE}?query=${encodeURIComponent(q)}&size=15`, 0, headers);
-    res.json((JSON.parse(text).documents || []).map(toResult));
+    const generalDocs = JSON.parse(text).documents || [];
+    const merged = deduped([...stationDocs, ...generalDocs]);
+    res.json(merged.slice(0, 15).map(toResult));
   } catch (err) {
     console.error("[search-place]", err.message);
     res.status(500).json({ error: err.message });
