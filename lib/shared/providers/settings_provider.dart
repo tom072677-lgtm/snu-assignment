@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
+import 'notification_service.dart';
 
 // SharedPreferences 인스턴스 provider (main에서 override)
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
@@ -92,6 +93,8 @@ class CompletedTasksNotifier extends StateNotifier<Set<String>> {
   void complete(String etlId) {
     state = {...state, etlId};
     _save();
+    // 완료 즉시 고정 알림 취소 (다음 fetch 기다리지 않음)
+    NotificationService.cancelOngoingNotification(etlId).ignore();
   }
 
   void undo(String etlId) {

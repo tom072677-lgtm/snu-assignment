@@ -11,12 +11,26 @@ final notificationServiceProvider =
 
 class NotificationService {
   static final _localNotif = FlutterLocalNotificationsPlugin();
+
+  // 일반 알림 채널 (FCM 포그라운드)
   static const _channel = AndroidNotificationChannel(
     'sharap_alerts',
     '샤랍 알림',
     description: '과제 마감 알림',
     importance: Importance.high,
   );
+
+  // ongoing 고정 알림 채널 (24h 이내 과제 — 스와이프 삭제 불가)
+  static const _ongoingChannel = AndroidNotificationChannel(
+    'sharap_ongoing',
+    '샤랍 마감 임박 알림',
+    description: '24시간 이내 마감 과제 고정 알림',
+    importance: Importance.high,
+  );
+
+  /// etlId → 안정적인 정수 알림 ID (앱 재시작 후에도 동일)
+  static int _stableId(String etlId) =>
+      etlId.codeUnits.fold(0, (acc, c) => acc + c) % 100000;
 
   Future<void> initialize() async {
     // 로컬 알림 초기화
@@ -25,10 +39,12 @@ class NotificationService {
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
     );
-    await _localNotif
+
+    final androidPlugin = _localNotif
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_channel);
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(_channel);
+    await androidPlugin?.createNotificationChannel(_ongoingChannel);
 
     // FCM 권한 요청
     final messaging = FirebaseMessaging.instance;
@@ -48,6 +64,27 @@ class NotificationService {
 
     // 포그라운드 메시지 수신
     FirebaseMessaging.onMessage.listen((message) {
+      final data = message.data;
+
+      // deadline 타입이면 ongoing 알림 갱신
+      if (data['type'] == 'deadline' && data['etlId'] != null) {
+        try {
+          final dueDate = DateTime.parse(data['dueDate']!);
+          final remaining = dueDate.difference(DateTime.now());
+          if (remaining.inSeconds > 0) {
+            showOngoingNotification(
+              etlId: data['etlId']!,
+              title: data['title'] ?? '',
+              courseName: data['courseName'] ?? '',
+              remaining: remaining,
+            ).ignore();
+          }
+        } catch (e) {
+          debugPrint('[FCM] ongoing 알림 생성 실패: $e');
+        }
+      }
+
+      // 시스템 알림도 표시
       final notification = message.notification;
       final android = message.notification?.android;
       if (notification != null && android != null) {
@@ -76,8 +113,43 @@ class NotificationService {
     messaging.onTokenRefresh.listen(_registerToken);
   }
 
-  /// FCM 토큰을 서버에 전송 (서버는 FCM 발송에 사용)
-  /// 서버 재시작 후 토큰이 소멸될 수 있으므로 항상 등록
+  /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가)
+  Future<void> showOngoingNotification({
+    required String etlId,
+    required String title,
+    required String courseName,
+    required Duration remaining,
+  }) async {
+    final h = remaining.inHours;
+    final m = remaining.inMinutes % 60;
+    final timeStr = h > 0 ? '$h시간 $m분 후 마감' : '$m분 후 마감';
+    final notifTitle = courseName.isNotEmpty ? courseName : title;
+
+    await _localNotif.show(
+      _stableId(etlId),
+      notifTitle,
+      '$title  ·  $timeStr',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _ongoingChannel.id,
+          _ongoingChannel.name,
+          channelDescription: _ongoingChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          ongoing: true,
+          autoCancel: false,
+          onlyAlertOnce: true,
+        ),
+      ),
+    );
+  }
+
+  /// 과제 완료/만료 시 고정 알림 취소 (static — CompletedTasksNotifier에서도 호출)
+  static Future<void> cancelOngoingNotification(String etlId) async {
+    await _localNotif.cancel(_stableId(etlId));
+  }
+
+  /// FCM 토큰을 서버에 전송
   Future<void> _registerToken(String token) async {
     try {
       await DioClient.instance.post('/api/fcm/register', data: {'token': token});

@@ -55,12 +55,54 @@ class AssignmentsNotifier
 
   void _syncNotifications(List<Assignment> list) {
     final notifService = ref.read(notificationServiceProvider);
+    final completed = ref.read(completedTasksProvider);
+    final prefs = ref.read(sharedPrefsProvider);
+
+    // 24h 이내 + 미완료 + 미만료 과제만 ongoing 알림 대상
+    final shouldBeActive = <String>{
+      for (final a in list)
+        if (!a.isOverdue &&
+            !completed.contains(a.etlId) &&
+            a.remaining.inHours < 24)
+          a.etlId,
+    };
+
+    // 이전에 활성화된 알림 Set 로드
+    final prevActive =
+        (prefs.getStringList('active_ongoing_etlIds') ?? []).toSet();
+
+    // 더 이상 필요 없는 ongoing 알림 취소 (완료·만료·목록 제거된 과제)
+    for (final etlId in prevActive) {
+      if (!shouldBeActive.contains(etlId)) {
+        NotificationService.cancelOngoingNotification(etlId).ignore();
+      }
+    }
+
+    // 대상 과제 ongoing 알림 표시/갱신
+    for (final a in list) {
+      if (shouldBeActive.contains(a.etlId)) {
+        notifService.showOngoingNotification(
+          etlId: a.etlId,
+          title: a.title,
+          courseName: a.courseName,
+          remaining: a.remaining,
+        ).ignore();
+      }
+    }
+
+    // 현재 활성 Set 저장
+    prefs
+        .setStringList('active_ongoing_etlIds', shouldBeActive.toList())
+        .ignore();
+
+    // 서버에 FCM 스케줄 동기화
     final tasks = list
         .map((a) => {
               'etlId': a.etlId,
               'title': a.title,
               'courseName': a.courseName,
               'dueDate': a.dueDate.toIso8601String(),
+              'dateOnly': a.dateOnly,
               'url': a.url,
             })
         .toList();

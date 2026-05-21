@@ -1174,11 +1174,14 @@ app.post("/api/fcm/sync-tasks", async (req, res) => {
   res.json({ ok: true });
 });
 
-// 5분마다 FCM 알림 체크 (기존 Web Push 로직과 동일한 24h~1h 타이밍)
+// FCM 알림은 24h / 5h / 1h 전 3번만 발송
+const FCM_DEADLINE_TARGETS = [24, 5, 1];
+
+// 5분마다 FCM 알림 체크
 if (fcmAdmin) {
   setInterval(async () => {
     const now = new Date();
-    const WINDOW = 6 / 60;
+    const WINDOW = 6 / 60; // ±6분 허용
 
     for (const [token, { tasks }] of fcmTokenStore) {
       for (const task of tasks) {
@@ -1186,7 +1189,7 @@ if (fcmAdmin) {
         const diffH = (due - now) / (1000 * 60 * 60);
         if (diffH < 0) continue;
 
-        for (const h of HOURLY_DEADLINE_TARGETS) {
+        for (const h of FCM_DEADLINE_TARGETS) {
           if (diffH <= h + WINDOW && diffH > h - WINDOW) {
             const key = `fcm:${token}:${task.etlId}:${h}`;
             if (sentKeys.has(key)) continue;
@@ -1198,6 +1201,15 @@ if (fcmAdmin) {
                 notification: {
                   title: `💣 ${task.courseName || task.title}`,
                   body: `${task.title} 마감 ${h}시간 전`,
+                },
+                // Flutter 앱이 ongoing 알림 생성에 사용
+                data: {
+                  type: "deadline",
+                  etlId: String(task.etlId),
+                  title: String(task.title),
+                  courseName: String(task.courseName || ""),
+                  dueDate: String(task.dueDate),
+                  dateOnly: task.dateOnly ? "true" : "false",
                 },
                 android: { priority: "high" },
               });
