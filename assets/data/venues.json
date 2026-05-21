@@ -611,5 +611,278 @@
       "saturday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false },
       "sunday": { "ranges": [{"open":"08:00","close":"02:00"}], "closed": false }
     }
+  },
+
+  {
+    "id": "아름드리식당",
+    "name": "아름드리식당",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "예술계복합연구동 74동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4617,
+    "lng": 126.9495,
+    "phone": "02-876-1006",
+    "tags": ["학식", "한식"],
+    "snucoName": "아름드리식당",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"13:30"},{"open":"17:00","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "공간",
+    "name": "공간 (공대 간이식당)",
+    "category": "restaurant",
+    "type": "snuco",
+    "building": "공과대학 30-2동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4564,
+    "lng": 126.9502,
+    "phone": "02-889-8956",
+    "tags": ["학식", "중식", "간이식당"],
+    "snucoName": "공간",
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:00","close":"14:30"},{"open":"15:30","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "교수회관식당",
+    "name": "교수회관식당",
+    "category": "restaurant",
+    "type": "static",
+    "building": "교수회관 65동 1·2F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4622,
+    "lng": 126.9499,
+    "phone": "02-880-5241",
+    "tags": ["한식", "교직원", "일반이용가능"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"11:30","close":"14:00"},{"open":"17:30","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "아워홈-901",
+    "name": "아워홈식당 (BTL생활관)",
+    "category": "restaurant",
+    "type": "static",
+    "building": "관악사 BTL생활관 901동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4572,
+    "lng": 126.9548,
+    "phone": null,
+    "tags": ["학식", "기숙사", "한식"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:30"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:30"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"09:30"},{"open":"11:30","close":"13:30"},{"open":"17:30","close":"19:30"}], "closed": false }
+    }
+  },
+
+  {
+    "id": "퀴즈노스-301",
+    "name": "퀴즈노스 (공학연구원)",
+    "category": "cafe",
+    "type": "snuco",
+    "building": "공학연구원 301동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4596,
+    "lng": 126.9501,
+    "phone": "02-871-9329",
+    "tags": ["카페", "샌드위치"],
+    "snucoName": "퀴즈노스",
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:30","close":"19:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "카페1847",
+    "name": "카페 1847 (반도체연구소)",
+    "category": "cafe",
+    "type": "snuco",
+    "building": "반도체연구소 104-1동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4583,
+    "lng": 126.9511,
+    "phone": "02-880-5465",
+    "tags": ["카페", "학교카페"],
+    "snucoName": "카페 1847",
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:30","close":"18:30"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "홀리스커피",
+    "name": "홀리스커피 (예술계복합연구동)",
+    "category": "cafe",
+    "type": "snuco",
+    "building": "예술계복합연구동 74동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4617,
+    "lng": 126.9495,
+    "phone": "02-877-7186",
+    "tags": ["카페", "커피"],
+    "snucoName": "홀리스커피",
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"20:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "수의대스낵",
+    "name": "수의대스낵",
+    "category": "cafe",
+    "type": "snuco",
+    "building": "수의과대학 85동 3F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4582,
+    "lng": 126.9463,
+    "phone": "02-880-1222",
+    "tags": ["카페", "간식", "학교카페"],
+    "snucoName": "수의대스낵",
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "까페그랑",
+    "name": "까페그랑 (BTL생활관)",
+    "category": "cafe",
+    "type": "static",
+    "building": "관악사 BTL생활관 901동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4572,
+    "lng": 126.9548,
+    "phone": null,
+    "tags": ["카페", "기숙사"],
+    "snucoName": null,
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:30","close":"22:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"07:30","close":"21:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"07:30","close":"21:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "라운지스낵",
+    "name": "라운지스낵 (학생회관)",
+    "category": "cafe",
+    "type": "snuco",
+    "building": "학생회관 63동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4609,
+    "lng": 126.9518,
+    "phone": "02-880-6787",
+    "tags": ["카페", "간식", "학교카페"],
+    "snucoName": "라운지스낵",
+    "hours": {
+      "weekday": { "ranges": [{"open":"07:30","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+
+  {
+    "id": "SNUCO-916",
+    "name": "SNUCO 편의점 (국제기숙사)",
+    "category": "convenience",
+    "type": "snuco",
+    "building": "국제기숙사 916동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4578,
+    "lng": 126.9563,
+    "phone": "02-881-9241",
+    "tags": ["편의점", "기숙사", "생협"],
+    "snucoName": "국제기숙사매점",
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:00","close":"24:00"}], "closed": false },
+      "saturday": { "ranges": [{"open":"08:00","close":"24:00"}], "closed": false },
+      "sunday": { "ranges": [{"open":"08:00","close":"24:00"}], "closed": false }
+    }
+  },
+  {
+    "id": "SNUCO-75",
+    "name": "SNUCO 편의점 (75-1동)",
+    "category": "convenience",
+    "type": "snuco",
+    "building": "75-1동 4F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4596,
+    "lng": 126.9505,
+    "phone": "02-880-5549",
+    "tags": ["편의점", "생협"],
+    "snucoName": "소담마루편의점",
+    "hours": {
+      "weekday": { "ranges": [{"open":"10:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "SNUCO-101",
+    "name": "SNUCO 편의점 (감골)",
+    "category": "convenience",
+    "type": "snuco",
+    "building": "아시아연구소 101동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4625,
+    "lng": 126.9530,
+    "phone": "02-880-5557",
+    "tags": ["편의점", "생협"],
+    "snucoName": "감골편의점",
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"18:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "SNUCO-220",
+    "name": "SNUCO 편의점 (220동)",
+    "category": "convenience",
+    "type": "snuco",
+    "building": "자유전공학부 220동 B1",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4587,
+    "lng": 126.9530,
+    "phone": "02-880-5253",
+    "tags": ["편의점", "생협"],
+    "snucoName": "220동편의점",
+    "hours": {
+      "weekday": { "ranges": [{"open":"09:00","close":"19:00"}], "closed": false },
+      "saturday": { "ranges": [], "closed": true },
+      "sunday": { "ranges": [], "closed": true }
+    }
+  },
+  {
+    "id": "SNUCO-500",
+    "name": "SNUCO 편의점 (자연대)",
+    "category": "convenience",
+    "type": "snuco",
+    "building": "자연과학대학 500동 1F",
+    "address": "서울 관악구 관악로 1",
+    "lat": 37.4590,
+    "lng": 126.9511,
+    "phone": "02-880-5556",
+    "tags": ["편의점", "생협"],
+    "snucoName": "자연대편의점",
+    "hours": {
+      "weekday": { "ranges": [{"open":"08:30","close":"19:30"}], "closed": false },
+      "saturday": { "ranges": [{"open":"10:00","close":"17:00"}], "closed": false },
+      "sunday": { "ranges": [], "closed": true }
+    }
   }
 ]
