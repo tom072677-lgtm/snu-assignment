@@ -643,6 +643,9 @@ function buildOdsayRoute(pathObj) {
     const subwayCode = type === 'subway' ? (sub.lane?.[0]?.subwayCode ?? null) : null;
     const stId = type === 'bus' ? (sub.startStationID ? String(sub.startStationID) : null) : null;
     const busRouteId = type === 'bus' ? (sub.lane?.[0]?.busRouteId ? String(sub.lane[0].busRouteId) : null) : null;
+    const passStations = (sub.passStopList?.stations || [])
+      .map(st => st.stationName || st.arsId || '')
+      .filter(Boolean);
     legs.push({
       type,
       name,
@@ -654,6 +657,7 @@ function buildOdsayRoute(pathObj) {
       subwayCode,
       stId,
       busRouteId,
+      stations: passStations,
     });
     if (type === 'walk' && sub.startX && sub.startY) {
       allCoords.push([parseFloat(sub.startY), parseFloat(sub.startX)]);

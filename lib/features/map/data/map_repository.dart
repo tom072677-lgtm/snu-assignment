@@ -39,6 +39,7 @@ class RouteLeg {
   final int? subwayCode;   // ODSAY 지하철 코드 (subway만 해당)
   final String? stId;      // 버스 정류장 내부 ID (bus만 해당, ODSAY startStationID)
   final String? busRouteId; // 버스 노선 ID (bus만 해당, ODSAY lane[0].busRouteId)
+  final List<String> stations; // 경유 정류장/역 이름 목록
 
   const RouteLeg({
     required this.type,
@@ -51,6 +52,7 @@ class RouteLeg {
     this.subwayCode,
     this.stId,
     this.busRouteId,
+    this.stations = const [],
   });
 
   factory RouteLeg.fromJson(Map<String, dynamic> j) => RouteLeg(
@@ -64,6 +66,9 @@ class RouteLeg {
         subwayCode: j['subwayCode'] as int?,
         stId: j['stId'] as String?,
         busRouteId: j['busRouteId'] as String?,
+        stations: (j['stations'] as List? ?? [])
+            .map((e) => e as String)
+            .toList(),
       );
 }
 

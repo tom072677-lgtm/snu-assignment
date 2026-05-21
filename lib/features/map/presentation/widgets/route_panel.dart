@@ -569,6 +569,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 _buildStationNames(result.legs),
                 const SizedBox(height: 8),
                 _buildLegChipRow(result.legs),
+                const SizedBox(height: 8),
+                _buildIntermediateStations(result.legs),
                 if (_arrivalLoading) ...[
                   const SizedBox(height: 8),
                   Row(children: [
@@ -746,6 +748,113 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
               ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildIntermediateStations(List<RouteLeg> legs) {
+    final transitLegs =
+        legs.where((l) => l.type != 'walk' && l.stations.isNotEmpty).toList();
+    if (transitLegs.isEmpty) return const SizedBox.shrink();
+
+    final items = <Widget>[];
+    for (int li = 0; li < transitLegs.length; li++) {
+      final leg = transitLegs[li];
+      final color = _parseLegColor(leg.color);
+      final count = leg.stations.length;
+
+      // 구간 헤더 (호선명 + 정거장 수)
+      items.add(Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(children: [
+          Icon(
+            leg.type == 'subway'
+                ? Icons.directions_subway
+                : Icons.directions_bus,
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            leg.name.isEmpty ? leg.type : leg.name,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$count 정거장',
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          ),
+        ]),
+      ));
+
+      // 정거장 세로 목록
+      for (int i = 0; i < count; i++) {
+        final isFirst = i == 0;
+        final isLast = i == count - 1;
+        final dotColor =
+            (isFirst || isLast) ? color : color.withValues(alpha: 0.45);
+
+        items.add(IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 20,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isFirst)
+                      Expanded(
+                        child: Container(
+                            width: 2, color: color.withValues(alpha: 0.25)),
+                      ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: dotColor,
+                      ),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                            width: 2, color: color.withValues(alpha: 0.25)),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Text(
+                  leg.stations[i],
+                  style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        (isFirst || isLast) ? Colors.black87 : Colors.grey[600],
+                    fontWeight: (isFirst || isLast)
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ));
+      }
+
+      if (li < transitLegs.length - 1) items.add(const SizedBox(height: 10));
+    }
+
+    return SizedBox(
+      height: 160,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: items,
+        ),
       ),
     );
   }

@@ -11,7 +11,8 @@ import 'widgets/route_panel.dart';
 // SNU 관악캠퍼스 중심 좌표
 const _snuCenter = NLatLng(37.4607, 126.9526);
 
-// 모드별 경로 색상
+enum _SheetMode { none, placeDetail, routePanel }
+
 Color _routeColor(RouteMode mode) => switch (mode) {
       RouteMode.transit => const Color(0xFF1565C0),
       RouteMode.car => const Color(0xFFE53935),
@@ -33,7 +34,9 @@ class _MapScreenState extends State<MapScreen> {
   bool _compassMode = false;
   Position? _initialPosition;
 
-  // 경로 패널 상태
+  // 시트 상태 기계
+  _SheetMode _sheetMode = _SheetMode.none;
+  PlaceResult? _selectedPlace; // POI 상세 보기 대상
   PlaceResult? _routeDest;
   PlaceResult? _routeOrigin; // null = 현재위치
 
@@ -43,18 +46,17 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
+  // ── 위치 ──────────────────────────────────────────────────────
+
   Future<void> _initLocation() async {
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
     if (perm == LocationPermission.denied ||
-        perm == LocationPermission.deniedForever) {
-      return;
-    }
+        perm == LocationPermission.deniedForever) return;
 
     _mapCtrl?.setLocationTrackingMode(NLocationTrackingMode.noFollow);
-
     try {
       final last = await Geolocator.getLastKnownPosition();
       if (last != null && _initialPosition == null) {
@@ -63,7 +65,6 @@ class _MapScreenState extends State<MapScreen> {
           target: NLatLng(last.latitude, last.longitude),
         ));
       }
-
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -78,6 +79,31 @@ class _MapScreenState extends State<MapScreen> {
       debugPrint('[위치] 오류: $e');
     }
   }
+
+  Future<void> _goToMyLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+        target: NLatLng(pos.latitude, pos.longitude),
+        zoom: 16,
+      ));
+    } catch (_) {
+      if (_initialPosition != null) {
+        _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+          target: NLatLng(
+              _initialPosition!.latitude, _initialPosition!.longitude),
+          zoom: 16,
+        ));
+      }
+    }
+  }
+
+  // ── 나침반 ──────────────────────────────────────────────────────
 
   void _startCompass() {
     _compassSub = magnetometerEventStream().listen((event) {
@@ -104,59 +130,93 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _goToMyLocation() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
-        ),
-      );
-      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-        target: NLatLng(pos.latitude, pos.longitude),
-        zoom: 16,
-      ));
-    } catch (_) {
-      if (_initialPosition != null) {
-        _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-          target: NLatLng(_initialPosition!.latitude, _initialPosition!.longitude),
-          zoom: 16,
-        ));
-      }
+  // ── 상태 전환 ──────────────────────────────────────────────────
+
+  /// 장소 선택 → POI 상세 시트
+  Future<void> _showPlaceDetail(PlaceResult place) async {
+    // 기존 경로 패널 닫기
+    if (_sheetMode == _SheetMode.routePanel) {
+      await _mapCtrl?.clearOverlays();
     }
+    setState(() {
+      _sheetMode = _SheetMode.placeDetail;
+      _selectedPlace = place;
+      _routeDest = null;
+      _routeOrigin = null;
+    });
+    // 지도에 POI 마커 + 카메라 이동
+    await _mapCtrl?.clearOverlays();
+    await _mapCtrl?.addOverlay(NMarker(
+      id: 'poi_marker',
+      position: NLatLng(place.lat, place.lng),
+    ));
+    _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+      target: NLatLng(place.lat, place.lng),
+      zoom: 15,
+    ));
   }
 
-  // ── 경로 패널 콜백 ──────────────────────────────────────────
-
-  void _onDestSelected(PlaceResult dest) {
-    setState(() => _routeDest = dest);
-  }
-
-  void _onRoutePanelClose() {
-    _clearRouteOnMap();
-    setState(() { _routeDest = null; _routeOrigin = null; });
-  }
-
-  void _clearRouteOnMap() {
+  /// POI 상세 → "도착"으로 경로 패널 오픈
+  void _openAsDest() {
+    final place = _selectedPlace;
+    if (place == null) return;
     _mapCtrl?.clearOverlays();
+    setState(() {
+      _sheetMode = _SheetMode.routePanel;
+      _routeDest = place;
+      _routeOrigin = null;
+      _selectedPlace = null;
+    });
   }
+
+  /// POI 상세 → "출발"로 설정 후 목적지 검색
+  Future<void> _openAsOrigin() async {
+    final origin = _selectedPlace;
+    if (origin == null) return;
+    final dest = await Navigator.push<PlaceResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const RouteSearchScreen()),
+    );
+    if (dest == null || !mounted) return;
+    await _mapCtrl?.clearOverlays();
+    setState(() {
+      _sheetMode = _SheetMode.routePanel;
+      _routeDest = dest;
+      _routeOrigin = origin;
+      _selectedPlace = null;
+    });
+  }
+
+  /// POI 상세 닫기
+  void _closePlaceDetail() {
+    _mapCtrl?.clearOverlays();
+    setState(() {
+      _sheetMode = _SheetMode.none;
+      _selectedPlace = null;
+    });
+  }
+
+  /// 경로 패널 닫기
+  void _closeRoutePanel() {
+    _mapCtrl?.clearOverlays();
+    setState(() {
+      _sheetMode = _SheetMode.none;
+      _routeDest = null;
+      _routeOrigin = null;
+    });
+  }
+
+  // ── 지도 오버레이 ───────────────────────────────────────────────
 
   Future<void> _onRouteLoaded(RouteResult? result, RouteMode mode) async {
     final ctrl = _mapCtrl;
     if (ctrl == null) return;
-
-    // result == null → 오버레이만 클리어
     if (result == null || result.path.length < 2) {
       await ctrl.clearOverlays();
       return;
     }
-
-    // 기존 경로 제거
     await ctrl.clearOverlays();
-
     final coords = result.path.map((p) => NLatLng(p.$1, p.$2)).toList();
-
-    // 경로선 (방향 화살표 포함)
     await ctrl.addOverlay(NArrowheadPathOverlay(
       id: 'route_main',
       coords: coords,
@@ -166,37 +226,49 @@ class _MapScreenState extends State<MapScreen> {
       outlineColor: Colors.white,
       headSizeRatio: 4,
     ));
-
-    // 도착지 마커
     await ctrl.addOverlay(NMarker(
       id: 'dest_marker',
       position: NLatLng(result.path.last.$1, result.path.last.$2),
     ));
-
-    // 카메라를 경로 전체에 맞춤 (패널 높이만큼 하단 여백)
     final lats = result.path.map((p) => p.$1);
     final lngs = result.path.map((p) => p.$2);
     final bounds = NLatLngBounds(
       southWest: NLatLng(lats.reduce(math.min), lngs.reduce(math.min)),
       northEast: NLatLng(lats.reduce(math.max), lngs.reduce(math.max)),
     );
-
     if (!mounted) return;
     final panelHeight = MediaQuery.of(context).size.height * 0.5;
-    await ctrl.updateCamera(
-      NCameraUpdate.fitBounds(
-        bounds,
-        padding: EdgeInsets.fromLTRB(40, 100, 40, panelHeight + 20),
-      ),
-    );
+    await ctrl.updateCamera(NCameraUpdate.fitBounds(
+      bounds,
+      padding: EdgeInsets.fromLTRB(40, 100, 40, panelHeight + 20),
+    ));
   }
 
-  // ── UI ──────────────────────────────────────────────────────
+  // ── 검색 ────────────────────────────────────────────────────────
+
+  Future<void> _openSearch({bool voiceMode = false}) async {
+    final place = await Navigator.push<PlaceResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RouteSearchScreen(autoStartMic: voiceMode),
+      ),
+    );
+    if (place == null || !mounted) return;
+    await _showPlaceDetail(place);
+  }
+
+  // ── UI ──────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final panelOpen = _routeDest != null;
+    final showSearchBar = _sheetMode == _SheetMode.none;
+    final showButtons = _sheetMode != _SheetMode.routePanel;
+    final bottomOffset = _sheetMode == _SheetMode.routePanel
+        ? MediaQuery.of(context).size.height * 0.5 + 16
+        : _sheetMode == _SheetMode.placeDetail
+            ? 200.0
+            : 100.0;
 
     return Scaffold(
       body: Stack(
@@ -215,12 +287,13 @@ class _MapScreenState extends State<MapScreen> {
               _initLocation();
             },
             onMapTapped: (point, latLng) {
-              if (_routeDest != null) _onRoutePanelClose();
+              if (_sheetMode == _SheetMode.placeDetail) _closePlaceDetail();
+              if (_sheetMode == _SheetMode.routePanel) _closeRoutePanel();
             },
           ),
 
-          // 2. 검색 바 (경로 패널이 열리면 숨김)
-          if (!panelOpen)
+          // 2. 검색 바
+          if (showSearchBar)
             Positioned(
               top: topPadding + 12,
               left: 16,
@@ -228,40 +301,49 @@ class _MapScreenState extends State<MapScreen> {
               child: _buildSearchBar(),
             ),
 
-          // 3. 우하단 버튼 그룹 (나침반 + 현재위치)
-          Positioned(
-            bottom: panelOpen
-                ? MediaQuery.of(context).size.height * 0.5 + 16
-                : 100,
-            right: 12,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'compass',
-                  backgroundColor: _compassMode ? Colors.blue : Colors.white,
-                  foregroundColor:
-                      _compassMode ? Colors.white : Colors.black87,
-                  onPressed: _toggleCompass,
-                  child: Transform.rotate(
-                    angle: _heading * (math.pi / 180),
-                    child: const Icon(Icons.navigation),
+          // 3. 우하단 버튼 그룹
+          if (showButtons)
+            Positioned(
+              bottom: bottomOffset,
+              right: 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'compass',
+                    backgroundColor:
+                        _compassMode ? Colors.blue : Colors.white,
+                    foregroundColor:
+                        _compassMode ? Colors.white : Colors.black87,
+                    onPressed: _toggleCompass,
+                    child: Transform.rotate(
+                      angle: _heading * (math.pi / 180),
+                      child: const Icon(Icons.navigation),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'my_location',
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.blue,
-                  onPressed: _goToMyLocation,
-                  child: const Icon(Icons.my_location),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'my_location',
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.blue,
+                    onPressed: _goToMyLocation,
+                    child: const Icon(Icons.my_location),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // 4. 경로 패널 오버레이
-          if (panelOpen)
+          // 4. POI 상세 시트
+          if (_sheetMode == _SheetMode.placeDetail && _selectedPlace != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _buildPlaceDetailSheet(_selectedPlace!),
+            ),
+
+          // 5. 경로 패널
+          if (_sheetMode == _SheetMode.routePanel && _routeDest != null)
             Positioned(
               bottom: 0,
               left: 0,
@@ -269,7 +351,7 @@ class _MapScreenState extends State<MapScreen> {
               child: RouteOverlayPanel(
                 dest: _routeDest!,
                 origin: _routeOrigin,
-                onClose: _onRoutePanelClose,
+                onClose: _closeRoutePanel,
                 onRouteLoaded: _onRouteLoaded,
                 onOriginChanged: (p) => setState(() => _routeOrigin = p),
               ),
@@ -281,37 +363,28 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _buildSearchBar() {
     return GestureDetector(
-      onTap: () => _openRouteSearch(context),
+      onTap: () => _openSearch(),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
+            BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
           ],
         ),
         child: Row(
           children: [
-            // 길찾기 텍스트
             const Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    Icon(Icons.directions, color: Colors.blue, size: 20),
+                    Icon(Icons.search, color: Colors.grey, size: 20),
                     SizedBox(width: 10),
                     Text(
-                      '길찾기',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
+                      '어디 가세요?',
+                      style: TextStyle(fontSize: 15, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -322,7 +395,7 @@ class _MapScreenState extends State<MapScreen> {
               width: 52,
               child: IconButton(
                 icon: const Icon(Icons.mic_none, color: Colors.grey),
-                onPressed: () => _startVoiceSearch(context),
+                onPressed: () => _openSearch(voiceMode: true),
               ),
             ),
           ],
@@ -331,26 +404,96 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _openRouteSearch(BuildContext context,
-      {String initialQuery = ''}) async {
-    final dest = await Navigator.push<PlaceResult>(
-      context,
-      MaterialPageRoute(
-          builder: (_) =>
-              RouteSearchScreen(initialQuery: initialQuery)),
-    );
-    if (dest == null || !context.mounted) return;
-    _onDestSelected(dest);
-  }
-
-  Future<void> _startVoiceSearch(BuildContext context) async {
-    final dest = await Navigator.push<PlaceResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const RouteSearchScreen(autoStartMic: true),
+  Widget _buildPlaceDetailSheet(PlaceResult place) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [
+          BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, -2)),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 드래그 핸들
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    if (place.category.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(place.category,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey[600])),
+                    ],
+                    if (place.address.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(place.address,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey[500])),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _closePlaceDetail,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openAsOrigin,
+                  icon: const Icon(Icons.my_location, size: 16),
+                  label: const Text('출발'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _openAsDest,
+                  icon: const Icon(Icons.location_on, size: 16),
+                  label: const Text('도착'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
-    if (dest == null || !context.mounted) return;
-    _onDestSelected(dest);
   }
 }
