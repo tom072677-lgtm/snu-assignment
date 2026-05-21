@@ -740,10 +740,13 @@ app.get("/api/search-place", async (req, res) => {
 
     if (x && y) {
       // SNU 캠퍼스 좌표 제공 시 이중 검색: "서울대학교 {q}" 결과를 앞에 배치
-      const coords = `&x=${x}&y=${y}&radius=5000&sort=accuracy`;
+      // snuDocs: radius=5000 유지 (SNU 내 장소 우선)
+      // generalDocs: radius 제거 (전국 검색, 판교 등 먼 곳도 검색 가능)
+      const snuCoords = `&x=${x}&y=${y}&radius=5000&sort=accuracy`;
+      const generalCoords = `&x=${x}&y=${y}&sort=accuracy`;
       const [snuText, generalText] = await Promise.all([
-        fetchText(`${BASE}?query=${encodeURIComponent("서울대학교 " + q)}&size=5${coords}`, 0, headers),
-        fetchText(`${BASE}?query=${encodeURIComponent(q)}&size=15${coords}`, 0, headers),
+        fetchText(`${BASE}?query=${encodeURIComponent("서울대학교 " + q)}&size=5${snuCoords}`, 0, headers),
+        fetchText(`${BASE}?query=${encodeURIComponent(q)}&size=15${generalCoords}`, 0, headers),
       ]);
       const snuDocs = JSON.parse(snuText).documents || [];
       const generalDocs = JSON.parse(generalText).documents || [];
