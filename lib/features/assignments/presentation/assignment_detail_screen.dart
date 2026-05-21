@@ -90,7 +90,7 @@ class _AssignmentDetailScreenState
               _buildInfoBanner(
                 icon: Icons.info_outline,
                 color: Colors.blue,
-                message: 'Canvas API 토큰을 설정하면\n교수님의 설명과 첨부파일을 볼 수 있습니다.',
+                message: 'eTL API 토큰을 설정하면\n교수님의 설명과 첨부파일을 볼 수 있습니다.',
               ),
             ] else if (!a.hasDetail) ...[
               _buildInfoBanner(
