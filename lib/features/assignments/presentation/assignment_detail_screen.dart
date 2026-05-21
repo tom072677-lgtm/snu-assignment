@@ -39,8 +39,8 @@ class _AssignmentDetailScreenState
     setState(() => _loading = true);
     try {
       final detail = await ref.read(assignmentsProvider.notifier).fetchDetail(
-            courseId: a.courseId!,
-            assignmentId: a.assignmentId!,
+            courseId: a.effectiveCourseId!,
+            assignmentId: a.effectiveAssignmentId!,
             apiToken: apiToken,
           );
       if (mounted) setState(() { _detail = detail; _loading = false; });
@@ -91,12 +91,6 @@ class _AssignmentDetailScreenState
                 icon: Icons.info_outline,
                 color: Colors.blue,
                 message: 'eTL API 토큰을 설정하면\n교수님의 설명과 첨부파일을 볼 수 있습니다.',
-              ),
-            ] else if (!a.hasDetail) ...[
-              _buildInfoBanner(
-                icon: Icons.info_outline,
-                color: Colors.orange,
-                message: '목록을 새로 고침하면 상세 정보를 불러올 수 있습니다.\n(아래 당겨서 새로 고침)',
               ),
             ] else if (_loading) ...[
               const Center(

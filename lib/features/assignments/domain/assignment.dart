@@ -49,6 +49,19 @@ class Assignment {
     return remaining.inSeconds < 0;
   }
 
+  // URL에서 courseId/assignmentId 추출 (캐시된 구버전 데이터 대응)
+  String? get effectiveCourseId =>
+      courseId ?? _extractFromUrl(url, r'/courses/(\d+)');
+
+  String? get effectiveAssignmentId =>
+      assignmentId ?? _extractFromUrl(url, r'/assignments/(\d+)');
+
+  static String? _extractFromUrl(String url, String pattern) {
+    final match = RegExp(pattern).firstMatch(url);
+    return match?.group(1);
+  }
+
   /// Canvas API로 상세 조회 가능 여부
-  bool get hasDetail => courseId != null && assignmentId != null;
+  bool get hasDetail =>
+      effectiveCourseId != null && effectiveAssignmentId != null;
 }
