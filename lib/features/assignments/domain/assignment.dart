@@ -23,7 +23,7 @@ class Assignment {
         etlId: json['etlId'] as String,
         title: json['title'] as String,
         courseName: json['courseName'] as String? ?? '',
-        dueDate: DateTime.parse(json['dueDate'] as String),
+        dueDate: DateTime.parse(json['dueDate'] as String).toLocal(),
         dateOnly: json['dateOnly'] as bool? ?? false,
         url: json['url'] as String? ?? '',
         courseId: json['courseId'] as String?,

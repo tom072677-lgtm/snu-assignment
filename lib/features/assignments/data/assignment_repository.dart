@@ -6,7 +6,7 @@ import '../../../shared/providers/settings_provider.dart';
 import '../domain/assignment.dart';
 import '../domain/assignment_detail.dart';
 
-const _kAssignmentsCache = 'cache_assignments_v1';
+const _kAssignmentsCache = 'cache_assignments_v2';
 
 class AssignmentsNotifier
     extends AutoDisposeAsyncNotifier<List<Assignment>> {
@@ -102,7 +102,7 @@ class AssignmentsNotifier
               'etlId': a.etlId,
               'title': a.title,
               'courseName': a.courseName,
-              'dueDate': a.dueDate.toIso8601String(),
+              'dueDate': a.dueDate.toUtc().toIso8601String(),
               'dateOnly': a.dateOnly,
               'url': a.url,
             })
@@ -143,9 +143,11 @@ class AssignmentsNotifier
                   'etlId': a.etlId,
                   'title': a.title,
                   'courseName': a.courseName,
-                  'dueDate': a.dueDate.toIso8601String(),
+                  'dueDate': a.dueDate.toUtc().toIso8601String(),
                   'dateOnly': a.dateOnly,
                   'url': a.url,
+                  if (a.courseId != null) 'courseId': a.courseId,
+                  if (a.assignmentId != null) 'assignmentId': a.assignmentId,
                 })
             .toList(),
       }),
