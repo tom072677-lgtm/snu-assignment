@@ -204,8 +204,8 @@ app.post("/api/sync-ical", async (req, res) => {
       console.log(`[sync] 제출 제외 후: ${filtered.length}개`);
     }
 
-    // courseId/assignmentId는 클라이언트에 불필요하므로 제거
-    const output = filtered.map(({ courseId, assignmentId, ...rest }) => rest);
+    // courseId/assignmentId도 클라이언트에 전달 (상세 화면에서 활용)
+    const output = filtered;
 
     output.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     console.log(`[sync] 완료: ${output.length}개 과제`);
@@ -218,10 +218,62 @@ app.post("/api/sync-ical", async (req, res) => {
 });
 
 // ──────────────────────────────────────────
+// POST /api/assignment-detail
+// body: { courseId, assignmentId, apiToken }
+// ──────────────────────────────────────────
+const cheerio = require("cheerio");
+
+app.post("/api/assignment-detail", async (req, res) => {
+  const { courseId, assignmentId, apiToken } = req.body;
+  if (!courseId || !assignmentId || !apiToken) {
+    return res.status(400).json({ error: "courseId, assignmentId, apiToken 필요" });
+  }
+
+  let data;
+  try {
+    const url = `https://myetl.snu.ac.kr/api/v1/courses/${courseId}/assignments/${assignmentId}`;
+    const text = await fetchText(url, 0, { Authorization: `Bearer ${apiToken}` });
+    data = JSON.parse(text);
+  } catch (err) {
+    const status = /HTTP 40[13]/.test(err.message) ? 401 : 502;
+    return res.status(status).json({ error: `Canvas API 오류: ${err.message}` });
+  }
+
+  const rawHtml = data.description || "";
+  const $ = cheerio.load(rawHtml);
+
+  // 평문 설명 추출 (HTML 태그 제거)
+  const descriptionText = $.text().replace(/\s+/g, " ").trim();
+
+  // Canvas 파일 링크 추출 (중복 제거)
+  const BASE = "https://myetl.snu.ac.kr";
+  const seen = new Set();
+  const attachments = [];
+  $("a[href]").each((_, el) => {
+    let href = $(el).attr("href") || "";
+    // 상대 경로 정규화
+    if (href.startsWith("/")) href = BASE + href;
+    // Canvas 파일 다운로드 링크만 포함
+    if (!/myetl\.snu\.ac\.kr/.test(href)) return;
+    if (!/\/files\/\d+|\/download/.test(href)) return;
+    if (seen.has(href)) return;
+    seen.add(href);
+    const name = $(el).text().trim() || href.split("/").pop() || "파일";
+    attachments.push({ name, url: href });
+  });
+
+  res.json({
+    name: data.name || "",
+    descriptionText,
+    attachments,
+    submissionTypes: data.submission_types || [],
+    allowedExtensions: data.allowed_extensions || [],
+  });
+});
+
+// ──────────────────────────────────────────
 // 학교 소식 크롤링
 // ──────────────────────────────────────────
-
-const cheerio = require("cheerio");
 
 // 학사일정 기본값 (공식 사이트 크롤링 실패 시 사용)
 const fallbackSchedule = [

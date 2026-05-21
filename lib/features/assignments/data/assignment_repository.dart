@@ -4,6 +4,7 @@ import '../../../core/dio_client.dart';
 import '../../../shared/providers/notification_service.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../domain/assignment.dart';
+import '../domain/assignment_detail.dart';
 
 const _kAssignmentsCache = 'cache_assignments_v1';
 
@@ -149,6 +150,23 @@ class AssignmentsNotifier
             .toList(),
       }),
     );
+  }
+
+  /// 과제 상세 정보 조회 (Canvas API)
+  Future<AssignmentDetail> fetchDetail({
+    required String courseId,
+    required String assignmentId,
+    required String apiToken,
+  }) async {
+    final response = await DioClient.instance.post(
+      '/api/assignment-detail',
+      data: {
+        'courseId': courseId,
+        'assignmentId': assignmentId,
+        'apiToken': apiToken,
+      },
+    );
+    return AssignmentDetail.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// pull-to-refresh: 로딩 스피너 없이 조용히 갱신

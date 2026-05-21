@@ -5,6 +5,8 @@ class Assignment {
   final DateTime dueDate;
   final bool dateOnly;
   final String url;
+  final String? courseId;
+  final String? assignmentId;
 
   const Assignment({
     required this.etlId,
@@ -13,6 +15,8 @@ class Assignment {
     required this.dueDate,
     required this.dateOnly,
     required this.url,
+    this.courseId,
+    this.assignmentId,
   });
 
   factory Assignment.fromJson(Map<String, dynamic> json) => Assignment(
@@ -22,6 +26,8 @@ class Assignment {
         dueDate: DateTime.parse(json['dueDate'] as String),
         dateOnly: json['dateOnly'] as bool? ?? false,
         url: json['url'] as String? ?? '',
+        courseId: json['courseId'] as String?,
+        assignmentId: json['assignmentId'] as String?,
       );
 
   /// 남은 시간 (음수면 마감 지남)
@@ -42,4 +48,7 @@ class Assignment {
     }
     return remaining.inSeconds < 0;
   }
+
+  /// Canvas API로 상세 조회 가능 여부
+  bool get hasDetail => courseId != null && assignmentId != null;
 }

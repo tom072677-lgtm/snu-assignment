@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/providers/settings_provider.dart';
 import '../../domain/assignment.dart';
+import '../assignment_detail_screen.dart';
 
 class AssignmentCard extends ConsumerStatefulWidget {
   final Assignment assignment;
@@ -60,7 +61,7 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _memoExpanded = !_memoExpanded),
+        onTap: () => _onCardTap(context),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -112,9 +113,78 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
                   color: a.isUrgent && !a.isOverdue ? Colors.red : Colors.grey[600],
                 ),
               ),
-              // 메모 & 액션 버튼
+              // 하단: 메모 토글 + 완료 버튼
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  // 메모 토글 아이콘
+                  InkWell(
+                    onTap: () => setState(() => _memoExpanded = !_memoExpanded),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _memoExpanded
+                                ? Icons.edit_note
+                                : Icons.note_alt_outlined,
+                            size: 16,
+                            color: memo.isNotEmpty
+                                ? Colors.blue
+                                : Colors.grey[400],
+                          ),
+                          if (memo.isNotEmpty && !_memoExpanded) ...[
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                memo,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[500],
+                                    fontStyle: FontStyle.italic),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  widget.isCompleted
+                      ? OutlinedButton(
+                          onPressed: () => ref
+                              .read(completedTasksProvider.notifier)
+                              .undo(a.etlId),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('되돌리기',
+                              style: TextStyle(fontSize: 13)),
+                        )
+                      : FilledButton(
+                          onPressed: () => ref
+                              .read(completedTasksProvider.notifier)
+                              .complete(a.etlId),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child:
+                              const Text('완료', style: TextStyle(fontSize: 13)),
+                        ),
+                ],
+              ),
+              // 메모 입력 필드 (펼쳐진 경우)
               if (_memoExpanded) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _memoCtrl,
                   decoration: const InputDecoration(
@@ -131,44 +201,6 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
                     }
                   },
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (a.url.isNotEmpty)
-                      TextButton.icon(
-                        icon: const Icon(Icons.open_in_browser, size: 16),
-                        label: const Text('eTL 열기'),
-                        onPressed: () => _openUrl(a.url),
-                      ),
-                    const SizedBox(width: 4),
-                    widget.isCompleted
-                        ? OutlinedButton(
-                            onPressed: () => ref
-                                .read(completedTasksProvider.notifier)
-                                .undo(a.etlId),
-                            child: const Text('되돌리기'),
-                          )
-                        : FilledButton(
-                            onPressed: () => ref
-                                .read(completedTasksProvider.notifier)
-                                .complete(a.etlId),
-                            child: const Text('완료'),
-                          ),
-                  ],
-                ),
-              ],
-              if (memo.isNotEmpty && !_memoExpanded) ...[
-                const SizedBox(height: 6),
-                Text(
-                  memo,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                      fontStyle: FontStyle.italic),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
               ],
             ],
           ),
@@ -182,6 +214,21 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
       return DateFormat('M월 d일 (E) 마감', 'ko').format(due);
     }
     return DateFormat('M월 d일 (E) HH:mm 마감', 'ko').format(due);
+  }
+
+  void _onCardTap(BuildContext context) {
+    final a = widget.assignment;
+    // Canvas ID가 있으면 상세 화면으로, 없으면 eTL URL 직접 열기
+    if (a.hasDetail || a.url.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AssignmentDetailScreen(assignment: a),
+        ),
+      );
+    } else {
+      setState(() => _memoExpanded = !_memoExpanded);
+    }
   }
 
   Future<void> _openUrl(String url) async {
