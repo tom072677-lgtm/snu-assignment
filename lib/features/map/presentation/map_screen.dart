@@ -35,6 +35,7 @@ class _MapScreenState extends State<MapScreen> {
 
   // 경로 패널 상태
   PlaceResult? _routeDest;
+  PlaceResult? _routeOrigin; // null = 현재위치
 
   @override
   void dispose() {
@@ -103,6 +104,28 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _goToMyLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+        target: NLatLng(pos.latitude, pos.longitude),
+        zoom: 16,
+      ));
+    } catch (_) {
+      if (_initialPosition != null) {
+        _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+          target: NLatLng(_initialPosition!.latitude, _initialPosition!.longitude),
+          zoom: 16,
+        ));
+      }
+    }
+  }
+
   // ── 경로 패널 콜백 ──────────────────────────────────────────
 
   void _onDestSelected(PlaceResult dest) {
@@ -111,7 +134,7 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onRoutePanelClose() {
     _clearRouteOnMap();
-    setState(() => _routeDest = null);
+    setState(() { _routeDest = null; _routeOrigin = null; });
   }
 
   void _clearRouteOnMap() {
@@ -205,22 +228,35 @@ class _MapScreenState extends State<MapScreen> {
               child: _buildSearchBar(),
             ),
 
-          // 3. 나침반 버튼 (패널 열리면 위로 올라감)
+          // 3. 우하단 버튼 그룹 (나침반 + 현재위치)
           Positioned(
             bottom: panelOpen
                 ? MediaQuery.of(context).size.height * 0.5 + 16
                 : 100,
             right: 12,
-            child: FloatingActionButton.small(
-              heroTag: 'compass',
-              backgroundColor: _compassMode ? Colors.blue : Colors.white,
-              foregroundColor:
-                  _compassMode ? Colors.white : Colors.black87,
-              onPressed: _toggleCompass,
-              child: Transform.rotate(
-                angle: _heading * (math.pi / 180),
-                child: const Icon(Icons.navigation),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'compass',
+                  backgroundColor: _compassMode ? Colors.blue : Colors.white,
+                  foregroundColor:
+                      _compassMode ? Colors.white : Colors.black87,
+                  onPressed: _toggleCompass,
+                  child: Transform.rotate(
+                    angle: _heading * (math.pi / 180),
+                    child: const Icon(Icons.navigation),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'my_location',
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.blue,
+                  onPressed: _goToMyLocation,
+                  child: const Icon(Icons.my_location),
+                ),
+              ],
             ),
           ),
 
@@ -232,8 +268,10 @@ class _MapScreenState extends State<MapScreen> {
               right: 0,
               child: RouteOverlayPanel(
                 dest: _routeDest!,
+                origin: _routeOrigin,
                 onClose: _onRoutePanelClose,
                 onRouteLoaded: _onRouteLoaded,
+                onOriginChanged: (p) => setState(() => _routeOrigin = p),
               ),
             ),
         ],

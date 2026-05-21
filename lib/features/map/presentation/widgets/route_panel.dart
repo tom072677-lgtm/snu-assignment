@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../data/map_repository.dart';
+import '../route_search_screen.dart';
 
 // 네이버지도와 동일한 탭 순서
 const _modeOrder = [
@@ -21,15 +22,19 @@ class _ModeState {
 
 class RouteOverlayPanel extends ConsumerStatefulWidget {
   final PlaceResult dest;
+  final PlaceResult? origin; // null = 현재위치
   final VoidCallback onClose;
   // result == null → 지도 오버레이 클리어 신호
   final void Function(RouteResult? result, RouteMode mode) onRouteLoaded;
+  final void Function(PlaceResult?) onOriginChanged;
 
   const RouteOverlayPanel({
     super.key,
     required this.dest,
+    this.origin,
     required this.onClose,
     required this.onRouteLoaded,
+    required this.onOriginChanged,
   });
 
   @override
@@ -75,43 +80,50 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   }
 
   Future<void> _fetchAll() async {
-    Position pos;
-    try {
-      pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      const errState = _ModeState(error: '위치를 가져올 수 없습니다');
-      setState(() {
-        _states = {for (final m in RouteMode.values) m: errState};
-      });
-      widget.onRouteLoaded(null, _mode);
-      return;
+    double olat, olng;
+    if (widget.origin != null) {
+      olat = widget.origin!.lat;
+      olng = widget.origin!.lng;
+    } else {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+        olat = pos.latitude;
+        olng = pos.longitude;
+      } catch (_) {
+        if (!mounted) return;
+        const errState = _ModeState(error: '위치를 가져올 수 없습니다');
+        setState(() {
+          _states = {for (final m in RouteMode.values) m: errState};
+        });
+        widget.onRouteLoaded(null, _mode);
+        return;
+      }
     }
 
     if (!mounted) return;
-    await Future.wait(RouteMode.values.map((m) => _fetchMode(m, pos)));
+    await Future.wait(RouteMode.values.map((m) => _fetchMode(m, olat, olng)));
   }
 
-  Future<void> _fetchMode(RouteMode mode, Position pos) async {
+  Future<void> _fetchMode(RouteMode mode, double olat, double olng) async {
     try {
       final List<RouteResult> routes;
       if (mode == RouteMode.transit) {
         routes = await ref.read(mapRepositoryProvider).getTransitRoutes(
-              olat: pos.latitude,
-              olng: pos.longitude,
+              olat: olat,
+              olng: olng,
               dlat: widget.dest.lat,
               dlng: widget.dest.lng,
             );
       } else {
         final r = await ref.read(mapRepositoryProvider).getRoute(
               mode: mode,
-              olat: pos.latitude,
-              olng: pos.longitude,
+              olat: olat,
+              olng: olng,
               dlat: widget.dest.lat,
               dlng: widget.dest.lng,
             );
@@ -384,6 +396,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   }
 
   Widget _buildHeader() {
+    final originLabel = widget.origin?.name ?? '현재 위치';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
       child: Row(
@@ -392,12 +405,25 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(children: [
-                  Icon(Icons.my_location, size: 14, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Text('현재 위치',
-                      style: TextStyle(fontSize: 13, color: Colors.grey)),
-                ]),
+                GestureDetector(
+                  onTap: _changeOrigin,
+                  child: Row(children: [
+                    Icon(Icons.my_location, size: 14,
+                        color: widget.origin != null ? Colors.green : Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        originLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: widget.origin != null ? Colors.black87 : Colors.grey,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.edit, size: 12, color: Colors.grey),
+                  ]),
+                ),
                 const SizedBox(height: 8),
                 Row(children: [
                   const Icon(Icons.location_on, size: 14, color: Colors.red),
@@ -418,6 +444,21 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
         ],
       ),
     );
+  }
+
+  Future<void> _changeOrigin() async {
+    final result = await Navigator.push<PlaceResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const RouteSearchScreen()),
+    );
+    if (!mounted) return;
+    widget.onOriginChanged(result); // null이면 현재위치로 리셋
+    // 출발지 바뀌면 경로 다시 조회
+    setState(() {
+      _states = {for (final m in RouteMode.values) m: const _ModeState(loading: true)};
+      _arrivalMsg = null;
+    });
+    _fetchAll();
   }
 
   Widget _buildContent() {
@@ -582,7 +623,19 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
 
   // ── 도보/자전거/자동차: 단일 결과 ───────────────────────────
 
+  IconData _turnIcon(int turnType) {
+    switch (turnType) {
+      case 12: return Icons.turn_left;
+      case 13: return Icons.turn_right;
+      case 14: return Icons.u_turn_left;
+      case 16: return Icons.turn_slight_left;
+      case 17: return Icons.turn_slight_right;
+      case 11: case 0: default: return Icons.straight;
+    }
+  }
+
   Widget _buildSingleResult(RouteResult result) {
+    final color = _modeColor(_mode);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
@@ -602,7 +655,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: _modeColor(_mode),
+                  color: color,
                 ),
               ),
               const SizedBox(width: 12),
@@ -612,6 +665,32 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
               ),
             ],
           ),
+          if (result.steps.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            ...result.steps.map((step) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(_turnIcon(step.turnType), size: 18, color: color),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      step.description,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  if (step.distanceMeters > 0)
+                    Text(
+                      _formatDistance(step.distanceMeters.toDouble()),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                ],
+              ),
+            )),
+          ],
         ],
       ),
     );

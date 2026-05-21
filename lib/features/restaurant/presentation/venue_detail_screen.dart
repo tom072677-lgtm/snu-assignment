@@ -86,6 +86,7 @@ class VenueDetailScreen extends StatelessWidget {
         dest: dest,
         onClose: () => Navigator.pop(ctx),
         onRouteLoaded: (result, mode) {}, // 지도 없는 맥락: 경로 정보만 표시
+        onOriginChanged: (_) {},
       ),
     );
   }

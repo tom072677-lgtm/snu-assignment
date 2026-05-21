@@ -32,6 +32,8 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
   Widget build(BuildContext context) {
     final isDark = ref.watch(darkModeProvider);
     final hasIcal = ref.watch(icalUrlProvider) != null;
+    final hasToken = ref.watch(canvasTokenProvider) != null;
+    final isConnected = hasIcal && hasToken;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -72,20 +74,19 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                 controller: scroll,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  // eTL URL
-                  const Text('📋 eTL 캘린더 URL 가져오는 방법',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  const Text(
-                    '1. eTL 로그인 → 상단 캘린더 클릭\n'
-                    '2. 좌측 하단 "캘린더 내보내기" 클릭\n'
-                    '3. "모든 과목" + "최근 및 다음 60일" 선택\n'
-                    '4. "캘린더 URL 가져오기" 클릭 → URL 복사\n'
-                    '5. 아래에 붙여넣기',
-                    style: TextStyle(fontSize: 13, height: 1.6),
-                  ),
-                  const SizedBox(height: 14),
-                  if (!hasIcal) ...[
+                  if (!isConnected) ...[
+                    // ─── 미연동: URL + 토큰 같이 입력 ───
+                    const Text('📋 eTL 캘린더 URL 가져오는 방법',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '1. eTL 로그인 → 상단 캘린더 클릭\n'
+                      '2. 좌측 하단 "캘린더 내보내기" 클릭\n'
+                      '3. "모든 과목" + "최근 및 다음 60일" 선택\n'
+                      '4. "캘린더 URL 가져오기" 클릭 → URL 복사',
+                      style: TextStyle(fontSize: 13, height: 1.6),
+                    ),
+                    const SizedBox(height: 14),
                     TextField(
                       controller: _icalCtrl,
                       decoration: const InputDecoration(
@@ -94,16 +95,38 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
+                    const Text('🔑 eTL API 토큰 가져오는 방법',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '1. eTL 로그인 → 우측 상단 프로필 클릭\n'
+                      '2. 설정 → 하단 "승인된 통합" 섹션\n'
+                      '3. "+ 새 액세스 토큰" → 목적 입력 후 생성\n'
+                      '4. 토큰 복사 (다시 볼 수 없으니 주의)',
+                      style: TextStyle(fontSize: 13, height: 1.6),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _tokenCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'eTL API 토큰',
+                        hintText: '토큰 입력...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     FilledButton(
-                      onPressed: _saveIcal,
+                      onPressed: _saveAll,
                       child: const Text('저장 & 과제 가져오기'),
                     ),
                   ] else ...[
+                    // ─── 연동됨 ───
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.green),
                       ),
@@ -117,36 +140,13 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
-                      onPressed: () =>
-                          ref.read(icalUrlProvider.notifier).set(null),
+                      onPressed: () {
+                        ref.read(icalUrlProvider.notifier).set(null);
+                        ref.read(canvasTokenProvider.notifier).set(null);
+                        _icalCtrl.clear();
+                        _tokenCtrl.clear();
+                      },
                       child: const Text('연동 해제'),
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(),
-                    const SizedBox(height: 10),
-                    const Text('제출한 과제 자동 제외 (선택)',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'eTL → 우측 상단 프로필 → 설정 → 스크롤 하단 "승인된 통합" → 새 액세스 토큰',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _tokenCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'eTL API 토큰',
-                        hintText: '토큰 입력...',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: () => ref
-                          .read(canvasTokenProvider.notifier)
-                          .set(_tokenCtrl.text.isEmpty ? null : _tokenCtrl.text),
-                      child: const Text('토큰 저장'),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -174,10 +174,12 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
     );
   }
 
-  void _saveIcal() {
+  void _saveAll() {
     final url = _icalCtrl.text.trim();
-    if (url.isEmpty) return;
+    final token = _tokenCtrl.text.trim();
+    if (url.isEmpty || token.isEmpty) return;
     ref.read(icalUrlProvider.notifier).set(url);
+    ref.read(canvasTokenProvider.notifier).set(token);
     Navigator.pop(context);
   }
 }

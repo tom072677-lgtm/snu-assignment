@@ -121,21 +121,14 @@ class Venue {
     return false;
   }
 
-  /// Returns a short time label for the list row, e.g. "~18:30 종료" or "17:00 오픈".
-  /// Returns null when today's schedule is unknown or all ranges have passed.
-  String? statusTimeLabel(DateTime t) {
+  /// Returns today's full operating hours as a string, e.g. "11:00–14:00, 17:00–19:00".
+  /// Returns "휴무" if closed today, null if hours are unknown.
+  String? todayHoursText(DateTime t) {
     final kst = t.toUtc().add(const Duration(hours: 9));
     final day = _dayHours(kst);
-    if (day.closed || day.ranges.isEmpty) return null;
-    final now = kst.hour * 60 + kst.minute;
-    for (final r in day.ranges) {
-      final open = _toMinutes(r.open);
-      var close = _toMinutes(r.close);
-      if (close < open) close += 24 * 60; // overnight
-      if (now >= open && now < close) return '~${r.close} 종료';
-      if (now < open) return '${r.open} 오픈';
-    }
-    return null; // all ranges passed today — no ambiguous tomorrow info
+    if (day.closed) return '휴무';
+    if (day.ranges.isEmpty) return null;
+    return day.ranges.map((r) => '${r.open}–${r.close}').join(', ');
   }
 
   static int _toMinutes(String hhmm) {

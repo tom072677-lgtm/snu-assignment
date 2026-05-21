@@ -50,7 +50,7 @@ class _VenueRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final isOpen = venue.isOpenAt(now);
-    final timeLabel = venue.statusTimeLabel(now);
+    final timeLabel = venue.todayHoursText(now);
     final preview = venue.lunchPreview;
 
     return ListTile(
@@ -85,8 +85,7 @@ class _VenueRow extends StatelessWidget {
                   text: ' · $timeLabel',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isOpen ? Colors.green[700] : Colors.orange[700],
-                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
                   ),
                 ),
             ]),

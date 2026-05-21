@@ -448,10 +448,20 @@ async function fetchTmapRoute(tmapUrl, body) {
   );
   if (!summary) throw new Error("T Map: no route found");
   const path = [];
+  const steps = [];
   for (const f of features) {
     if (f.geometry?.type === "LineString") {
       for (const [x, y] of f.geometry.coordinates) {
         path.push([y, x]); // T Map [lng,lat] → [lat,lng]
+      }
+    } else if (f.geometry?.type === "Point") {
+      const p = f.properties || {};
+      if (p.description) {
+        steps.push({
+          description: p.description,
+          distance: p.distance ?? 0,   // meters to next step
+          turnType: p.turnType ?? 0,
+        });
       }
     }
   }
@@ -459,6 +469,7 @@ async function fetchTmapRoute(tmapUrl, body) {
     duration: summary.properties.totalTime,     // seconds
     distance: summary.properties.totalDistance, // meters
     path,
+    steps,
   };
 }
 

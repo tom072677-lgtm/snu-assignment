@@ -67,12 +67,31 @@ class RouteLeg {
       );
 }
 
+class RouteStep {
+  final String description;
+  final int distanceMeters;
+  final int turnType;
+
+  const RouteStep({
+    required this.description,
+    required this.distanceMeters,
+    required this.turnType,
+  });
+
+  factory RouteStep.fromJson(Map<String, dynamic> j) => RouteStep(
+        description: j['description'] as String? ?? '',
+        distanceMeters: (j['distance'] as num? ?? 0).toInt(),
+        turnType: (j['turnType'] as num? ?? 0).toInt(),
+      );
+}
+
 class RouteResult {
   final double durationSeconds;
   final double distanceMeters;
   final int fare;
   final List<(double lat, double lng)> path;
   final List<RouteLeg> legs;
+  final List<RouteStep> steps;
 
   const RouteResult({
     required this.durationSeconds,
@@ -80,6 +99,7 @@ class RouteResult {
     this.fare = 0,
     required this.path,
     this.legs = const [],
+    this.steps = const [],
   });
 }
 
@@ -135,11 +155,15 @@ class MapRepository {
     );
     final data = response.data as Map<String, dynamic>;
     final path = _parsePath(data['path'] as List);
+    final steps = (data['steps'] as List? ?? [])
+        .map((e) => RouteStep.fromJson(e as Map<String, dynamic>))
+        .toList();
 
     return RouteResult(
       durationSeconds: (data['duration'] as num).toDouble(),
       distanceMeters: (data['distance'] as num).toDouble(),
       path: path,
+      steps: steps,
     );
   }
 
