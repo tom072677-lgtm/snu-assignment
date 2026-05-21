@@ -74,18 +74,25 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_kRecentKey) ?? [];
-      final list = raw.map((s) {
-        final m = jsonDecode(s) as Map<String, dynamic>;
-        return PlaceResult(
-          name: m['name'] as String,
-          address: m['address'] as String? ?? '',
-          lat: (m['lat'] as num).toDouble(),
-          lng: (m['lng'] as num).toDouble(),
-          category: m['category'] as String? ?? '',
-        );
-      }).toList();
+      final list = <PlaceResult>[];
+      for (final s in raw) {
+        try {
+          final m = jsonDecode(s) as Map<String, dynamic>;
+          list.add(PlaceResult(
+            name: m['name'] as String,
+            address: m['address'] as String? ?? '',
+            lat: (m['lat'] as num).toDouble(),
+            lng: (m['lng'] as num).toDouble(),
+            category: m['category'] as String? ?? '',
+          ));
+        } catch (e) {
+          debugPrint('[Recent] 항목 파싱 실패: $e');
+        }
+      }
       if (mounted) setState(() => _recents = list);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Recent] _loadRecents 실패: $e');
+    }
   }
 
   Future<void> _saveRecent(PlaceResult p) async {
@@ -111,8 +118,10 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
       });
       raw.insert(0, entry);
       await prefs.setStringList(_kRecentKey, raw.take(_kMaxRecent).toList());
-      await _loadRecents();
-    } catch (_) {}
+      debugPrint('[Recent] 저장 완료: ${p.name}');
+    } catch (e) {
+      debugPrint('[Recent] _saveRecent 실패: $e');
+    }
   }
 
   Future<void> _removeRecent(int index) async {
@@ -173,9 +182,9 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
     }
   }
 
-  void _selectPlace(PlaceResult p) {
-    _saveRecent(p);
-    Navigator.pop(context, p);
+  Future<void> _selectPlace(PlaceResult p) async {
+    await _saveRecent(p);
+    if (mounted) Navigator.pop(context, p);
   }
 
   // ── STT ────────────────────────────────────────
