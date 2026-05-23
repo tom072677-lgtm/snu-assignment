@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/analytics.dart';
 import 'core/theme.dart';
 import 'features/assignments/presentation/assignments_screen.dart';
 import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
+import 'features/shuttle/presentation/shuttle_screen.dart';
 import 'shared/providers/settings_provider.dart';
 
 class SharapApp extends ConsumerWidget {
@@ -12,12 +14,13 @@ class SharapApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(darkModeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: '샤랍',
       theme: lightTheme(),
       darkTheme: darkTheme(),
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: themeMode,
+      navigatorObservers: [Analytics.observer],
       home: const _MainShell(),
       debugShowCheckedModeBanner: false,
     );
@@ -39,6 +42,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     CalendarScreen(),
     RestaurantScreen(),
     MapScreen(),
+    ShuttleScreen(),
   ];
 
   @override
@@ -50,7 +54,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          Analytics.tabSelected(i);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.notifications_outlined),
@@ -71,6 +78,11 @@ class _MainShellState extends ConsumerState<_MainShell> {
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: '지도',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.directions_bus_outlined),
+            selectedIcon: Icon(Icons.directions_bus),
+            label: '셔틀',
           ),
         ],
       ),

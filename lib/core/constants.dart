@@ -11,8 +11,12 @@ const String appVersion = '1.0.0';
 // SharedPreferences keys
 const String kIcalUrl = 'snu_etl_ical_url';
 const String kCanvasToken = 'snu_etl_canvas_token';
-const String kDarkMode = 'dark_mode';
+const String kDarkMode = 'dark_mode'; // legacy — migrated to kThemeMode
+const String kThemeMode = 'theme_mode'; // 'system' | 'light' | 'dark'
+const String kAssignmentDays = 'assignment_days'; // 7 | 14 | 30
+const String kFavVenues = 'fav_venues'; // List<String> venue IDs
 const String kCompletedTasks = 'snu_assignment_app_completed';
 const String kMemos = 'snu_assignment_app_memos';
 const String kCalendarEvents = 'snu_calendar_events';
 const String kFcmToken = 'fcm_token';
+const String kDevMode = 'dev_mode'; // true → Analytics 비활성화 (개발자 기기)

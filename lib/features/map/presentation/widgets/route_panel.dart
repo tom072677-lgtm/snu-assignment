@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../../core/analytics.dart';
 import '../../data/map_repository.dart';
 import '../route_search_screen.dart';
 
@@ -47,6 +48,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   int _selectedTransitIndex = 0;
   late Map<RouteMode, _ModeState> _states;
   late final DateTime _requestedAt;
+  // widget.origin은 부모가 rebuild한 뒤에야 반영되므로, 변경 즉시 추적
+  PlaceResult? _currentOrigin;
 
   // 버스 실시간 도착 정보
   String? _arrivalMsg;
@@ -62,6 +65,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   @override
   void initState() {
     super.initState();
+    _currentOrigin = widget.origin;
     _anim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
@@ -81,9 +85,9 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
 
   Future<void> _fetchAll() async {
     double olat, olng;
-    if (widget.origin != null) {
-      olat = widget.origin!.lat;
-      olng = widget.origin!.lng;
+    if (_currentOrigin != null) {
+      olat = _currentOrigin!.lat;
+      olng = _currentOrigin!.lng;
     } else {
       try {
         final pos = await Geolocator.getCurrentPosition(
@@ -134,6 +138,13 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       if (mode == _mode) {
         _notifyMap(mode, routes);
         if (mode == RouteMode.transit) _fetchArrival(routes);
+      }
+      // transit 결과가 처음 들어올 때 경로 검색 이벤트 로그 (1회만)
+      if (mode == RouteMode.transit) {
+        Analytics.routeSearched(
+          destName: widget.dest.name,
+          mode: 'transit',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -453,8 +464,10 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     );
     if (!mounted) return;
     widget.onOriginChanged(result); // null이면 현재위치로 리셋
-    // 출발지 바뀌면 경로 다시 조회
+    // _currentOrigin을 즉시 갱신해야 _fetchAll이 새 좌표를 읽음
+    // (widget.origin은 부모 rebuild 후에야 반영됨)
     setState(() {
+      _currentOrigin = result;
       _states = {for (final m in RouteMode.values) m: const _ModeState(loading: true)};
       _arrivalMsg = null;
     });

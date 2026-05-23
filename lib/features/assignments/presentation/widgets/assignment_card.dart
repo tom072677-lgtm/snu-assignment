@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/analytics.dart';
 import '../../../../shared/providers/settings_provider.dart';
 import '../../domain/assignment.dart';
 import '../assignment_detail_screen.dart';
@@ -169,9 +169,16 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
                               style: TextStyle(fontSize: 13)),
                         )
                       : FilledButton(
-                          onPressed: () => ref
-                              .read(completedTasksProvider.notifier)
-                              .complete(a.etlId),
+                          onPressed: () {
+                            ref
+                                .read(completedTasksProvider.notifier)
+                                .complete(a.etlId);
+                            Analytics.assignmentCompleted(
+                              courseName: a.courseName,
+                              hoursBeforeDeadline:
+                                  a.remaining.inHours.clamp(0, 999).toInt(),
+                            );
+                          },
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 4),
@@ -231,11 +238,4 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
     }
   }
 
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
 }

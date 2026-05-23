@@ -29,8 +29,15 @@ class NotificationService {
   );
 
   /// etlId → 안정적인 정수 알림 ID (앱 재시작 후에도 동일)
-  static int _stableId(String etlId) =>
-      etlId.codeUnits.fold(0, (acc, c) => acc + c) % 100000;
+  /// Dart의 String.hashCode는 실행마다 달라질 수 있으므로
+  /// djb2 해시로 결정적(deterministic) ID를 보장함
+  static int _stableId(String etlId) {
+    var h = 5381;
+    for (final c in etlId.codeUnits) {
+      h = ((h << 5) + h + c) & 0x7FFFFFFF; // 양수 31비트 유지
+    }
+    return h == 0 ? 1 : h;
+  }
 
   Future<void> initialize() async {
     // 로컬 알림 초기화

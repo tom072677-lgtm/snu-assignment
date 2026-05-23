@@ -4,6 +4,7 @@ const https = require("https");
 const http = require("http");
 const webpush = require("web-push");
 const { MongoClient } = require("mongodb");
+const cheerio = require("cheerio");
 
 // VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
@@ -128,10 +129,11 @@ function parseEventDate(ev) {
 
 // ──────────────────────────────────────────
 // POST /api/sync-ical
-// body: { icalUrl, apiToken? }
+// body: { icalUrl, apiToken?, days? }
 // ──────────────────────────────────────────
 app.post("/api/sync-ical", async (req, res) => {
-  let { icalUrl, apiToken } = req.body;
+  let { icalUrl, apiToken, days } = req.body;
+  const lookAheadDays = Math.min(Math.max(parseInt(days) || 14, 1), 60);
 
   if (!icalUrl) {
     return res.status(400).json({ error: "icalUrl이 필요합니다." });
@@ -165,7 +167,7 @@ app.post("/api/sync-ical", async (req, res) => {
       if (!dueDate || isNaN(dueDate.getTime())) continue;
 
       const diffDays = (dueDate - now) / (1000 * 60 * 60 * 24);
-      if (diffDays < 0 || diffDays > 7) continue;
+      if (diffDays < 0 || diffDays > lookAheadDays) continue;
 
       const { title, courseName } = parseSummary(ev.summary);
       if (!title) continue;
@@ -221,7 +223,6 @@ app.post("/api/sync-ical", async (req, res) => {
 // POST /api/assignment-detail
 // body: { courseId, assignmentId, apiToken }
 // ──────────────────────────────────────────
-const cheerio = require("cheerio");
 
 app.post("/api/assignment-detail", async (req, res) => {
   const { courseId, assignmentId, apiToken } = req.body;
@@ -608,34 +609,6 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
   return match?.arvlMsg2 ?? null;
 }
 
-// ── 임시 디버그 (확인 후 삭제) ───────────────────────────────────────────────
-app.get("/api/debug/transit", async (req, res) => {
-  const busKey = process.env.SEOUL_BUS_API_KEY;
-  const subwayKey = process.env.SEOUL_SUBWAY_API_KEY;
-  const result = { busKeySet: !!busKey, subwayKeySet: !!subwayKey };
-  // 버스: getArrInfoByRoute 테스트 (실제 작동하는 endpoint)
-  // stId=119000295, busRouteId=100100124 는 테스트용 고정값
-  try {
-    const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
-      + `?serviceKey=${encodeURIComponent(busKey ?? '')}&stId=119000295&busRouteId=100100124&resultType=json`;
-    const sd = JSON.parse(await fetchText(url));
-    result.bus_getArrInfoByRoute = { header: sd.msgHeader, count: (sd.msgBody?.itemList ?? []).length,
-      sample: (sd.msgBody?.itemList ?? []).slice(0,1) };
-  } catch (e) { result.bus_err = e.message.slice(0, 150); }
-  // 지하철: 강남역으로 테스트 (더 확실한 데이터)
-  for (const station of ['강남', '서울대입구']) {
-    try {
-      const subUrl = `http://swopenAPI.seoul.go.kr/api/subway`
-        + `/${encodeURIComponent(subwayKey ?? '')}/json/realtimeStationArrival/0/5`
-        + `/${encodeURIComponent(station)}`;
-      const sd2 = JSON.parse(await fetchText(subUrl));
-      const list = sd2.realtimeArrivalList ?? [];
-      result[`subway_${station}`] = { count: list.length, code: sd2.code, msg: sd2.message,
-        sample: list.slice(0,1).map(a => ({ trainLineNm: a.trainLineNm, arvlMsg2: a.arvlMsg2 })) };
-    } catch (e) { result[`subway_${station}_err`] = e.message.slice(0, 120); }
-  }
-  res.json(result);
-});
 
 app.post("/api/transit/arrival", async (req, res) => {
   const { legType, routeName, startStation, subwayCode, stId, busRouteId } = req.body;
@@ -1303,6 +1276,167 @@ app.get('/api/myip', async (req, res) => {
   }
 });
 
+
+// ── 셔틀버스 ──────────────────────────────────────────────────────────────────
+
+const SHUTTLE_ROUTES = [
+  {
+    id: 61, name: '정문↔순환도로', type: '교내',
+    stations: [
+      { code: 101, name: '정문' },
+      { code: 201, name: '법대입구' },
+      { code: 401, name: '자연대500동(행정관)' },
+      { code: 501, name: '농생대' },
+      { code: 601, name: '공대입구' },
+      { code: 701, name: '신소재연구소' },
+      { code: 901, name: '302동 공학관' },
+      { code: 1001, name: '301동 공학관' },
+      { code: 1101, name: '유전공학연구소' },
+      { code: 1301, name: '교수회관입구' },
+      { code: 1501, name: '기숙사삼거리' },
+      { code: 1601, name: '국제대학원' },
+      { code: 1701, name: '종합교육연구동' },
+      { code: 1801, name: '경영대' },
+    ],
+  },
+  {
+    id: 81, name: '호암경유 역방향', type: '교내',
+    stations: [
+      { code: 100, name: '정문(입구)' },
+      { code: 200, name: '법대입구' },
+      { code: 401, name: '자연대500동(행정관)' },
+      { code: 501, name: '농생대' },
+      { code: 601, name: '공대입구' },
+      { code: 701, name: '신소재연구소' },
+      { code: 711, name: '호암교수회관' },
+      { code: 901, name: '302동 공학관' },
+      { code: 1001, name: '301동 공학관' },
+      { code: 1101, name: '유전공학연구소' },
+      { code: 1301, name: '교수회관입구' },
+      { code: 1500, name: '기숙사삼거리(입구)' },
+      { code: 1501, name: '기숙사삼거리' },
+      { code: 1700, name: '종합교육연구동(입구)' },
+      { code: 1800, name: '경영대(입구)' },
+      { code: 2011, name: '행정관' },
+      { code: 2301, name: '국제대학원' },
+      { code: 300, name: '공학관' },
+    ],
+  },
+  {
+    id: 10, name: '행정관↔입구역', type: '통학',
+    stations: [
+      { code: 410, name: '서울대본부(행정관)' },
+      { code: 2401, name: '서울대입구역(승차)' },
+      { code: 2400, name: '서울대입구역(하차)' },
+    ],
+  },
+  {
+    id: 40, name: '행정관↔대학동', type: '통학',
+    stations: [
+      { code: 410, name: '서울대본부(행정관)' },
+      { code: 2501, name: '대학동(승차)' },
+      { code: 2500, name: '대학동(하차)' },
+    ],
+  },
+  {
+    id: 70, name: '입구역→2공학관', type: '통학',
+    stations: [
+      { code: 2401, name: '서울대입구역(승차)' },
+    ],
+  },
+  {
+    id: 92, name: '(야간) 행정관→입구역', type: '야간',
+    stations: [
+      { code: 410, name: '서울대본부(행정관)' },
+    ],
+  },
+  {
+    id: 112, name: '(야간) 행정관→대학동', type: '야간',
+    stations: [
+      { code: 410, name: '서울대본부(행정관)' },
+    ],
+  },
+  {
+    id: 123, name: '심야셔틀', type: '심야',
+    stations: [
+      { code: 100, name: '정문' },
+      { code: 400, name: '자연대(행정관)' },
+      { code: 500, name: '농생대' },
+      { code: 710, name: '공대' },
+      { code: 900, name: '공학관' },
+      { code: 1000, name: '301동 공학관' },
+      { code: 1500, name: '기숙사삼거리' },
+      { code: 1700, name: '종합교육연구동' },
+      { code: 1800, name: '경영대' },
+      { code: 2011, name: '행정관' },
+    ],
+  },
+  {
+    id: 555, name: '낙성대→제1공학관', type: '통학',
+    stations: [
+      { code: 3101, name: '낙성대역' },
+      { code: 3201, name: '낙성대입구' },
+      { code: 701, name: '신소재연구소' },
+      { code: 901, name: '302동 공학관' },
+      { code: 1101, name: '유전공학연구소' },
+      { code: 1301, name: '교수회관입구' },
+      { code: 1501, name: '기숙사삼거리' },
+    ],
+  },
+  {
+    id: 999, name: '사당역→행정관', type: '통학',
+    stations: [
+      { code: 999901, name: '사당역' },
+    ],
+  },
+];
+
+// 캐시: key="routeId_stationCode", 성공 응답만 캐시 (실패는 캐시 안 함)
+const shuttleArrivalCache = new Map();
+const SHUTTLE_CACHE_TTL_MS = 15_000;
+
+app.get('/api/shuttle/routes', (req, res) => {
+  res.json(SHUTTLE_ROUTES);
+});
+
+app.get('/api/shuttle/arrival', async (req, res) => {
+  const routeId = req.query.route_id;
+  const stationCode = req.query.station_code;
+  if (!routeId || !stationCode) {
+    return res.status(400).json({ error: 'route_id and station_code are required' });
+  }
+
+  const cacheKey = `${routeId}_${stationCode}`;
+  const cached = shuttleArrivalCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < SHUTTLE_CACHE_TTL_MS) {
+    return res.json(cached.data);
+  }
+
+  const url = `http://shuttlebus.snu.ac.kr/mobile/station/stationBusDetail.action`
+    + `?bus_route_id=${encodeURIComponent(routeId)}`
+    + `&bus_station_code=${encodeURIComponent(stationCode)}`
+    + `&type=SHUTTLE`;
+
+  try {
+    const html = await fetchText(url);
+    const $ = cheerio.load(html);
+
+    const arrivals = [];
+    $('ul.busSch li .pos').each((_, el) => {
+      const raw = $(el).find('.time strong').text().trim();
+      arrivals.push(raw || '운행정보없음');
+    });
+
+    const data = {
+      first: arrivals[0] ?? '운행정보없음',
+      second: arrivals[1] ?? null,
+    };
+    shuttleArrivalCache.set(cacheKey, { data, ts: Date.now() });
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ first: null, second: null, error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);

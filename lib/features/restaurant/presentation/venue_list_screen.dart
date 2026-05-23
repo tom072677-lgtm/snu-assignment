@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/analytics.dart';
+import '../../../shared/providers/settings_provider.dart';
 import '../domain/venue.dart';
 import 'venue_detail_screen.dart';
 
-class VenueListScreen extends StatelessWidget {
+class VenueListScreen extends ConsumerWidget {
   final VenueCategory category;
   final String label;
   final List<Venue> venues;
@@ -15,10 +18,15 @@ class VenueListScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favIds = ref.watch(favVenuesProvider);
     final now = DateTime.now();
-    // Open venues first, then alphabetical
+
+    // 즐겨찾기 → 영업중 → 가나다 순
     final sorted = [...venues]..sort((a, b) {
+        final aFav = favIds.contains(a.id) ? 0 : 1;
+        final bFav = favIds.contains(b.id) ? 0 : 1;
+        if (aFav != bFav) return aFav - bFav;
         final aOpen = a.isOpenAt(now) ? 0 : 1;
         final bOpen = b.isOpenAt(now) ? 0 : 1;
         if (aOpen != bOpen) return aOpen - bOpen;
@@ -42,19 +50,21 @@ class VenueListScreen extends StatelessWidget {
   }
 }
 
-class _VenueRow extends StatelessWidget {
+class _VenueRow extends ConsumerWidget {
   final Venue venue;
   const _VenueRow({required this.venue});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final isOpen = venue.isOpenAt(now);
     final timeLabel = venue.todayHoursText(now);
     final preview = venue.lunchPreview;
+    final isFav = ref.watch(favVenuesProvider).contains(venue.id);
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       leading: CircleAvatar(
         backgroundColor: isOpen
             ? Colors.green.withValues(alpha: 0.12)
@@ -65,15 +75,39 @@ class _VenueRow extends StatelessWidget {
           size: 20,
         ),
       ),
-      title: Text(
-        venue.name,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              venue.name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+          ),
+          // 즐겨찾기 별 아이콘
+          GestureDetector(
+            onTap: () {
+              final willFav = !isFav;
+              ref.read(favVenuesProvider.notifier).toggle(venue.id);
+              Analytics.venueFavoriteToggled(
+                venueName: venue.name,
+                nowFavorite: willFav,
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Icon(
+                isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                size: 20,
+                color: isFav ? Colors.amber[600] : Colors.grey[400],
+              ),
+            ),
+          ),
+        ],
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 2),
-          // 건물 · 시간 한 줄
           Text.rich(
             TextSpan(children: [
               TextSpan(
@@ -83,10 +117,7 @@ class _VenueRow extends StatelessWidget {
               if (timeLabel != null)
                 TextSpan(
                   text: ' · $timeLabel',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
             ]),
           ),
@@ -102,10 +133,17 @@ class _VenueRow extends StatelessWidget {
         ],
       ),
       trailing: _OpenBadge(isOpen: isOpen),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue)),
-      ),
+      onTap: () {
+        Analytics.venueViewed(
+          venueName: venue.name,
+          category: venue.category.name,
+          isOpen: isOpen,
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue)),
+        );
+      },
     );
   }
 

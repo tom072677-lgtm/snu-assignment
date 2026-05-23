@@ -32,9 +32,11 @@ dependencies:
   # 달력 UI
   table_calendar: ^3.1.2
 
-  # 알림
+  # 알림 + 분석 + 크래시 리포트
   firebase_core: ^3.4.0
   firebase_messaging: ^15.1.0
+  firebase_analytics: ^11.3.0
+  firebase_crashlytics: ^4.1.0
   flutter_local_notifications: ^17.2.2
 
   # 음성 인식

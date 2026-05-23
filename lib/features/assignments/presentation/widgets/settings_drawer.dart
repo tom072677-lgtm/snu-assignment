@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/analytics.dart';
+import '../../../../core/constants.dart';
 import '../../../../shared/providers/settings_provider.dart';
 
 class SettingsDrawer extends ConsumerStatefulWidget {
@@ -12,6 +14,8 @@ class SettingsDrawer extends ConsumerStatefulWidget {
 class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
   late TextEditingController _icalCtrl;
   late TextEditingController _tokenCtrl;
+  int _versionTapCount = 0; // 버전 5번 탭 → 개발자 메뉴 표시
+  bool _devMenuVisible = false;
 
   @override
   void initState() {
@@ -30,10 +34,10 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ref.watch(darkModeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final assignmentDays = ref.watch(assignmentDaysProvider);
     final hasIcal = ref.watch(icalUrlProvider) != null;
-    final hasToken = ref.watch(canvasTokenProvider) != null;
-    final isConnected = hasIcal && hasToken;
+    final isConnected = hasIcal; // 토큰은 선택 사항 — URL만 있으면 연동됨
 
     return DraggableScrollableSheet(
       expand: false,
@@ -149,21 +153,209 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                       child: const Text('연동 해제'),
                     ),
                   ],
-                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 24),
                   const Divider(),
+                  const SizedBox(height: 16),
+
+                  // ─── 테마 설정 ─────────────────────────────────────────────
+                  const Text('화면 테마',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Text('다크 모드',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      Switch(
-                        value: isDark,
-                        onChanged: (_) =>
-                            ref.read(darkModeProvider.notifier).toggle(),
+                  SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto, size: 18),
+                        label: Text('자동'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode, size: 18),
+                        label: Text('라이트'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode, size: 18),
+                        label: Text('다크'),
                       ),
                     ],
+                    selected: {themeMode},
+                    onSelectionChanged: (Set<ThemeMode> s) {
+                      final mode = s.first;
+                      ref.read(themeModeProvider.notifier).set(mode);
+                      Analytics.themeModeChanged(switch (mode) {
+                        ThemeMode.system => 'system',
+                        ThemeMode.light => 'light',
+                        ThemeMode.dark => 'dark',
+                      });
+                    },
                   ),
+
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // ─── 과제 조회 기간 ──────────────────────────────────────
+                  const Text('과제 조회 기간',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '앞으로 며칠 내 마감 과제를 가져올지 설정합니다.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 7, label: Text('7일')),
+                      ButtonSegment(value: 14, label: Text('14일')),
+                      ButtonSegment(value: 30, label: Text('30일')),
+                    ],
+                    selected: {assignmentDays},
+                    onSelectionChanged: (Set<int> s) {
+                      ref.read(assignmentDaysProvider.notifier).set(s.first);
+                      Analytics.assignmentDaysChanged(s.first);
+                    },
+                  ),
+
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 8),
+
+                  // ─── 버전 (5번 탭하면 개발자 메뉴 등장) ─────────────────
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _versionTapCount++;
+                        if (_versionTapCount >= 5) {
+                          _devMenuVisible = true;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('개발자 메뉴가 활성화되었습니다'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      });
+                    },
+                    child: Center(
+                      child: Text(
+                        '샤랍 $appVersion',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ─── 개발자 메뉴 ──────────────────────────────────────────
+                  if (_devMenuVisible) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.code, size: 14, color: Colors.orange),
+                              SizedBox(width: 6),
+                              Text(
+                                '개발자 옵션',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Consumer(builder: (context, ref, _) {
+                            final isDevMode = ref.watch(devModeProvider);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            '개발자 모드',
+                                            style: TextStyle(fontSize: 13),
+                                          ),
+                                          Text(
+                                            isDevMode
+                                                ? '내 데이터 수집 중단됨 (Analytics OFF)'
+                                                : '내 데이터가 Analytics에 포함됨',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDevMode
+                                                  ? Colors.orange
+                                                  : Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Switch(
+                                      value: isDevMode,
+                                      activeColor: Colors.orange,
+                                      onChanged: (_) async {
+                                        ref
+                                            .read(devModeProvider.notifier)
+                                            .toggle();
+                                        await Analytics.setDevMode(!isDevMode);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(!isDevMode
+                                                  ? '개발자 모드 ON: 내 데이터는 Analytics에서 제외됩니다'
+                                                  : '개발자 모드 OFF: Analytics 정상 수집'),
+                                              duration:
+                                                  const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                if (isDevMode) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '💡 내 이벤트만 보려면:\n'
+                                    'adb shell setprop debug.firebase.analytics.app com.tom07.sharap\n'
+                                    '→ Firebase Console > Analytics > DebugView',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[500],
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -176,10 +368,13 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
 
   void _saveAll() {
     final url = _icalCtrl.text.trim();
-    final token = _tokenCtrl.text.trim();
-    if (url.isEmpty || token.isEmpty) return;
+    if (url.isEmpty) return; // URL은 필수, Canvas 토큰은 선택
     ref.read(icalUrlProvider.notifier).set(url);
-    ref.read(canvasTokenProvider.notifier).set(token);
+    final token = _tokenCtrl.text.trim();
+    if (token.isNotEmpty) {
+      ref.read(canvasTokenProvider.notifier).set(token);
+    }
+    Analytics.etlConnected(hasCanvasToken: token.isNotEmpty);
     Navigator.pop(context);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'constants.dart';
 
 class DioClient {
@@ -18,9 +19,7 @@ class DioClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onError: (e, handler) {
-          // 네트워크 오류 로깅 (release에선 생략 가능)
-          // ignore: avoid_print
-          print('[Dio] ${e.requestOptions.path} → ${e.message}');
+          debugPrint('[Dio] ${e.requestOptions.path} → ${e.message}');
           handler.next(e);
         },
       ),

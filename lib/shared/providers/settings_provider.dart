@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,23 +11,63 @@ final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPrefsProvider must be overridden in main');
 });
 
-// 다크모드
-final darkModeProvider = StateNotifierProvider<DarkModeNotifier, bool>((ref) {
+// ─── 테마 모드 (system / light / dark) ───────────────────────────────────────
+
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   final prefs = ref.watch(sharedPrefsProvider);
-  return DarkModeNotifier(prefs);
+  return ThemeModeNotifier(prefs);
 });
 
-class DarkModeNotifier extends StateNotifier<bool> {
-  DarkModeNotifier(this._prefs) : super(_prefs.getBool(kDarkMode) ?? false);
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier(this._prefs) : super(_load(_prefs));
   final SharedPreferences _prefs;
 
-  void toggle() {
-    state = !state;
-    _prefs.setBool(kDarkMode, state);
+  static ThemeMode _load(SharedPreferences prefs) {
+    final raw = prefs.getString(kThemeMode);
+    if (raw != null) {
+      if (raw == 'light') return ThemeMode.light;
+      if (raw == 'dark') return ThemeMode.dark;
+      return ThemeMode.system;
+    }
+    // 기존 dark_mode bool 값 마이그레이션
+    final legacyDark = prefs.getBool(kDarkMode);
+    if (legacyDark == true) return ThemeMode.dark;
+    return ThemeMode.system;
+  }
+
+  void set(ThemeMode mode) {
+    state = mode;
+    final raw = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
+    _prefs.setString(kThemeMode, raw);
   }
 }
 
-// eTL 설정
+// ─── 과제 조회 기간 (7 / 14 / 30일) ─────────────────────────────────────────
+
+final assignmentDaysProvider =
+    StateNotifierProvider<AssignmentDaysNotifier, int>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return AssignmentDaysNotifier(prefs);
+});
+
+class AssignmentDaysNotifier extends StateNotifier<int> {
+  AssignmentDaysNotifier(this._prefs)
+      : super(_prefs.getInt(kAssignmentDays) ?? 14);
+  final SharedPreferences _prefs;
+
+  void set(int days) {
+    state = days;
+    _prefs.setInt(kAssignmentDays, days);
+  }
+}
+
+// ─── eTL 설정 ─────────────────────────────────────────────────────────────────
+
 final icalUrlProvider = StateNotifierProvider<StringSettingNotifier, String?>((ref) {
   final prefs = ref.watch(sharedPrefsProvider);
   return StringSettingNotifier(prefs, kIcalUrl);
@@ -67,7 +108,8 @@ class StringSettingNotifier extends StateNotifier<String?> {
   }
 }
 
-// 완료된 과제 ID 목록
+// ─── 완료된 과제 ID 목록 (60일 이상 경과 시 자동 정리) ──────────────────────
+
 final completedTasksProvider =
     StateNotifierProvider<CompletedTasksNotifier, Set<String>>((ref) {
   final prefs = ref.watch(sharedPrefsProvider);
@@ -76,39 +118,122 @@ final completedTasksProvider =
 
 class CompletedTasksNotifier extends StateNotifier<Set<String>> {
   CompletedTasksNotifier(this._prefs)
-      : super(_load(_prefs));
+      : _timestamps = {},
+        super({}) {
+    _loadAndPurge();
+  }
+
   final SharedPreferences _prefs;
 
-  static Set<String> _load(SharedPreferences prefs) {
-    final raw = prefs.getString(kCompletedTasks);
-    if (raw == null) return {};
+  // etlId → 완료 처리 시각 (60일 auto-purge용)
+  final Map<String, DateTime> _timestamps;
+
+  static const _purgeDays = 60;
+
+  void _loadAndPurge() {
+    final raw = _prefs.getString(kCompletedTasks);
+    if (raw == null) return;
+
     try {
-      final list = jsonDecode(raw) as List;
-      return list.map((e) => e.toString()).toSet();
-    } catch (_) {
-      return {};
-    }
+      final decoded = jsonDecode(raw);
+      final cutoff = DateTime.now().subtract(const Duration(days: _purgeDays));
+      int beforeCount = 0;
+
+      if (decoded is List) {
+        // 구 포맷(List<String>) → 마이그레이션: 지금을 완료 시각으로 기록
+        for (final e in decoded) {
+          _timestamps[e.toString()] = DateTime.now();
+        }
+        beforeCount = decoded.length;
+      } else {
+        final map = decoded as Map<String, dynamic>;
+        beforeCount = map.length;
+        for (final e in map.entries) {
+          final ts = DateTime.tryParse(e.value as String);
+          if (ts != null && ts.isAfter(cutoff)) {
+            _timestamps[e.key] = ts;
+          }
+        }
+      }
+
+      state = _timestamps.keys.toSet();
+
+      // 오래된 항목이 정리된 경우 새 포맷으로 저장
+      final purged = beforeCount != _timestamps.length;
+      if (decoded is List || purged) {
+        _save();
+      }
+    } catch (_) {}
   }
 
   void complete(String etlId) {
+    _timestamps[etlId] = DateTime.now();
     state = {...state, etlId};
     _save();
-    // 완료 즉시 고정 알림 취소 (다음 fetch 기다리지 않음)
     NotificationService.cancelOngoingNotification(etlId).ignore();
   }
 
   void undo(String etlId) {
+    _timestamps.remove(etlId);
     state = state.difference({etlId});
     _save();
   }
 
   void _save() {
-    _prefs.setString(kCompletedTasks, jsonEncode(state.toList()));
+    final map = {
+      for (final e in _timestamps.entries) e.key: e.value.toIso8601String(),
+    };
+    _prefs.setString(kCompletedTasks, jsonEncode(map));
   }
 }
 
-// 과제별 메모
-final memosProvider = StateNotifierProvider<MemosNotifier, Map<String, String>>((ref) {
+// ─── 개발자 모드 (Analytics 비활성화) ───────────────────────────────────────
+
+final devModeProvider =
+    StateNotifierProvider<DevModeNotifier, bool>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return DevModeNotifier(prefs);
+});
+
+class DevModeNotifier extends StateNotifier<bool> {
+  DevModeNotifier(this._prefs) : super(_prefs.getBool(kDevMode) ?? false);
+  final SharedPreferences _prefs;
+
+  void toggle() {
+    state = !state;
+    _prefs.setBool(kDevMode, state);
+  }
+}
+
+// ─── 즐겨찾기 장소 ────────────────────────────────────────────────────────────
+
+final favVenuesProvider =
+    StateNotifierProvider<FavVenuesNotifier, Set<String>>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return FavVenuesNotifier(prefs);
+});
+
+class FavVenuesNotifier extends StateNotifier<Set<String>> {
+  FavVenuesNotifier(this._prefs) : super(_load(_prefs));
+  final SharedPreferences _prefs;
+
+  static Set<String> _load(SharedPreferences prefs) =>
+      (prefs.getStringList(kFavVenues) ?? []).toSet();
+
+  void toggle(String venueId) {
+    if (state.contains(venueId)) {
+      state = state.difference({venueId});
+    } else {
+      state = {...state, venueId};
+    }
+    _prefs.setStringList(kFavVenues, state.toList());
+  }
+}
+
+// ─── 과제별 메모 ──────────────────────────────────────────────────────────────
+
+final memosProvider =
+    StateNotifierProvider<MemosNotifier, Map<String, String>>((ref) {
   final prefs = ref.watch(sharedPrefsProvider);
   return MemosNotifier(prefs);
 });

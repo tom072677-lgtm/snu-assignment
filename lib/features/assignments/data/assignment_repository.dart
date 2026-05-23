@@ -14,6 +14,8 @@ class AssignmentsNotifier
   Future<List<Assignment>> build() async {
     final icalUrl = ref.watch(icalUrlProvider);
     final apiToken = ref.watch(canvasTokenProvider);
+    // assignmentDays가 바뀌면 자동으로 rebuild → 새 기간으로 재조회
+    ref.watch(assignmentDaysProvider);
 
     if (icalUrl == null || icalUrl.isEmpty) return [];
 
@@ -25,7 +27,14 @@ class AssignmentsNotifier
     }
 
     // 캐시 없음 → 서버에서 blocking 호출
-    return _fetch(icalUrl, apiToken);
+    try {
+      return await _fetch(icalUrl, apiToken);
+    } catch (e) {
+      // 네트워크 실패 시 만료된 캐시라도 반환 (오프라인 fallback)
+      final stale = _loadStaleCache(icalUrl);
+      if (stale != null) return stale;
+      rethrow;
+    }
   }
 
   Future<void> _backgroundRefresh(String icalUrl, String? apiToken) async {
@@ -38,10 +47,12 @@ class AssignmentsNotifier
   }
 
   Future<List<Assignment>> _fetch(String icalUrl, String? apiToken) async {
+    final days = ref.read(assignmentDaysProvider);
     final response = await DioClient.instance.post(
       '/api/sync-ical',
       data: {
         'icalUrl': icalUrl,
+        'days': days,
         if (apiToken != null && apiToken.isNotEmpty) 'apiToken': apiToken,
       },
     );
@@ -110,6 +121,7 @@ class AssignmentsNotifier
     notifService.syncTasksForNotification(tasks).ignore();
   }
 
+  /// TTL 내 유효한 캐시 반환 (없으면 null)
   List<Assignment>? _loadCache(String currentIcalUrl) {
     final prefs = ref.read(sharedPrefsProvider);
     final raw = prefs.getString(_kAssignmentsCache);
@@ -117,19 +129,38 @@ class AssignmentsNotifier
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       if (json['icalUrl'] != currentIcalUrl) return null;
-      // 30분 TTL: 초과 시 캐시 무효화
+      // days가 바뀌면 캐시 무효화 (7→30일 전환 시 잘못된 캐시 반환 방지)
+      final currentDays = ref.read(assignmentDaysProvider);
+      if ((json['days'] as int?) != currentDays) return null;
+      // 30분 TTL: 초과 시 캐시 무효화 (백그라운드 갱신은 별도)
       final cachedAt = DateTime.tryParse(json['cachedAt'] as String? ?? '');
       if (cachedAt == null ||
           DateTime.now().difference(cachedAt).inMinutes > 30) {
         return null;
       }
-      return (json['data'] as List)
-          .map((e) => Assignment.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return _parseAssignments(json['data'] as List);
     } catch (_) {
       return null;
     }
   }
+
+  /// 오프라인 fallback: TTL 무시하고 마지막 캐시 반환
+  List<Assignment>? _loadStaleCache(String currentIcalUrl) {
+    final prefs = ref.read(sharedPrefsProvider);
+    final raw = prefs.getString(_kAssignmentsCache);
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      if (json['icalUrl'] != currentIcalUrl) return null;
+      return _parseAssignments(json['data'] as List);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Assignment> _parseAssignments(List data) => data
+      .map((e) => Assignment.fromJson(e as Map<String, dynamic>))
+      .toList();
 
   void _saveCache(String icalUrl, List<Assignment> list) {
     final prefs = ref.read(sharedPrefsProvider);
@@ -137,6 +168,7 @@ class AssignmentsNotifier
       _kAssignmentsCache,
       jsonEncode({
         'icalUrl': icalUrl,
+        'days': ref.read(assignmentDaysProvider),
         'cachedAt': DateTime.now().toIso8601String(),
         'data': list
             .map((a) => {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/analytics.dart';
 import '../data/venue_repository.dart';
 import '../domain/venue.dart';
 import 'venue_list_screen.dart';
@@ -90,18 +91,21 @@ class _CategoryGrid extends StatelessWidget {
                   color: c.color,
                   total: count,
                   openNow: openCount,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VenueListScreen(
-                        category: c.category,
-                        label: c.label,
-                        venues: venues
-                            .where((v) => v.category == c.category)
-                            .toList(),
+                  onTap: () {
+                    Analytics.venueListViewed(category: c.label);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VenueListScreen(
+                          category: c.category,
+                          label: c.label,
+                          venues: venues
+                              .where((v) => v.category == c.category)
+                              .toList(),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               }).toList(),
             ),

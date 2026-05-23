@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
+import 'core/analytics.dart';
 import 'core/constants.dart';
 import 'firebase_options.dart';
 import 'shared/providers/notification_service.dart';
@@ -26,6 +29,14 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+  // Crashlytics: Flutter 프레임워크 에러 → Firebase로 전송
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // Crashlytics: 비동기 에러 (Zone 에러) → Firebase로 전송
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
   // 네이버 지도 SDK 초기화 (NCP 신규 인증 방식)
   await FlutterNaverMap().init(
     clientId: naverMapClientId,
@@ -37,6 +48,10 @@ Future<void> main() async {
 
   // SharedPreferences 초기화
   final prefs = await SharedPreferences.getInstance();
+
+  // 개발자 모드: 앱 시작 직후 Analytics/Crashlytics 수집 여부 결정
+  final isDevMode = prefs.getBool(kDevMode) ?? false;
+  await Analytics.setDevMode(isDevMode);
 
   // Canvas 토큰: SecureStorage에서 읽기 (기존 SharedPreferences 값 마이그레이션)
   const secureStorage = FlutterSecureStorage();
