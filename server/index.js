@@ -560,43 +560,6 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
-// ── 버스 API 키 형식 진단 (임시) ──────────────────────────────────────────────
-app.get("/api/debug/bus-key-test", async (req, res) => {
-  const rawKey = process.env.SEOUL_BUS_API_KEY;
-  if (!rawKey) return res.json({ error: "SEOUL_BUS_API_KEY 없음" });
-
-  const stId = req.query.stId || "120900172";
-  const busRouteId = req.query.busRouteId || "120900011";
-
-  async function tryKey(label, key) {
-    const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
-      + `?serviceKey=${encodeURIComponent(key)}`
-      + `&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
-    try {
-      const raw = await fetchText(url);
-      const parsed = JSON.parse(raw);
-      return { label, key_preview: key.slice(0,20)+'...', headerCd: parsed.msgHeader?.headerCd, headerMsg: parsed.msgHeader?.headerMsg, itemCount: parsed.msgHeader?.itemCount };
-    } catch(e) {
-      return { label, error: e.message };
-    }
-  }
-
-  // 형식 1: rawKey 그대로
-  const r1 = await tryKey("raw_hex", rawKey);
-
-  // 형식 2: hex → Buffer → base64
-  let r2 = { label: "hex_to_base64", error: "hex decode failed" };
-  if (/^[0-9a-fA-F]+$/.test(rawKey) && rawKey.length % 2 === 0) {
-    const b64 = Buffer.from(rawKey, 'hex').toString('base64');
-    r2 = await tryKey("hex_to_base64", b64);
-  }
-
-  // 형식 3: rawKey를 이미 base64로 가정 (URL-decode 없이 그대로)
-  const r3 = await tryKey("raw_as_base64", rawKey);
-
-  res.json({ results: [r1, r2, r3] });
-});
-
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
