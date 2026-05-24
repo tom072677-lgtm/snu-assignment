@@ -1563,6 +1563,55 @@ if (fcmAdmin) {
 
 // ── 셔틀버스 ──────────────────────────────────────────────────────────────────
 
+// 정류장 코드 → [lat, lng] (SNU 캠퍼스 기준)
+const STATION_COORDS = {
+  101:    [37.4603, 126.9523], // 정문
+  100:    [37.4603, 126.9523], // 정문(입구)
+  201:    [37.4621, 126.9525], // 법대입구
+  200:    [37.4621, 126.9525],
+  401:    [37.4631, 126.9513], // 자연대500동(행정관)
+  400:    [37.4631, 126.9513],
+  501:    [37.4650, 126.9475], // 농생대
+  500:    [37.4650, 126.9475],
+  601:    [37.4668, 126.9472], // 공대입구
+  701:    [37.4686, 126.9481], // 신소재연구소
+  711:    [37.4690, 126.9460], // 호암교수회관
+  710:    [37.4668, 126.9472], // 공대(심야)
+  901:    [37.4698, 126.9512], // 302동 공학관
+  900:    [37.4698, 126.9512],
+  300:    [37.4698, 126.9512], // 공학관(역방향)
+  1001:   [37.4703, 126.9523], // 301동 공학관
+  1000:   [37.4703, 126.9523],
+  1101:   [37.4710, 126.9549], // 유전공학연구소
+  1301:   [37.4703, 126.9558], // 교수회관입구
+  1500:   [37.4679, 126.9562], // 기숙사삼거리(입구)
+  1501:   [37.4679, 126.9562],
+  1601:   [37.4665, 126.9567], // 국제대학원
+  1700:   [37.4648, 126.9544], // 종합교육연구동(입구)
+  1701:   [37.4648, 126.9544],
+  1800:   [37.4636, 126.9537], // 경영대(입구)
+  1801:   [37.4636, 126.9537],
+  2011:   [37.4628, 126.9520], // 행정관
+  2301:   [37.4665, 126.9567], // 국제대학원(역방향)
+  410:    [37.4628, 126.9520], // 서울대본부(행정관)
+  2401:   [37.4821, 126.9528], // 서울대입구역(승차)
+  2400:   [37.4821, 126.9528],
+  2501:   [37.4757, 126.9584], // 대학동(승차)
+  2500:   [37.4757, 126.9584],
+  3101:   [37.4759, 126.9602], // 낙성대역
+  3201:   [37.4750, 126.9594], // 낙성대입구
+  999901: [37.4765, 126.9815], // 사당역
+};
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const SHUTTLE_ROUTES = [
   {
     id: 61, name: '정문↔순환도로', type: '교내',
@@ -1720,6 +1769,85 @@ app.get('/api/shuttle/arrival', async (req, res) => {
   } catch (err) {
     res.status(502).json({ first: null, second: null, error: err.message });
   }
+});
+
+// ── 셔틀 경로 탐색 ─────────────────────────────────────────────────────────────
+app.get('/api/route/shuttle', (req, res) => {
+  const olat = parseFloat(req.query.olat);
+  const olng = parseFloat(req.query.olng);
+  const dlat = parseFloat(req.query.dlat);
+  const dlng = parseFloat(req.query.dlng);
+  if ([olat, olng, dlat, dlng].some(v => isNaN(v))) {
+    return res.status(400).json({ error: '좌표 필요' });
+  }
+
+  const BOARD_RADIUS  = 700;  // 승차 정류장 탐색 반경(m)
+  const ALIGHT_RADIUS = 700;  // 하차 정류장 탐색 반경(m)
+  const STOP_SEC      = 120;  // 정류장 간 평균 소요 시간(초)
+  const WAIT_SEC      = 120;  // 평균 대기 시간(초)
+  const WALK_MPS      = 4000 / 3600; // 4km/h
+
+  const results = [];
+
+  for (const route of SHUTTLE_ROUTES) {
+    const boardCandidates  = [];
+    const alightCandidates = [];
+
+    for (let i = 0; i < route.stations.length; i++) {
+      const st     = route.stations[i];
+      const coords = STATION_COORDS[st.code];
+      if (!coords) continue;
+      const dO = haversineMeters(olat, olng, coords[0], coords[1]);
+      const dD = haversineMeters(dlat, dlng, coords[0], coords[1]);
+      if (dO <= BOARD_RADIUS)  boardCandidates.push({ idx: i, st, coords, dWalk: dO });
+      if (dD <= ALIGHT_RADIUS) alightCandidates.push({ idx: i, st, coords, dWalk: dD });
+    }
+
+    for (const board of boardCandidates) {
+      for (const alight of alightCandidates) {
+        // 승차 정류장이 하차 정류장보다 앞에 있어야 함 (순서 검증)
+        if (board.idx >= alight.idx) continue;
+
+        const numStops       = alight.idx - board.idx;
+        const shuttleSec     = numStops * STOP_SEC + WAIT_SEC;
+        const walkBoardSec   = Math.round(board.dWalk  / WALK_MPS);
+        const walkAlightSec  = Math.round(alight.dWalk / WALK_MPS);
+        const totalDuration  = walkBoardSec + shuttleSec + walkAlightSec;
+        const totalDistance  = Math.round(board.dWalk + alight.dWalk);
+
+        // 경로 좌표: 출발지 → 승차 구간 정류장들 → 도착지
+        const path = [[olat, olng]];
+        for (let i = board.idx; i <= alight.idx; i++) {
+          const c = STATION_COORDS[route.stations[i].code];
+          if (c) path.push(c);
+        }
+        path.push([dlat, dlng]);
+
+        const passNames = route.stations.slice(board.idx, alight.idx + 1).map(s => s.name);
+
+        const legs = [];
+        if (board.dWalk > 30) {
+          legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
+            duration: walkBoardSec, distance: Math.round(board.dWalk),
+            endStation: board.st.name, stations: [] });
+        }
+        legs.push({ type: 'shuttle', name: route.name, color: '#1A73E8',
+          duration: shuttleSec, distance: 0,
+          startStation: board.st.name, endStation: alight.st.name,
+          stations: passNames });
+        if (alight.dWalk > 30) {
+          legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
+            duration: walkAlightSec, distance: Math.round(alight.dWalk),
+            startStation: alight.st.name, stations: [] });
+        }
+
+        results.push({ duration: totalDuration, distance: totalDistance, fare: 0, path, legs });
+      }
+    }
+  }
+
+  results.sort((a, b) => a.duration - b.duration);
+  res.json({ routes: results.slice(0, 3) });
 });
 
 app.listen(PORT, () => {

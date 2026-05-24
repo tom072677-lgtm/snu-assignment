@@ -221,7 +221,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     for (final leg in route.legs) {
       if (leg.type == 'bus' || leg.type == 'subway') { transitLeg = leg; break; }
     }
-    // 버스: stId+busRouteId 필요 / 지하철: startStation 필요
+    // 버스: stId+busRouteId 필요 / 지하철: startStation 필요 / 셔틀: 실시간 조회 없음
     final bool canFetch = transitLeg != null && (
       (transitLeg.type == 'bus' && transitLeg.stId != null && transitLeg.busRouteId != null) ||
       (transitLeg.type == 'subway' && transitLeg.startStation != null && transitLeg.name.isNotEmpty)
@@ -918,11 +918,12 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       );
     }
     final color = _parseLegColor(leg.color);
-    final icon =
-        leg.type == 'subway' ? Icons.directions_subway : Icons.directions_bus;
-    final label = leg.name.isEmpty
-        ? _formatDuration(leg.durationSeconds.toDouble())
-        : leg.name;
+    final icon = leg.type == 'subway'
+        ? Icons.directions_subway
+        : Icons.directions_bus;
+    final label = leg.type == 'shuttle'
+        ? '셔틀'
+        : (leg.name.isEmpty ? _formatDuration(leg.durationSeconds.toDouble()) : leg.name);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

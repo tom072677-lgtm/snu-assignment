@@ -6,7 +6,6 @@ import 'features/assignments/presentation/assignments_screen.dart';
 import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
-import 'features/shuttle/presentation/shuttle_screen.dart';
 import 'features/timetable/presentation/timetable_screen.dart';
 import 'shared/providers/settings_provider.dart';
 
@@ -44,7 +43,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
     CalendarScreen(),
     RestaurantScreen(),
     MapScreen(),
-    ShuttleScreen(),
   ];
 
   @override
@@ -85,11 +83,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: '지도',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.directions_bus_outlined),
-            selectedIcon: Icon(Icons.directions_bus),
-            label: '셔틀',
           ),
         ],
       ),

@@ -204,27 +204,46 @@ class MapRepository {
     }
   }
 
-  /// 대중교통 경로 최대 3개 반환 (첫 번째가 최적 경로)
+  /// 대중교통 경로 반환 — ODSay + 셔틀 병렬 호출 후 병합
   Future<List<RouteResult>> getTransitRoutes({
     required double olat,
     required double olng,
     required double dlat,
     required double dlng,
   }) async {
-    final response = await DioClient.instance.get(
-      '/api/route/odsay/transit',
-      queryParameters: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
-    );
-    final data = response.data as Map<String, dynamic>;
+    List<RouteResult> odsayRoutes = [];
+    List<RouteResult> shuttleRoutes = [];
 
-    // 새 서버 응답(routes 배열) 또는 구형 flat 응답 모두 처리
-    final List<dynamic> rawRoutes = data.containsKey('routes')
-        ? data['routes'] as List
-        : [data];
+    await Future.wait([
+      () async {
+        try {
+          final response = await DioClient.instance.get(
+            '/api/route/odsay/transit',
+            queryParameters: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
+          );
+          final data = response.data as Map<String, dynamic>;
+          final List<dynamic> raw = data.containsKey('routes')
+              ? data['routes'] as List
+              : [data];
+          odsayRoutes = raw.map((r) => _routeFromJson(r as Map<String, dynamic>)).toList();
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          final response = await DioClient.instance.get(
+            '/api/route/shuttle',
+            queryParameters: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
+          );
+          final data = response.data as Map<String, dynamic>;
+          final List<dynamic> raw = data['routes'] as List? ?? [];
+          shuttleRoutes = raw.map((r) => _routeFromJson(r as Map<String, dynamic>)).toList();
+        } catch (_) {}
+      }(),
+    ]);
 
-    if (rawRoutes.isEmpty) throw Exception('경로 없음');
-
-    return rawRoutes.map((r) => _routeFromJson(r as Map<String, dynamic>)).toList();
+    final combined = [...odsayRoutes, ...shuttleRoutes];
+    if (combined.isEmpty) throw Exception('경로 없음');
+    return combined;
   }
 
   RouteResult _routeFromJson(Map<String, dynamic> r) {
