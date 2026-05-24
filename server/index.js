@@ -565,12 +565,25 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   const key = process.env.SEOUL_BUS_API_KEY;
   const stId = req.query.stId || "120900172";
   const busRouteId = req.query.busRouteId || "120900011";
-  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
-    + `?serviceKey=${encodeURIComponent(key)}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
-  try {
-    const raw = await fetchText(url);
-    res.json({ raw: raw.slice(0, 1000), url: url.slice(0, 150) });
-  } catch(e) { res.json({ error: e.message }); }
+  const encodedKey = encodeURIComponent(key);
+  const results = {};
+
+  const variants = [
+    ["arriveList",  `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["arriveAllList", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAllList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    ["arrive_nojson", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
+    ["https_arriveList", `https://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+  ];
+
+  for (const [label, url] of variants) {
+    try {
+      const raw = await fetchText(url);
+      results[label] = raw.slice(0, 400);
+    } catch(e) {
+      results[label] = `ERR: ${e.message.slice(0, 200)}`;
+    }
+  }
+  res.json(results);
 });
 
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
