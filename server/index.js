@@ -568,29 +568,30 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   const encodedKey = encodeURIComponent(key);
   const results = {};
 
-  // hex → base64 변환 키
-  const b64Key = Buffer.from(key, 'hex').toString('base64');
-  const encodedB64 = encodeURIComponent(b64Key);
+  // 직접 fetch (404여도 body 반환)
+  async function rawFetch(url) {
+    return new Promise((resolve) => {
+      const parsed = new URL(url);
+      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+      const req = mod.get({ hostname: parsed.hostname, path: parsed.pathname + parsed.search, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+        let body = '';
+        res.on('data', d => body += d);
+        res.on('end', () => resolve({ status: res.statusCode, body: body.slice(0, 600) }));
+      });
+      req.on('error', e => resolve({ status: 'ERR', body: e.message }));
+      req.setTimeout(15000, () => { req.destroy(); resolve({ status: 'TIMEOUT', body: '' }); });
+    });
+  }
 
   const variants = [
-    // apis.data.go.kr - hex 키
-    ["apis_hex",      `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    // apis.data.go.kr - base64 변환 키
-    ["apis_b64",      `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    // ws.bus.go.kr - base64 키 + new path 변형
-    ["ws_BusArr",     `http://ws.bus.go.kr/api/rest/BusArrivalService/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["ws_arrive_b64", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    // 기존 old - base64 키 (비교)
-    ["ws_old_b64",    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_list_raw",     `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
+    ["ws_list_json",    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_arrAll",       `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_arrAllList",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAllList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
   ];
 
   for (const [label, url] of variants) {
-    try {
-      const raw = await fetchText(url);
-      results[label] = raw.slice(0, 400);
-    } catch(e) {
-      results[label] = `ERR: ${e.message.slice(0, 200)}`;
-    }
+    results[label] = await rawFetch(url);
   }
   res.json(results);
 });
