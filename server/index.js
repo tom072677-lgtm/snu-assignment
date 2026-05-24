@@ -1150,7 +1150,11 @@ async function connectFcmMongo() {
     await client.connect();
     fcmCol = client.db("sharap").collection("fcm_tokens");
     const docs = await fcmCol.find({}).toArray();
-    docs.forEach((doc) => fcmTokenStore.set(doc._id, { tasks: doc.tasks || [] }));
+    docs.forEach((doc) => fcmTokenStore.set(doc._id, {
+      tasks: doc.tasks || [],
+      ...(doc.icalUrl ? { icalUrl: doc.icalUrl } : {}),
+      ...(doc.knownEtlIds !== undefined ? { knownEtlIds: doc.knownEtlIds } : {}),
+    }));
     console.log(`[FCM] 토큰 로드: ${fcmTokenStore.size}개`);
   } catch (err) {
     console.error("[FCM] MongoDB 연결 실패:", err.message);
@@ -1181,9 +1185,10 @@ connectFcmMongo();
 app.post("/api/fcm/register", async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "token 필요" });
-  const existing = fcmTokenStore.get(token);
-  fcmTokenStore.set(token, { tasks: existing?.tasks || [] });
-  await saveFcmToken(token, { tasks: existing?.tasks || [] });
+  const existing = fcmTokenStore.get(token) || {};
+  const merged = { ...existing, tasks: existing.tasks || [] };
+  fcmTokenStore.set(token, merged);
+  await saveFcmToken(token, merged);
   console.log(`[FCM] 토큰 등록: ${token.slice(0, 20)}...`);
   res.json({ ok: true });
 });
@@ -1192,7 +1197,8 @@ app.post("/api/fcm/register", async (req, res) => {
 app.post("/api/fcm/sync-tasks", async (req, res) => {
   const { token, tasks } = req.body;
   if (!token) return res.status(400).json({ error: "token 필요" });
-  const data = { tasks: tasks || [] };
+  const existing = fcmTokenStore.get(token) || {};
+  const data = { ...existing, tasks: tasks || [] };
   fcmTokenStore.set(token, data);
   await saveFcmToken(token, data);
   console.log(`[FCM] 과제 동기화: ${token.slice(0, 20)}... (${(tasks || []).length}개)`);
@@ -1304,21 +1310,31 @@ function parseIcalSessions(icsText) {
     const start = event.start;
     if (!start) continue;
 
-    // RRULE에서 요일(BYDAY) 추출
+    // RRULE에서 요일(BYDAY) 추출; 없으면 DTSTART 요일로 fallback
+    const _dayNames = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
     let weekdays = [];
     try {
       const rruleStr = event.rrule.toString ? event.rrule.toString() : '';
       const m = rruleStr.match(/BYDAY=([^;\r\n]+)/);
-      if (m) weekdays = m[1].split(',').map(d => d.trim().toUpperCase());
+      if (m) {
+        weekdays = m[1].split(',').map(d => d.trim().toUpperCase());
+      } else {
+        // BYDAY 없는 주간 RRULE — DTSTART의 요일로 단일 반복
+        weekdays = [_dayNames[start.getDay()]];
+      }
     } catch (_) {}
 
     const pad = n => String(n).padStart(2, '0');
+    // node-ical parses to UTC; add KST offset (+9h) before extracting H:M
+    const toKst = d => new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const kstStart = toKst(start);
+    const kstEnd = event.end ? toKst(event.end) : null;
     sessions.push({
       uid: event.uid || '',
       summary: event.summary || '',
       location: event.location || '',
-      startTime: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
-      endTime: event.end ? `${pad(event.end.getHours())}:${pad(event.end.getMinutes())}` : '',
+      startTime: `${pad(kstStart.getUTCHours())}:${pad(kstStart.getUTCMinutes())}`,
+      endTime: kstEnd ? `${pad(kstEnd.getUTCHours())}:${pad(kstEnd.getUTCMinutes())}` : '',
       weekdays,
     });
   }
@@ -1328,6 +1344,10 @@ function parseIcalSessions(icsText) {
 app.post('/api/timetable', async (req, res) => {
   const { icalUrl, canvasToken } = req.body;
   if (!icalUrl) return res.status(400).json({ error: 'icalUrl required' });
+  try {
+    const host = new URL(icalUrl.replace(/^webcal:/i, 'https:')).hostname;
+    if (host !== 'myetl.snu.ac.kr') return res.status(400).json({ error: 'invalid icalUrl host' });
+  } catch { return res.status(400).json({ error: 'invalid icalUrl' }); }
 
   const [coursesResult, sessionsResult] = await Promise.allSettled([
     canvasToken ? fetchCanvasCourses(canvasToken) : Promise.resolve([]),
@@ -1419,20 +1439,59 @@ app.get('/api/library/seats', async (req, res) => {
 // knownEtlIds = null → 첫 폴링(기준점 설정만, 알림 X), [] → 이후 diff 비교
 
 app.post('/api/fcm/subscribe-etl', async (req, res) => {
-  const { token, icalUrl, canvasToken } = req.body;
+  const { token, icalUrl } = req.body;
   if (!token || !icalUrl) return res.status(400).json({ error: 'token, icalUrl required' });
+  try {
+    const host = new URL(icalUrl.replace(/^webcal:/i, 'https:')).hostname;
+    if (host !== 'myetl.snu.ac.kr') return res.status(400).json({ error: 'invalid icalUrl host' });
+  } catch { return res.status(400).json({ error: 'invalid icalUrl' }); }
 
   const existing = fcmTokenStore.get(token) || { tasks: [] };
+  // eTL URL이 바뀌면 기존 baseline을 버리고 재설정 (오탐 방지)
+  const urlChanged = existing.icalUrl && existing.icalUrl !== icalUrl;
+  // canvasToken은 폴링에서 사용하지 않으므로 저장하지 않음 (보안)
+  const { canvasToken: _drop, ...existingClean } = existing;
   const updated = {
-    ...existing,
+    ...existingClean,
     icalUrl,
-    ...(canvasToken ? { canvasToken } : {}),
-    // 처음 구독이면 null (기준점 설정), 이미 있으면 유지
-    knownEtlIds: existing.knownEtlIds !== undefined ? existing.knownEtlIds : null,
-    knownAnnouncementIds: existing.knownAnnouncementIds !== undefined ? existing.knownAnnouncementIds : null,
+    knownEtlIds: urlChanged ? null : (existing.knownEtlIds !== undefined ? existing.knownEtlIds : null),
+    knownAnnouncementIds: urlChanged ? null : (existing.knownAnnouncementIds !== undefined ? existing.knownAnnouncementIds : null),
   };
   fcmTokenStore.set(token, updated);
   await saveFcmToken(token, updated);
+  res.json({ ok: true });
+
+  // knownEtlIds가 null이면 즉시 baseline 설정 (15분 폴링 전 생긴 과제 누락 방지)
+  if (updated.knownEtlIds === null) {
+    setImmediate(async () => {
+      try {
+        const httpsUrl = icalUrl.replace(/^webcal:/i, 'https:');
+        const text = await fetchText(httpsUrl);
+        const events = ical.sync.parseICS(text);
+        const baseline = Object.entries(events)
+          .filter(([, e]) => e.type === 'VEVENT' && !e.rrule)
+          .map(([uid]) => uid);
+        const current = fcmTokenStore.get(token);
+        if (current && current.knownEtlIds === null) {
+          current.knownEtlIds = baseline;
+          await saveFcmToken(token, current);
+        }
+      } catch (err) {
+        console.error('[subscribe-etl baseline] 실패:', err.message);
+      }
+    });
+  }
+});
+
+app.post('/api/fcm/unsubscribe-etl', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'token required' });
+  const existing = fcmTokenStore.get(token);
+  if (existing) {
+    const { icalUrl: _u, knownEtlIds: _k, ...rest } = existing;
+    fcmTokenStore.set(token, rest);
+    await saveFcmToken(token, rest);
+  }
   res.json({ ok: true });
 });
 
