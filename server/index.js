@@ -561,14 +561,16 @@ app.post("/api/route/tmap/car", async (req, res) => {
 });
 
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
-async function fetchBusArrival(stId, busRouteId) {
+async function fetchBusArrival(stId, busRouteId, ord) {
   const key = process.env.SEOUL_BUS_API_KEY;
   if (!key || !stId || !busRouteId) return null;
 
   // getArrInfoByRouteList: 한 정류소의 특정노선 도착예정정보 조회
+  // ord: 정류소 순번 (필수 파라미터)
+  const ordParam = ord != null ? `&ord=${ord}` : '';
   const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
     + `?serviceKey=${encodeURIComponent(key)}`
-    + `&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
+    + `&stId=${stId}&busRouteId=${busRouteId}${ordParam}&resultType=json`;
   const data = JSON.parse(await fetchText(url));
   const items = data.msgBody?.itemList ?? [];
   if (!items.length) return null;
@@ -611,14 +613,14 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
 
 
 app.post("/api/transit/arrival", async (req, res) => {
-  const { legType, routeName, startStation, subwayCode, stId, busRouteId } = req.body;
+  const { legType, routeName, startStation, subwayCode, stId, busRouteId, ord } = req.body;
   if (!legType) return res.status(400).json({ error: "파라미터 필요" });
   try {
     let arrmsg = null;
     if (legType === "subway") {
       arrmsg = await fetchSubwayArrival(routeName, startStation, subwayCode);
     } else if (legType === "bus") {
-      arrmsg = await fetchBusArrival(stId, busRouteId);
+      arrmsg = await fetchBusArrival(stId, busRouteId, ord);
     }
     res.json({ arrmsg });
   } catch (err) {
@@ -668,6 +670,8 @@ function buildOdsayRoute(pathObj) {
     const subwayCode = type === 'subway' ? (sub.lane?.[0]?.subwayCode ?? null) : null;
     const stId = type === 'bus' ? (sub.startLocalStationID ? String(sub.startLocalStationID) : null) : null;
     const busRouteId = type === 'bus' ? (sub.lane?.[0]?.busLocalBlID ? String(sub.lane[0].busLocalBlID) : null) : null;
+    // ord: 정류소 순번 (1-based). ODSay passStopList의 첫 station index + 1
+    const ord = type === 'bus' ? ((sub.passStopList?.stations?.[0]?.index ?? 0) + 1) : null;
     const passStations = (sub.passStopList?.stations || [])
       .map(st => st.stationName || st.arsId || '')
       .filter(Boolean);
@@ -682,6 +686,7 @@ function buildOdsayRoute(pathObj) {
       subwayCode,
       stId,
       busRouteId,
+      ord,
       stations: passStations,
     });
     if (type === 'walk' && sub.startX && sub.startY) {

@@ -209,6 +209,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       subwayCode: transitLeg.subwayCode,
       stId: transitLeg.stId,
       busRouteId: transitLeg.busRouteId,
+      ord: transitLeg.ord,
     );
 
     if (!mounted || reqId != _arrivalReqId) return;

@@ -39,6 +39,7 @@ class RouteLeg {
   final int? subwayCode;   // ODSAY 지하철 코드 (subway만 해당)
   final String? stId;      // 버스 정류장 내부 ID (bus만 해당, ODSAY startStationID)
   final String? busRouteId; // 버스 노선 ID (bus만 해당, ODSAY lane[0].busRouteId)
+  final int? ord;           // 버스 정류소 순번 (bus만 해당, getArrInfoByRouteList 필수 파라미터)
   final List<String> stations; // 경유 정류장/역 이름 목록
 
   const RouteLeg({
@@ -52,6 +53,7 @@ class RouteLeg {
     this.subwayCode,
     this.stId,
     this.busRouteId,
+    this.ord,
     this.stations = const [],
   });
 
@@ -66,6 +68,7 @@ class RouteLeg {
         subwayCode: j['subwayCode'] as int?,
         stId: j['stId'] as String?,
         busRouteId: j['busRouteId'] as String?,
+        ord: j['ord'] as int?,
         stations: (j['stations'] as List? ?? [])
             .map((e) => e as String)
             .toList(),
@@ -180,6 +183,7 @@ class MapRepository {
     int? subwayCode,
     String? stId,
     String? busRouteId,
+    int? ord,
   }) async {
     try {
       final response = await DioClient.instance.post(
@@ -191,6 +195,7 @@ class MapRepository {
           if (subwayCode != null) 'subwayCode': subwayCode,
           if (stId != null) 'stId': stId,
           if (busRouteId != null) 'busRouteId': busRouteId,
+          if (ord != null) 'ord': ord,
         },
       );
       return response.data['arrmsg'] as String?;
