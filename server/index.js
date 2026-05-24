@@ -569,10 +569,14 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   const results = {};
 
   const variants = [
-    ["arriveList",  `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["arriveAllList", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAllList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
-    ["arrive_nojson", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
-    ["https_arriveList", `https://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // 기존 ws.bus.go.kr
+    ["ws_old",        `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_list",       `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // apis.data.go.kr 신규 게이트웨이
+    ["apis_6110000",  `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["apis_1360000",  `https://apis.data.go.kr/1360000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // ws.bus.go.kr/api/rest 다른 경로
+    ["ws_arrinfo",    `http://ws.bus.go.kr/api/rest/arrinfo/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
   ];
 
   for (const [label, url] of variants) {
