@@ -696,6 +696,22 @@ function buildOdsayRoute(pathObj) {
   return { duration, distance, fare, path: allCoords, legs };
 }
 
+// ── ODSAY raw 디버그 (임시) ────────────────────────────────────────────────────
+app.get("/api/debug/odsay-raw", async (req, res) => {
+  const { olat, olng, dlat, dlng } = req.query;
+  if (!olat || !olng || !dlat || !dlng)
+    return res.status(400).json({ error: "파라미터 필요" });
+  const odsayKey = process.env.ODSAY_API_KEY?.trim();
+  if (!odsayKey) return res.status(500).json({ error: "ODSAY_API_KEY not configured" });
+  const params = new URLSearchParams({ SX: String(olng), SY: String(olat), EX: String(dlng), EY: String(dlat), apiKey: odsayKey });
+  const url = `https://api.odsay.com/v1/api/searchPubTransPathT?${params}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  // 첫 경로의 첫 버스 subPath만 반환
+  const busPath = data.result?.path?.[0]?.subPath?.find(s => s.trafficType === 2);
+  res.json({ busPath, allKeys: busPath ? Object.keys(busPath) : [], laneKeys: busPath?.lane?.[0] ? Object.keys(busPath.lane[0]) : [] });
+});
+
 // ── ODSAY 대중교통 경로 ───────────────────────────────────────────────────────
 app.get("/api/route/odsay/transit", async (req, res) => {
   const { olat, olng, dlat, dlng } = req.query;
