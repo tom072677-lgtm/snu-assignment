@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' show Position;
 import 'package:sensors_plus/sensors_plus.dart';
 import '../data/map_repository.dart';
 import 'route_search_screen.dart';
-import 'widgets/route_panel.dart';
+import 'widgets/route_panel.dart' show RouteOverlayPanel, resolveCurrentPosition;
 
 // SNU 관악캠퍼스 중심 좌표
 const _snuCenter = NLatLng(37.4607, 126.9526);
@@ -49,58 +49,26 @@ class _MapScreenState extends State<MapScreen> {
   // ── 위치 ──────────────────────────────────────────────────────
 
   Future<void> _initLocation() async {
-    LocationPermission perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) {
-      perm = await Geolocator.requestPermission();
-    }
-    if (perm == LocationPermission.denied ||
-        perm == LocationPermission.deniedForever) return;
-
     _mapCtrl?.setLocationTrackingMode(NLocationTrackingMode.noFollow);
-    try {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null && _initialPosition == null) {
-        _initialPosition = last;
-        _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-          target: NLatLng(last.latitude, last.longitude),
-        ));
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      _initialPosition = pos;
-      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-        target: NLatLng(pos.latitude, pos.longitude),
-      ));
-    } catch (e) {
-      debugPrint('[위치] 오류: $e');
+    final pos = await resolveCurrentPosition();
+    if (pos == null) {
+      debugPrint('[위치] 취득 실패 (권한 거부 또는 서비스 꺼짐)');
+      return;
     }
+    _initialPosition = pos;
+    _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+      target: NLatLng(pos.latitude, pos.longitude),
+    ));
   }
 
   Future<void> _goToMyLocation() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
-        ),
-      );
-      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-        target: NLatLng(pos.latitude, pos.longitude),
-        zoom: 16,
-      ));
-    } catch (_) {
-      if (_initialPosition != null) {
-        _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-          target: NLatLng(
-              _initialPosition!.latitude, _initialPosition!.longitude),
-          zoom: 16,
-        ));
-      }
-    }
+    final pos = await resolveCurrentPosition() ?? _initialPosition;
+    if (pos == null) return;
+    _initialPosition = pos;
+    _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+      target: NLatLng(pos.latitude, pos.longitude),
+      zoom: 16,
+    ));
   }
 
   // ── 나침반 ──────────────────────────────────────────────────────
@@ -351,6 +319,7 @@ class _MapScreenState extends State<MapScreen> {
               child: RouteOverlayPanel(
                 dest: _routeDest!,
                 origin: _routeOrigin,
+                initialPosition: _initialPosition,
                 onClose: _closeRoutePanel,
                 onRouteLoaded: _onRouteLoaded,
                 onOriginChanged: (p) => setState(() => _routeOrigin = p),

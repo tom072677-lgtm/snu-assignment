@@ -6,6 +6,39 @@ import '../../../../core/analytics.dart';
 import '../../data/map_repository.dart';
 import '../route_search_screen.dart';
 
+/// 위치 권한 체크 + 현재위치 취득 헬퍼.
+/// 1) 권한 확인/요청 → 거부 시 null 반환
+/// 2) 서비스 꺼짐 시 null 반환
+/// 3) 캐시 위치가 5분 이내면 바로 반환, 오래됐으면 getCurrentPosition(20s) 대기
+Future<Position?> resolveCurrentPosition() async {
+  try {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    LocationPermission perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) return null;
+
+    final last = await Geolocator.getLastKnownPosition();
+    if (last != null) {
+      final age = DateTime.now().difference(last.timestamp);
+      if (age.inMinutes < 5) return last; // 5분 이내 캐시는 신뢰
+    }
+
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 20),
+      ),
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
 // 네이버지도와 동일한 탭 순서
 const _modeOrder = [
   RouteMode.transit,
@@ -24,6 +57,7 @@ class _ModeState {
 class RouteOverlayPanel extends ConsumerStatefulWidget {
   final PlaceResult dest;
   final PlaceResult? origin; // null = 현재위치
+  final Position? initialPosition; // map_screen에서 이미 취득한 현재위치
   final VoidCallback onClose;
   // result == null → 지도 오버레이 클리어 신호
   final void Function(RouteResult? result, RouteMode mode) onRouteLoaded;
@@ -33,6 +67,7 @@ class RouteOverlayPanel extends ConsumerStatefulWidget {
     super.key,
     required this.dest,
     this.origin,
+    this.initialPosition,
     required this.onClose,
     required this.onRouteLoaded,
     required this.onOriginChanged,
@@ -89,24 +124,21 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       olat = _currentOrigin!.lat;
       olng = _currentOrigin!.lng;
     } else {
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
+      // map_screen에서 전달받은 위치 우선 사용, 없으면 직접 취득
+      final pos = widget.initialPosition ?? await resolveCurrentPosition();
+      if (!mounted) return;
+      if (pos == null) {
+        const errState = _ModeState(
+          error: '위치를 가져올 수 없습니다.\n위치 권한과 GPS를 확인해주세요.',
         );
-        olat = pos.latitude;
-        olng = pos.longitude;
-      } catch (_) {
-        if (!mounted) return;
-        const errState = _ModeState(error: '위치를 가져올 수 없습니다');
         setState(() {
           _states = {for (final m in RouteMode.values) m: errState};
         });
         widget.onRouteLoaded(null, _mode);
         return;
       }
+      olat = pos.latitude;
+      olng = pos.longitude;
     }
 
     if (!mounted) return;
