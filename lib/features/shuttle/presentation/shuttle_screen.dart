@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/shuttle_repository.dart';
@@ -7,7 +8,7 @@ import '../domain/shuttle_models.dart';
 // ── providers ──────────────────────────────────────────────────────────────
 
 final _routesProvider = FutureProvider<List<ShuttleRoute>>((ref) {
-  return ref.read(shuttleRepositoryProvider).fetchRoutes();
+  return ref.watch(shuttleRepositoryProvider).fetchRoutes();
 });
 
 // ── screen ─────────────────────────────────────────────────────────────────
@@ -56,10 +57,14 @@ class _ShuttleScreenState extends ConsumerState<ShuttleScreen> {
     final station = _selectedStation;
     if (route == null || station == null) return;
     setState(() => _loadingArrival = true);
-    final result = await ref
-        .read(shuttleRepositoryProvider)
-        .fetchArrival(route.id, station.code);
-    if (mounted) setState(() { _arrival = result; _loadingArrival = false; });
+    try {
+      final result = await ref
+          .read(shuttleRepositoryProvider)
+          .fetchArrival(route.id, station.code);
+      if (mounted) setState(() { _arrival = result; _loadingArrival = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingArrival = false);
+    }
   }
 
   @override
@@ -116,23 +121,102 @@ class _ShuttleScreenState extends ConsumerState<ShuttleScreen> {
 
 // ── 노선 목록 ───────────────────────────────────────────────────────────────
 
-class _RouteList extends ConsumerWidget {
+class _RouteList extends ConsumerStatefulWidget {
   const _RouteList({required this.onSelected});
   final void Function(ShuttleRoute) onSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RouteList> createState() => _RouteListState();
+}
+
+class _RouteListState extends ConsumerState<_RouteList> {
+  bool _showSlowHint = false;
+  Timer? _slowHintTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 5초 후에도 로딩 중이면 "서버 기동 중" 힌트 표시
+    _slowHintTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showSlowHint = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _slowHintTimer?.cancel();
+    super.dispose();
+  }
+
+  String _errorMessage(Object e) {
+    if (e is DioException) {
+      return switch (e.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.receiveTimeout =>
+          '서버 응답 시간 초과\n(서버가 기동 중일 수 있어요)',
+        DioExceptionType.connectionError =>
+          '네트워크 연결을 확인해주세요',
+        _ => e.message ?? e.toString(),
+      };
+    }
+    return e.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(_routesProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
+      loading: () => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 8),
-            Text('노선 정보를 불러올 수 없습니다', style: Theme.of(context).textTheme.bodyMedium),
+            const CircularProgressIndicator(),
+            if (_showSlowHint) ...[
+              const SizedBox(height: 16),
+              Text(
+                '서버 기동 중... (최대 90초 소요)',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey),
+              ),
+            ],
           ],
+        ),
+      ),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              Text(
+                '노선 정보를 불러올 수 없습니다',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _errorMessage(e),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () {
+                  setState(() => _showSlowHint = false);
+                  _slowHintTimer?.cancel();
+                  _slowHintTimer = Timer(const Duration(seconds: 5), () {
+                    if (mounted) setState(() => _showSlowHint = true);
+                  });
+                  ref.invalidate(_routesProvider);
+                },
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
         ),
       ),
       data: (routes) {
@@ -166,7 +250,7 @@ class _RouteList extends ConsumerWidget {
                       title: Text(route.name),
                       subtitle: Text('정류장 ${route.stations.length}개'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => onSelected(route),
+                      onTap: () => widget.onSelected(route),
                     ),
                   ),
               ],

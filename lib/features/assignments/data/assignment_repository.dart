@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
+import '../../../core/widget_service.dart';
 import '../../../shared/providers/notification_service.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../domain/assignment.dart';
@@ -17,11 +18,20 @@ class AssignmentsNotifier
     // assignmentDays가 바뀌면 자동으로 rebuild → 새 기간으로 재조회
     ref.watch(assignmentDaysProvider);
 
+    // 완료 상태가 바뀌면 위젯만 갱신 (네트워크 재호출 없음)
+    ref.listen(completedTasksProvider, (_, completedIds) {
+      if (state case AsyncData(:final value)) {
+        WidgetService.updateWidget(value, completedIds: completedIds).ignore();
+      }
+    });
+
     if (icalUrl == null || icalUrl.isEmpty) return [];
 
     final cached = _loadCache(icalUrl);
     if (cached != null) {
-      // 캐시 즉시 반환 + 백그라운드에서 최신 데이터 갱신
+      // 캐시 즉시 반환 + 위젯 업데이트 + 백그라운드에서 최신 데이터 갱신
+      final completed = ref.read(completedTasksProvider);
+      WidgetService.updateWidget(cached, completedIds: completed).ignore();
       Future.microtask(() => _backgroundRefresh(icalUrl, apiToken));
       return cached;
     }
@@ -62,7 +72,23 @@ class AssignmentsNotifier
     _saveCache(icalUrl, list);
     // FCM 알림 스케줄 서버 동기화
     _syncNotifications(list);
+    // 새 과제 감지 구독 (eTL URL 서버 등록)
+    _subscribeEtl(icalUrl, apiToken);
+    // 홈 위젯 업데이트
+    final completed = ref.read(completedTasksProvider);
+    WidgetService.updateWidget(list, completedIds: completed).ignore();
     return list;
+  }
+
+  void _subscribeEtl(String icalUrl, String? apiToken) {
+    // 새 과제 알림이 OFF면 구독하지 않음
+    final notifEnabled = ref.read(newAssignmentNotifProvider);
+    if (!notifEnabled) return;
+    final notifService = ref.read(notificationServiceProvider);
+    notifService.subscribeEtl(
+      icalUrl: icalUrl,
+      canvasToken: apiToken,
+    ).ignore();
   }
 
   void _syncNotifications(List<Assignment> list) {

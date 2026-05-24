@@ -12,6 +12,9 @@ final notificationServiceProvider =
 class NotificationService {
   static final _localNotif = FlutterLocalNotificationsPlugin();
 
+  // FCM 토큰 등록 전에 subscribeEtl이 호출된 경우 URL 보관 → 토큰 등록 후 재시도
+  String? _pendingEtlUrl;
+
   // 일반 알림 채널 (FCM 포그라운드)
   static const _channel = AndroidNotificationChannel(
     'sharap_alerts',
@@ -91,6 +94,26 @@ class NotificationService {
         }
       }
 
+      // 새 과제 감지 알림
+      if (data['type'] == 'new_assignment') {
+        final n = message.notification;
+        _localNotif.show(
+          'new_assignment'.hashCode,
+          n?.title ?? '새 과제 알림',
+          n?.body ?? '과제 탭을 확인해 주세요',
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channel.id,
+              _channel.name,
+              channelDescription: _channel.description,
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        ).ignore();
+        return;
+      }
+
       // 시스템 알림도 표시
       final notification = message.notification;
       final android = message.notification?.android;
@@ -163,8 +186,50 @@ class NotificationService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(kFcmToken, token);
       debugPrint('[FCM] 토큰 등록 완료');
+      // 토큰 없어서 보류됐던 eTL 구독 재시도
+      final pending = _pendingEtlUrl;
+      if (pending != null) {
+        _pendingEtlUrl = null;
+        await subscribeEtl(icalUrl: pending);
+      }
     } catch (e) {
       debugPrint('[FCM] 토큰 등록 실패: $e');
+    }
+  }
+
+  /// 새 과제 감지를 위해 eTL URL을 서버에 등록 (새 알림 구독)
+  Future<void> subscribeEtl({
+    required String icalUrl,
+    String? canvasToken, // 서버에 전송하지 않음 (보안) — 파라미터는 호환성 유지
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(kFcmToken);
+    if (token == null) {
+      // 아직 토큰 미발급 — 등록 후 자동 재시도
+      _pendingEtlUrl = icalUrl;
+      return;
+    }
+    try {
+      await DioClient.instance.post('/api/fcm/subscribe-etl', data: {
+        'token': token,
+        'icalUrl': icalUrl,
+      });
+      debugPrint('[FCM] eTL 구독 등록 완료');
+    } catch (e) {
+      debugPrint('[FCM] eTL 구독 실패: $e');
+    }
+  }
+
+  /// 새 과제 감지 구독 해제
+  Future<void> unsubscribeEtl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(kFcmToken);
+    if (token == null) return;
+    try {
+      await DioClient.instance.post('/api/fcm/unsubscribe-etl', data: {'token': token});
+      debugPrint('[FCM] eTL 구독 해제 완료');
+    } catch (e) {
+      debugPrint('[FCM] eTL 구독 해제 실패: $e');
     }
   }
 

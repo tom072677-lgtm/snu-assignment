@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/analytics.dart';
 import '../../../../core/constants.dart';
+import '../../../../core/widget_service.dart';
+import '../../../../shared/providers/notification_service.dart';
 import '../../../../shared/providers/settings_provider.dart';
 
 class SettingsDrawer extends ConsumerStatefulWidget {
@@ -149,6 +151,10 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                         ref.read(canvasTokenProvider.notifier).set(null);
                         _icalCtrl.clear();
                         _tokenCtrl.clear();
+                        // 서버 구독 해제 (push 중단)
+                        ref.read(notificationServiceProvider).unsubscribeEtl();
+                        // 홈 위젯 미연동 상태로 초기화
+                        WidgetService.clearWidget();
                       },
                       child: const Text('연동 해제'),
                     ),
@@ -220,7 +226,53 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                     },
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // ─── 새 과제 알림 설정 ────────────────────────────────────
+                  const Text('알림 설정',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '교수님이 새 과제를 등록하면 15분 내 알림을 받을 수 있어요.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  Consumer(builder: (ctx, ref, _) {
+                    final enabled = ref.watch(newAssignmentNotifProvider);
+                    return SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('새 과제 등록 알림',
+                          style: TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                        enabled ? '새 과제 등록 시 push 알림' : '꺼짐',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: enabled ? Colors.blue : Colors.grey[400]),
+                      ),
+                      value: enabled,
+                      onChanged: (v) {
+                        ref.read(newAssignmentNotifProvider.notifier).set(v);
+                        if (!v) {
+                          ref.read(notificationServiceProvider).unsubscribeEtl();
+                        } else {
+                          final icalUrl = ref.read(icalUrlProvider);
+                          final apiToken = ref.read(canvasTokenProvider);
+                          if (icalUrl != null && icalUrl.isNotEmpty) {
+                            ref.read(notificationServiceProvider).subscribeEtl(
+                              icalUrl: icalUrl,
+                              canvasToken: apiToken,
+                            );
+                          }
+                        }
+                      },
+                    );
+                  }),
+
+                  const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 8),
 

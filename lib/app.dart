@@ -7,6 +7,7 @@ import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
 import 'features/shuttle/presentation/shuttle_screen.dart';
+import 'features/timetable/presentation/timetable_screen.dart';
 import 'shared/providers/settings_provider.dart';
 
 class SharapApp extends ConsumerWidget {
@@ -39,6 +40,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
 
   static const _screens = [
     AssignmentsScreen(),
+    TimetableScreen(),
     CalendarScreen(),
     RestaurantScreen(),
     MapScreen(),
@@ -62,7 +64,12 @@ class _MainShellState extends ConsumerState<_MainShell> {
           NavigationDestination(
             icon: Icon(Icons.notifications_outlined),
             selectedIcon: Icon(Icons.notifications),
-            label: '과제 알림',
+            label: '과제',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.table_chart_outlined),
+            selectedIcon: Icon(Icons.table_chart),
+            label: '시간표',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),

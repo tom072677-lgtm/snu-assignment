@@ -38,10 +38,11 @@ class Analytics {
 
   static String _tabName(int i) => switch (i) {
         0 => 'assignments',
-        1 => 'calendar',
-        2 => 'restaurant',
-        3 => 'map',
-        4 => 'shuttle',
+        1 => 'timetable',
+        2 => 'calendar',
+        3 => 'restaurant',
+        4 => 'map',
+        5 => 'shuttle',
         _ => 'unknown',
       };
 

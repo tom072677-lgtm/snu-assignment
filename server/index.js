@@ -1276,6 +1276,226 @@ app.get('/api/myip', async (req, res) => {
   }
 });
 
+// ── 시간표 ────────────────────────────────────────────────────────────────────
+
+async function fetchCanvasCourses(token) {
+  const url = 'https://myetl.snu.ac.kr/api/v1/courses?enrollment_state=active&per_page=50';
+  const text = await fetchText(url, 0, {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+  });
+  const data = JSON.parse(text);
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(c => c.workflow_state === 'available')
+    .map(c => ({
+      id: String(c.id),
+      name: c.name || '',
+      courseCode: c.course_code || '',
+    }));
+}
+
+function parseIcalSessions(icsText) {
+  const events = ical.sync.parseICS(icsText);
+  const sessions = [];
+
+  for (const [, event] of Object.entries(events)) {
+    if (event.type !== 'VEVENT' || !event.rrule) continue;
+    const start = event.start;
+    if (!start) continue;
+
+    // RRULE에서 요일(BYDAY) 추출
+    let weekdays = [];
+    try {
+      const rruleStr = event.rrule.toString ? event.rrule.toString() : '';
+      const m = rruleStr.match(/BYDAY=([^;\r\n]+)/);
+      if (m) weekdays = m[1].split(',').map(d => d.trim().toUpperCase());
+    } catch (_) {}
+
+    const pad = n => String(n).padStart(2, '0');
+    sessions.push({
+      uid: event.uid || '',
+      summary: event.summary || '',
+      location: event.location || '',
+      startTime: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      endTime: event.end ? `${pad(event.end.getHours())}:${pad(event.end.getMinutes())}` : '',
+      weekdays,
+    });
+  }
+  return sessions;
+}
+
+app.post('/api/timetable', async (req, res) => {
+  const { icalUrl, canvasToken } = req.body;
+  if (!icalUrl) return res.status(400).json({ error: 'icalUrl required' });
+
+  const [coursesResult, sessionsResult] = await Promise.allSettled([
+    canvasToken ? fetchCanvasCourses(canvasToken) : Promise.resolve([]),
+    (async () => {
+      const httpsUrl = icalUrl.replace(/^webcal:/i, 'https:');
+      const text = await fetchText(httpsUrl);
+      return parseIcalSessions(text);
+    })(),
+  ]);
+
+  res.json({
+    courses: coursesResult.status === 'fulfilled' ? coursesResult.value : [],
+    sessions: sessionsResult.status === 'fulfilled' ? sessionsResult.value : [],
+    errors: {
+      courses: coursesResult.status === 'rejected' ? coursesResult.reason?.message : null,
+      sessions: sessionsResult.status === 'rejected' ? sessionsResult.reason?.message : null,
+    },
+  });
+});
+
+// ── 도서관 좌석 ───────────────────────────────────────────────────────────────
+
+const librarySeatCache = { data: null, ts: 0 };
+const LIBRARY_CACHE_TTL_MS = 60_000;
+
+async function fetchLibrarySeats() {
+  // lib.snu.ac.kr 좌석 현황 페이지 스크래핑
+  const html = await fetchText('https://lib.snu.ac.kr/seat', 0, {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36',
+    'Accept': 'text/html',
+    'Referer': 'https://lib.snu.ac.kr/',
+  });
+  const $ = cheerio.load(html);
+  const rooms = [];
+
+  // 여러 가능한 CSS 선택자 시도 (페이지 구조 변경 대응)
+  const selectors = [
+    'table tbody tr',
+    '.reading-room',
+    '.room-item',
+    '.seat-row',
+    '[class*="room"]',
+  ];
+
+  let found = false;
+  for (const sel of selectors) {
+    $(sel).each((_, el) => {
+      const cells = $(el).find('td');
+      if (cells.length >= 2) {
+        const name = $(cells[0]).text().trim();
+        const nums = [];
+        cells.each((__, td) => {
+          const n = parseInt($(td).text().trim());
+          if (!isNaN(n)) nums.push(n);
+        });
+        if (name && nums.length >= 2) {
+          rooms.push({ name, available: nums[0], total: nums[nums.length - 1] });
+          found = true;
+        }
+      }
+    });
+    if (found) break;
+  }
+
+  // 파싱 실패 시 빈 배열 반환 (502 대신 graceful)
+  return rooms;
+}
+
+app.get('/api/library/seats', async (req, res) => {
+  const now = Date.now();
+  if (librarySeatCache.data && now - librarySeatCache.ts < LIBRARY_CACHE_TTL_MS) {
+    return res.json(librarySeatCache.data);
+  }
+  try {
+    const rooms = await fetchLibrarySeats();
+    const data = { rooms, updatedAt: new Date().toISOString() };
+    librarySeatCache.data = data;
+    librarySeatCache.ts = now;
+    res.json(data);
+  } catch (err) {
+    if (librarySeatCache.data) return res.json({ ...librarySeatCache.data, stale: true });
+    res.json({ rooms: [], updatedAt: null, error: err.message });
+  }
+});
+
+// ── 새 과제 감지 FCM 구독 ─────────────────────────────────────────────────────
+
+// fcmTokenStore 확장: { tasks, icalUrl?, canvasToken?, knownEtlIds? }
+// knownEtlIds = null → 첫 폴링(기준점 설정만, 알림 X), [] → 이후 diff 비교
+
+app.post('/api/fcm/subscribe-etl', async (req, res) => {
+  const { token, icalUrl, canvasToken } = req.body;
+  if (!token || !icalUrl) return res.status(400).json({ error: 'token, icalUrl required' });
+
+  const existing = fcmTokenStore.get(token) || { tasks: [] };
+  const updated = {
+    ...existing,
+    icalUrl,
+    ...(canvasToken ? { canvasToken } : {}),
+    // 처음 구독이면 null (기준점 설정), 이미 있으면 유지
+    knownEtlIds: existing.knownEtlIds !== undefined ? existing.knownEtlIds : null,
+    knownAnnouncementIds: existing.knownAnnouncementIds !== undefined ? existing.knownAnnouncementIds : null,
+  };
+  fcmTokenStore.set(token, updated);
+  await saveFcmToken(token, updated);
+  res.json({ ok: true });
+});
+
+// 15분마다 새 과제 감지
+if (fcmAdmin) {
+  setInterval(async () => {
+    for (const [token, data] of fcmTokenStore) {
+      if (!data.icalUrl) continue;
+
+      try {
+        const httpsUrl = data.icalUrl.replace(/^webcal:/i, 'https:');
+        const text = await fetchText(httpsUrl);
+        const events = ical.sync.parseICS(text);
+
+        // 일회성 VEVENT만 과제로 취급 (RRULE = 수업)
+        const currentEtlIds = new Set(
+          Object.entries(events)
+            .filter(([, e]) => e.type === 'VEVENT' && !e.rrule)
+            .map(([uid]) => uid)
+        );
+
+        if (data.knownEtlIds === null || data.knownEtlIds === undefined) {
+          data.knownEtlIds = [...currentEtlIds];
+          await saveFcmToken(token, data);
+          continue;
+        }
+
+        const prevSet = new Set(data.knownEtlIds);
+        const newIds = [...currentEtlIds].filter(id => !prevSet.has(id));
+
+        if (newIds.length > 0) {
+          const newEventTitles = newIds
+            .map(id => events[id]?.summary)
+            .filter(Boolean)
+            .slice(0, 2);
+
+          const body = newEventTitles.length > 0
+            ? newEventTitles.join(', ')
+            : '과제 탭에서 확인하세요';
+
+          await fcmAdmin.send({
+            token,
+            notification: {
+              title: newIds.length === 1
+                ? `📚 새 과제: ${newEventTitles[0] || ''}`
+                : `📚 새 과제 ${newIds.length}개가 등록되었습니다`,
+              body,
+            },
+            data: { type: 'new_assignment', count: String(newIds.length) },
+            android: { priority: 'high' },
+          });
+          console.log(`[새 과제] ${token.slice(0, 12)}... 에 ${newIds.length}개 알림`);
+
+          data.knownEtlIds = [...currentEtlIds];
+          await saveFcmToken(token, data);
+        }
+      } catch (err) {
+        console.error(`[새 과제 폴링] ${token.slice(0, 10)} 실패: ${err.message}`);
+      }
+    }
+  }, 15 * 60 * 1000);
+}
+
 
 // ── 셔틀버스 ──────────────────────────────────────────────────────────────────
 

@@ -205,6 +205,26 @@ class DevModeNotifier extends StateNotifier<bool> {
   }
 }
 
+// ─── 새 과제 알림 ON/OFF ─────────────────────────────────────────────────────
+
+final newAssignmentNotifProvider =
+    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return BoolSettingNotifier(prefs, kNewAssignmentNotif, defaultValue: true);
+});
+
+class BoolSettingNotifier extends StateNotifier<bool> {
+  BoolSettingNotifier(this._prefs, this._key, {bool defaultValue = false})
+      : super(_prefs.getBool(_key) ?? defaultValue);
+  final SharedPreferences _prefs;
+  final String _key;
+
+  void set(bool value) {
+    state = value;
+    _prefs.setBool(_key, value);
+  }
+}
+
 // ─── 즐겨찾기 장소 ────────────────────────────────────────────────────────────
 
 final favVenuesProvider =
