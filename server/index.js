@@ -560,46 +560,6 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
-// ── 버스 API raw 확인 (임시) ──────────────────────────────────────────────────
-app.get("/api/debug/bus-raw2", async (req, res) => {
-  const key = process.env.SEOUL_BUS_API_KEY;
-  const stId = req.query.stId || "120900172";
-  const busRouteId = req.query.busRouteId || "120900011";
-  const encodedKey = encodeURIComponent(key);
-  const results = {};
-
-  // 직접 fetch (404여도 body 반환)
-  async function rawFetch(url) {
-    return new Promise((resolve) => {
-      const parsed = new URL(url);
-      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
-      const req = mod.get({ hostname: parsed.hostname, path: parsed.pathname + parsed.search, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-        let body = '';
-        res.on('data', d => body += d);
-        res.on('end', () => resolve({ status: res.statusCode, body: body.slice(0, 600) }));
-      });
-      req.on('error', e => resolve({ status: 'ERR', body: e.message }));
-      req.setTimeout(15000, () => { req.destroy(); resolve({ status: 'TIMEOUT', body: '' }); });
-    });
-  }
-
-  const variants = [
-    // apis.data.go.kr - serviceKey 없이 (경로 존재 여부 확인)
-    ["apis_nokey",        `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?stId=${stId}&busRouteId=${busRouteId}`],
-    ["apis_nokey_BusArr", `https://apis.data.go.kr/6110000/BusArrivalService/getArrInfoByRouteList?stId=${stId}&busRouteId=${busRouteId}`],
-    // ws.bus.go.kr - 다른 경로 조합
-    ["ws_busArrInfo",     `http://ws.bus.go.kr/api/rest/busArrInfo/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
-    ["ws_arrivalSvc",     `http://ws.bus.go.kr/api/rest/arrivalService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
-    // ws.bus.go.kr getArrInfoByRouteAll (작동 확인됨)
-    ["ws_arrAll_check",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
-  ];
-
-  for (const [label, url] of variants) {
-    results[label] = await rawFetch(url);
-  }
-  res.json(results);
-});
-
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
