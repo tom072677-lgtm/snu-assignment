@@ -568,16 +568,20 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   const encodedKey = encodeURIComponent(key);
   const results = {};
 
+  // hex → base64 변환 키
+  const b64Key = Buffer.from(key, 'hex').toString('base64');
+  const encodedB64 = encodeURIComponent(b64Key);
+
   const variants = [
-    // apis.data.go.kr - 서비스명 대소문자 변형
-    ["apis_BusArrivalService",    `https://apis.data.go.kr/6110000/BusArrivalService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["apis_busArrivService",      `https://apis.data.go.kr/6110000/busArrivService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["apis_SeoulBusService",      `https://apis.data.go.kr/6110000/SeoulBusService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["apis_busarrival_alllist",   `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteAllList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
-    // ws.bus.go.kr + 다른 경로
-    ["ws_list_xml",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
-    // 기존 old (확인용)
-    ["ws_old",        `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // apis.data.go.kr - hex 키
+    ["apis_hex",      `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // apis.data.go.kr - base64 변환 키
+    ["apis_b64",      `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // ws.bus.go.kr - base64 키 + new path 변형
+    ["ws_BusArr",     `http://ws.bus.go.kr/api/rest/BusArrivalService/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_arrive_b64", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // 기존 old - base64 키 (비교)
+    ["ws_old_b64",    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute?serviceKey=${encodedB64}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
   ];
 
   for (const [label, url] of variants) {
