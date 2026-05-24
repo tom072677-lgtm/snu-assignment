@@ -584,15 +584,14 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   }
 
   const variants = [
-    // ws.bus.go.kr - serviceKey 없이 (엔드포인트 존재 여부 확인)
-    ["ws_list_nokey",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?stId=${stId}&busRouteId=${busRouteId}`],
-    ["ws_old_nokey",    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute?stId=${stId}&busRouteId=${busRouteId}`],
-    // arsId를 stId로 사용
-    ["ws_list_arsId",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=21915&busRouteId=${busRouteId}&resultType=json`],
-    // 다른 경로 패턴
-    ["ws_busArr_path",  `http://ws.bus.go.kr/api/rest/busArrivalService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    // apis.data.go.kr - serviceKey 없이 (경로 존재 여부 확인)
+    ["apis_nokey",        `https://apis.data.go.kr/6110000/busarrivalservice/getArrInfoByRouteList?stId=${stId}&busRouteId=${busRouteId}`],
+    ["apis_nokey_BusArr", `https://apis.data.go.kr/6110000/BusArrivalService/getArrInfoByRouteList?stId=${stId}&busRouteId=${busRouteId}`],
+    // ws.bus.go.kr - 다른 경로 조합
+    ["ws_busArrInfo",     `http://ws.bus.go.kr/api/rest/busArrInfo/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
+    ["ws_arrivalSvc",     `http://ws.bus.go.kr/api/rest/arrivalService/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
     // ws.bus.go.kr getArrInfoByRouteAll (작동 확인됨)
-    ["ws_arrAll_check", `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_arrAll_check",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
   ];
 
   for (const [label, url] of variants) {
