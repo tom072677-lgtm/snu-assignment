@@ -584,10 +584,14 @@ app.get("/api/debug/bus-raw2", async (req, res) => {
   }
 
   const variants = [
-    ["ws_list_raw",     `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}`],
-    ["ws_list_json",    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
-    ["ws_arrAll",       `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
-    ["ws_arrAllList",   `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAllList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    // ws.bus.go.kr - 등록된 새 엔드포인트들
+    ["ws_getLowByStId",     `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByStIdList?serviceKey=${encodedKey}&stId=${stId}&resultType=json`],
+    ["ws_getLowByRoute",    `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByRouteList?serviceKey=${encodedKey}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`],
+    ["ws_arrAll_registered",`http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    // ws.bus.go.kr - stId 없이 busRouteId만
+    ["ws_list_noStId",      `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&busRouteId=${busRouteId}&resultType=json`],
+    // ws.bus.go.kr - arsId 대신 시도
+    ["ws_list_arsId",       `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodedKey}&arsId=21915&busRouteId=${busRouteId}&resultType=json`],
   ];
 
   for (const [label, url] of variants) {
