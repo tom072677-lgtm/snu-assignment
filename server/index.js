@@ -565,8 +565,8 @@ async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
   if (!key || !stId || !busRouteId) return null;
 
-  // getArrInfoByRoute: 노선+정류소 ID로 도착 예정 조회
-  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
+  // getArrInfoByRouteList: 한 정류소의 특정노선 도착예정정보 조회
+  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
     + `?serviceKey=${encodeURIComponent(key)}`
     + `&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
   const data = JSON.parse(await fetchText(url));
