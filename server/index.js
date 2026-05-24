@@ -1771,83 +1771,184 @@ app.get('/api/shuttle/arrival', async (req, res) => {
   }
 });
 
-// ── 셔틀 경로 탐색 ─────────────────────────────────────────────────────────────
-app.get('/api/route/shuttle', (req, res) => {
-  const olat = parseFloat(req.query.olat);
-  const olng = parseFloat(req.query.olng);
-  const dlat = parseFloat(req.query.dlat);
-  const dlng = parseFloat(req.query.dlng);
-  if ([olat, olng, dlat, dlng].some(v => isNaN(v))) {
-    return res.status(400).json({ error: '좌표 필요' });
-  }
+// ── 셔틀 경로 탐색 (동기 헬퍼) ────────────────────────────────────────────────
+const SHUTTLE_BOARD_RADIUS  = 700;
+const SHUTTLE_ALIGHT_RADIUS = 700;
+const SHUTTLE_STOP_SEC      = 120;  // 정류장 간 평균 소요시간(초)
+const SHUTTLE_WAIT_SEC      = 120;  // 평균 대기시간(초)
+const WALK_MPS              = 4000 / 3600; // 4 km/h
 
-  const BOARD_RADIUS  = 700;  // 승차 정류장 탐색 반경(m)
-  const ALIGHT_RADIUS = 700;  // 하차 정류장 탐색 반경(m)
-  const STOP_SEC      = 120;  // 정류장 간 평균 소요 시간(초)
-  const WAIT_SEC      = 120;  // 평균 대기 시간(초)
-  const WALK_MPS      = 4000 / 3600; // 4km/h
-
+function computeShuttleRoutes(olat, olng, dlat, dlng) {
   const results = [];
-
   for (const route of SHUTTLE_ROUTES) {
     const boardCandidates  = [];
     const alightCandidates = [];
-
     for (let i = 0; i < route.stations.length; i++) {
       const st     = route.stations[i];
       const coords = STATION_COORDS[st.code];
       if (!coords) continue;
       const dO = haversineMeters(olat, olng, coords[0], coords[1]);
       const dD = haversineMeters(dlat, dlng, coords[0], coords[1]);
-      if (dO <= BOARD_RADIUS)  boardCandidates.push({ idx: i, st, coords, dWalk: dO });
-      if (dD <= ALIGHT_RADIUS) alightCandidates.push({ idx: i, st, coords, dWalk: dD });
+      if (dO <= SHUTTLE_BOARD_RADIUS)  boardCandidates.push({ idx: i, st, coords, dWalk: dO });
+      if (dD <= SHUTTLE_ALIGHT_RADIUS) alightCandidates.push({ idx: i, st, coords, dWalk: dD });
     }
-
     for (const board of boardCandidates) {
       for (const alight of alightCandidates) {
-        // 승차 정류장이 하차 정류장보다 앞에 있어야 함 (순서 검증)
-        if (board.idx >= alight.idx) continue;
-
-        const numStops       = alight.idx - board.idx;
-        const shuttleSec     = numStops * STOP_SEC + WAIT_SEC;
-        const walkBoardSec   = Math.round(board.dWalk  / WALK_MPS);
-        const walkAlightSec  = Math.round(alight.dWalk / WALK_MPS);
-        const totalDuration  = walkBoardSec + shuttleSec + walkAlightSec;
-        const totalDistance  = Math.round(board.dWalk + alight.dWalk);
-
-        // 경로 좌표: 출발지 → 승차 구간 정류장들 → 도착지
+        if (board.idx >= alight.idx) continue; // 순서 검증
+        const numStops      = alight.idx - board.idx;
+        const shuttleSec    = numStops * SHUTTLE_STOP_SEC + SHUTTLE_WAIT_SEC;
+        const walkBoardSec  = Math.round(board.dWalk  / WALK_MPS);
+        const walkAlightSec = Math.round(alight.dWalk / WALK_MPS);
         const path = [[olat, olng]];
         for (let i = board.idx; i <= alight.idx; i++) {
           const c = STATION_COORDS[route.stations[i].code];
           if (c) path.push(c);
         }
         path.push([dlat, dlng]);
-
         const passNames = route.stations.slice(board.idx, alight.idx + 1).map(s => s.name);
-
         const legs = [];
-        if (board.dWalk > 30) {
+        if (board.dWalk > 30)
           legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
             duration: walkBoardSec, distance: Math.round(board.dWalk),
             endStation: board.st.name, stations: [] });
-        }
         legs.push({ type: 'shuttle', name: route.name, color: '#1A73E8',
           duration: shuttleSec, distance: 0,
           startStation: board.st.name, endStation: alight.st.name,
           stations: passNames });
-        if (alight.dWalk > 30) {
+        if (alight.dWalk > 30)
           legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
             duration: walkAlightSec, distance: Math.round(alight.dWalk),
             startStation: alight.st.name, stations: [] });
-        }
+        results.push({
+          duration: walkBoardSec + shuttleSec + walkAlightSec,
+          distance: Math.round(board.dWalk + alight.dWalk),
+          fare: 0, path, legs,
+        });
+      }
+    }
+  }
+  results.sort((a, b) => a.duration - b.duration);
+  return results;
+}
 
-        results.push({ duration: totalDuration, distance: totalDistance, fare: 0, path, legs });
+// ODSay 호출 헬퍼 (재사용)
+async function callOdsay(olat, olng, dlat, dlng) {
+  const odsayKey = process.env.ODSAY_API_KEY?.trim();
+  if (!odsayKey) throw new Error('ODSAY_API_KEY not configured');
+  const params = new URLSearchParams({ SX: String(olng), SY: String(olat), EX: String(dlng), EY: String(dlat), apiKey: odsayKey });
+  const resp = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params}`);
+  if (!resp.ok) throw new Error(`ODSAY HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (data.error) throw new Error(`ODSAY error: ${JSON.stringify(data.error)}`);
+  const routes = [];
+  for (const p of (data.result?.path || []).slice(0, 2)) {
+    try { routes.push(buildOdsayRoute(p)); } catch (_) {}
+  }
+  return routes;
+}
+
+// 환승 허브 (셔틀이 연결하는 대중교통 환승 지점)
+const TRANSIT_HUBS = [
+  { name: '서울대입구역', coords: STATION_COORDS[2401] },
+  { name: '낙성대역',     coords: STATION_COORDS[3101] },
+  { name: '사당역',       coords: STATION_COORDS[999901] },
+  { name: '대학동',       coords: STATION_COORDS[2501] },
+];
+
+const SNU_CENTER = [37.4607, 126.9526];
+
+app.get('/api/route/shuttle', async (req, res) => {
+  const olat = parseFloat(req.query.olat);
+  const olng = parseFloat(req.query.olng);
+  const dlat = parseFloat(req.query.dlat);
+  const dlng = parseFloat(req.query.dlng);
+  if ([olat, olng, dlat, dlng].some(v => isNaN(v)))
+    return res.status(400).json({ error: '좌표 필요' });
+
+  // 1. 셔틀 직행 경로
+  const directRoutes = computeShuttleRoutes(olat, olng, dlat, dlng);
+
+  // 2. 셔틀→환승허브→대중교통 복합 경로
+  //    도착지가 SNU 중심에서 1.5km 이상 떨어진 경우에만 시도
+  const combinedRoutes = [];
+  const destFromSnu = haversineMeters(dlat, dlng, SNU_CENTER[0], SNU_CENTER[1]);
+  const TRANSFER_SEC = 120; // 환승 대기·이동 고정값 (TODO: 실거리 기반으로 개선)
+
+  if (destFromSnu > 1500) {
+    // 도착지와 충분히 떨어진 허브만 탐색 대상 (허브가 도착지 근처면 직행 셔틀과 중복)
+    const candidateHubs = TRANSIT_HUBS.filter(hub =>
+      hub.coords && haversineMeters(dlat, dlng, hub.coords[0], hub.coords[1]) > 600
+    );
+
+    // 허브별로 셔틀 경로 탐색 → 가장 빠른 것 1개만
+    const hubShuttles = candidateHubs
+      .map(hub => {
+        const shuttles = computeShuttleRoutes(olat, olng, hub.coords[0], hub.coords[1]);
+        return shuttles.length ? { hub, shuttle: shuttles[0] } : null;
+      })
+      .filter(Boolean);
+
+    if (hubShuttles.length > 0) {
+      // 허브별 ODSay 병렬 호출 (실패 무시)
+      const odsayResults = await Promise.allSettled(
+        hubShuttles.map(({ hub }) => callOdsay(hub.coords[0], hub.coords[1], dlat, dlng))
+      );
+
+      for (let i = 0; i < hubShuttles.length; i++) {
+        const r = odsayResults[i];
+        if (r.status !== 'fulfilled' || !r.value?.length) {
+          console.log(`[shuttle] ODSay failed for hub ${hubShuttles[i].hub.name}:`,
+            r.reason?.message ?? 'no routes');
+          continue;
+        }
+        const { hub, shuttle } = hubShuttles[i];
+        const odsay = r.value[0]; // 허브→도착지 중 가장 빠른 경로
+
+        // 셔틀 path의 마지막 점(도착지 좌표)을 제거하고 ODSay path를 이어붙임
+        const combinedPath = [...shuttle.path.slice(0, -1), ...odsay.path];
+        const combinedLegs = [
+          ...shuttle.legs,
+          // 환승 구간 도보 leg
+          { type: 'walk', name: '환승', color: '#9E9E9E',
+            duration: TRANSFER_SEC, distance: 80,
+            startStation: hub.name, stations: [] },
+          ...odsay.legs,
+        ];
+
+        combinedRoutes.push({
+          duration: shuttle.duration + TRANSFER_SEC + odsay.durationSeconds,
+          distance: shuttle.distance + odsay.distanceMeters,
+          fare: odsay.fare,
+          path: combinedPath,
+          legs: combinedLegs,
+        });
       }
     }
   }
 
-  results.sort((a, b) => a.duration - b.duration);
-  res.json({ routes: results.slice(0, 3) });
+  // 3. 전체 병합 → duration 정렬 → 중복 제거(90초 이내 동일 duration) → top 4
+  const all = [...directRoutes, ...combinedRoutes];
+  all.sort((a, b) => a.duration - b.duration);
+
+  const deduped = [];
+  for (const r of all) {
+    const isDup = deduped.some(d => Math.abs(d.duration - r.duration) < 90);
+    if (!isDup) deduped.push(r);
+  }
+  const top = deduped.slice(0, 4);
+
+  // 4. 서버에서 badges 부여 (Flutter가 추론하지 않도록)
+  //    fastest: 전체 중 가장 빠름 (index 0)
+  //    free:    셔틀 구간 포함 (leg type == 'shuttle')
+  const withBadges = top.map((r, i) => ({
+    ...r,
+    badges: [
+      ...(i === 0 ? ['fastest'] : []),
+      ...(r.legs.some(l => l.type === 'shuttle') ? ['free'] : []),
+    ],
+  }));
+
+  res.json({ routes: withBadges });
 });
 
 app.listen(PORT, () => {

@@ -100,6 +100,7 @@ class RouteResult {
   final List<(double lat, double lng)> path;
   final List<RouteLeg> legs;
   final List<RouteStep> steps;
+  final List<String> badges; // 'fastest', 'free' — 서버에서 부여
 
   const RouteResult({
     required this.durationSeconds,
@@ -108,7 +109,11 @@ class RouteResult {
     required this.path,
     this.legs = const [],
     this.steps = const [],
+    this.badges = const [],
   });
+
+  bool get isFastest => badges.contains('fastest');
+  bool get isFree    => badges.contains('free');
 }
 
 class MapRepository {
@@ -243,6 +248,21 @@ class MapRepository {
 
     final combined = [...odsayRoutes, ...shuttleRoutes];
     if (combined.isEmpty) throw Exception('경로 없음');
+    // duration 오름차순 정렬
+    combined.sort((a, b) => a.durationSeconds.compareTo(b.durationSeconds));
+    // 전체 중 가장 빠른 경로에 fastest 뱃지 추가 (서버 뱃지 없는 ODSay 결과 포함)
+    if (combined.isNotEmpty && !combined.first.isFastest) {
+      final first = combined.first;
+      combined[0] = RouteResult(
+        durationSeconds: first.durationSeconds,
+        distanceMeters: first.distanceMeters,
+        fare: first.fare,
+        path: first.path,
+        legs: first.legs,
+        steps: first.steps,
+        badges: ['fastest', ...first.badges.where((b) => b != 'fastest')],
+      );
+    }
     return combined;
   }
 
@@ -251,12 +271,16 @@ class MapRepository {
     final legs = (r['legs'] as List? ?? [])
         .map((e) => RouteLeg.fromJson(e as Map<String, dynamic>))
         .toList();
+    final badges = (r['badges'] as List? ?? [])
+        .map((e) => e as String)
+        .toList();
     return RouteResult(
       durationSeconds: (r['duration'] as num).toDouble(),
       distanceMeters: (r['distance'] as num).toDouble(),
       fare: (r['fare'] as num? ?? 0).toInt(),
       path: path,
       legs: legs,
+      badges: badges,
     );
   }
 

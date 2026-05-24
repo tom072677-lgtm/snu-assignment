@@ -568,16 +568,30 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 상단: 도착시각 / 소요시간 / 거리 / 요금
+            // 상단: 뱃지 + 도착시각 / 소요시간 / 거리 / 요금
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
+                if (result.isFastest) ...[
+                  _BadgeChip(label: '⚡ 빠름', color: const Color(0xFF1565C0)),
+                  const SizedBox(width: 6),
+                ],
+                if (result.isFree) ...[
+                  _BadgeChip(label: '🆓 무료', color: const Color(0xFF2E7D32)),
+                  const SizedBox(width: 6),
+                ],
                 Text(
                   '도착 ${_arrivalTime(result.durationSeconds)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
-                const SizedBox(width: 10),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
                 Text(
                   _formatDuration(result.durationSeconds),
                   style: TextStyle(
@@ -906,6 +920,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   }
 
   Widget _buildLegChip(RouteLeg leg) {
+
     if (leg.type == 'walk') {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -942,6 +957,28 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                   color: color,
                   fontWeight: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
