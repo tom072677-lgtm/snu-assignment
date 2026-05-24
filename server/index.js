@@ -560,6 +560,19 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
+// ── 버스 API raw 확인 (임시) ──────────────────────────────────────────────────
+app.get("/api/debug/bus-raw2", async (req, res) => {
+  const key = process.env.SEOUL_BUS_API_KEY;
+  const stId = req.query.stId || "120900172";
+  const busRouteId = req.query.busRouteId || "120900011";
+  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
+    + `?serviceKey=${encodeURIComponent(key)}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
+  try {
+    const raw = await fetchText(url);
+    res.json({ raw: raw.slice(0, 1000), url: url.slice(0, 150) });
+  } catch(e) { res.json({ error: e.message }); }
+});
+
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
