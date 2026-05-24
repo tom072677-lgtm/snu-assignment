@@ -560,23 +560,6 @@ app.post("/api/route/tmap/car", async (req, res) => {
   }
 });
 
-// ── 버스 API 임시 진단 엔드포인트 ─────────────────────────────────────────────
-app.get("/api/debug/bus-raw", async (req, res) => {
-  const key = process.env.SEOUL_BUS_API_KEY;
-  const { stId, busRouteId } = req.query;
-  if (!key) return res.json({ error: "SEOUL_BUS_API_KEY 없음" });
-  if (!stId || !busRouteId) return res.json({ error: "stId, busRouteId 필요", key_first8: key.slice(0,8) });
-  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute`
-    + `?serviceKey=${encodeURIComponent(key)}&stId=${stId}&busRouteId=${busRouteId}&resultType=json`;
-  try {
-    const raw = await fetchText(url);
-    const parsed = JSON.parse(raw);
-    res.json({ url_used: url.slice(0, 120) + '...', key_first8: key.slice(0,8), raw_trimmed: raw.slice(0, 500), parsed });
-  } catch(e) {
-    res.json({ error: e.message, key_first8: key.slice(0,8) });
-  }
-});
-
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId) {
   const key = process.env.SEOUL_BUS_API_KEY;
