@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,6 +104,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   String? _arrivalMsg;
   bool _arrivalLoading = false;
   int _arrivalReqId = 0;
+  Timer? _arrivalTimer;
 
   late final AnimationController _anim;
   double _panelHeight = 0;
@@ -126,6 +128,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
 
   @override
   void dispose() {
+    _arrivalTimer?.cancel();
     _anim.dispose();
     super.dispose();
   }
@@ -272,6 +275,16 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
 
     if (!mounted || reqId != _arrivalReqId) return;
     setState(() { _arrivalMsg = null; _arrivalLoading = false; });
+
+    // 도착 정보가 없어도 60초 후 재시도 (null → 갱신 가능)
+    _scheduleArrivalRefresh(routes);
+  }
+
+  void _scheduleArrivalRefresh(List<RouteResult> routes) {
+    _arrivalTimer?.cancel();
+    _arrivalTimer = Timer(const Duration(seconds: 60), () {
+      if (mounted) _fetchArrival(routes);
+    });
   }
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -774,9 +787,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
           if (isSelected) ...[
             const SizedBox(height: 10),
             _buildLegChipRow(result.legs),
-            const SizedBox(height: 8),
-            _buildIntermediateStations(result.legs),
-            // 실시간 도착 정보
+            // 실시간 도착 정보 (경유 정류장 위에 표시)
             if (_arrivalLoading) ...[
               const SizedBox(height: 8),
               const Row(children: [
@@ -796,12 +807,12 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: _C.primaryBg,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _C.border),
+                  border: Border.all(color: _C.primary.withOpacity(0.3)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.access_time,
+                  const Icon(Icons.directions_transit,
                       size: 14, color: _C.primary),
                   const SizedBox(width: 6),
                   Text(
@@ -815,6 +826,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 ]),
               ),
             ],
+            const SizedBox(height: 8),
+            _buildIntermediateStations(result.legs),
           ],
         ],
       ],
