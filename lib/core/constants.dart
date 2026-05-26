@@ -24,3 +24,6 @@ const String kCalendarEvents = 'snu_calendar_events';
 const String kFcmToken = 'fcm_token';
 const String kDevMode = 'dev_mode'; // true → Analytics 비활성화 (개발자 기기)
 const String kNewAssignmentNotif = 'new_assignment_notif'; // true → 새 과제 push ON
+const String kNewAnnouncementNotif = 'new_announcement_notif'; // true → 공지사항 push ON
+const String kCustomEvents = 'custom_events'; // List<CustomEvent> JSON
+const String kMySNUSessions = 'mysnu_sessions'; // List<ClassSession> JSON (mySNU 시간표)

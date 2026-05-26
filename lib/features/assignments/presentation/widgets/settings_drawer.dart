@@ -230,16 +230,17 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   const Divider(),
                   const SizedBox(height: 16),
 
-                  // ─── 새 과제 알림 설정 ────────────────────────────────────
+                  // ─── 알림 설정 ────────────────────────────────────────────
                   const Text('알림 설정',
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 4),
                   Text(
-                    '교수님이 새 과제를 등록하면 15분 내 알림을 받을 수 있어요.',
+                    '교수님이 새 과제나 공지사항을 올리면 push 알림을 받아요.',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
+                  // 새 과제 토글
                   Consumer(builder: (ctx, ref, _) {
                     final enabled = ref.watch(newAssignmentNotifProvider);
                     return SwitchListTile(
@@ -254,18 +255,71 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                             color: enabled ? Colors.blue : Colors.grey[400]),
                       ),
                       value: enabled,
-                      onChanged: (v) {
+                      onChanged: (v) async {
                         ref.read(newAssignmentNotifProvider.notifier).set(v);
                         if (!v) {
-                          ref.read(notificationServiceProvider).unsubscribeEtl();
+                          // 공지사항 알림이 ON이면 서버 구독은 유지해야 함
+                          final announcementOn = ref.read(newAnnouncementNotifProvider);
+                          if (!announcementOn) {
+                            ref.read(notificationServiceProvider).unsubscribeEtl();
+                          }
                         } else {
                           final icalUrl = ref.read(icalUrlProvider);
                           final apiToken = ref.read(canvasTokenProvider);
                           if (icalUrl != null && icalUrl.isNotEmpty) {
-                            ref.read(notificationServiceProvider).subscribeEtl(
+                            final ok = await ref.read(notificationServiceProvider).subscribeEtl(
                               icalUrl: icalUrl,
                               canvasToken: apiToken,
                             );
+                            if (!ok && ctx.mounted) {
+                              ref.read(newAssignmentNotifProvider.notifier).set(false);
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('서버 연결 실패. 잠시 후 다시 시도해 주세요.')),
+                              );
+                            }
+                          }
+                        }
+                      },
+                    );
+                  }),
+                  // 공지사항 토글
+                  Consumer(builder: (ctx, ref, _) {
+                    final enabled = ref.watch(newAnnouncementNotifProvider);
+                    return SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('공지사항 알림',
+                          style: TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                        enabled ? '교수님 공지사항 push 알림' : '꺼짐',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: enabled ? Colors.blue : Colors.grey[400]),
+                      ),
+                      value: enabled,
+                      onChanged: (v) async {
+                        ref.read(newAnnouncementNotifProvider.notifier).set(v);
+                        if (!v) {
+                          // 과제 알림도 OFF면 서버 구독 해제
+                          final assignmentOn = ref.read(newAssignmentNotifProvider);
+                          if (!assignmentOn) {
+                            ref.read(notificationServiceProvider).unsubscribeEtl();
+                          }
+                        } else {
+                          // 공지 알림 켜면 서버 구독 보장
+                          final icalUrl = ref.read(icalUrlProvider);
+                          final apiToken = ref.read(canvasTokenProvider);
+                          if (icalUrl != null && icalUrl.isNotEmpty) {
+                            final ok = await ref.read(notificationServiceProvider).subscribeEtl(
+                              icalUrl: icalUrl,
+                              canvasToken: apiToken,
+                            );
+                            if (!ok && ctx.mounted) {
+                              ref.read(newAnnouncementNotifProvider.notifier).set(false);
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('서버 연결 실패. 잠시 후 다시 시도해 주세요.')),
+                              );
+                            }
                           }
                         }
                       },

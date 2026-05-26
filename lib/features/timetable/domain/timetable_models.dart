@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class TimetableCourse {
   final String id;
   final String name;
@@ -43,9 +45,20 @@ class ClassSession {
         weekdays: List<String>.from(j['weekdays'] as List? ?? []),
       );
 
-  static const _dayOrder = {'MO': 0, 'TU': 1, 'WE': 2, 'TH': 3, 'FR': 4, 'SA': 5, 'SU': 6};
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'summary': summary,
+        'location': location,
+        'startTime': startTime,
+        'endTime': endTime,
+        'weekdays': weekdays,
+      };
+
+  static const _dayOrder = {
+    'MO': 0, 'TU': 1, 'WE': 2, 'TH': 3, 'FR': 4, 'SA': 5, 'SU': 6
+  };
   bool get isToday {
-    final today = _dayOrder.keys.toList()[DateTime.now().weekday - 1]; // Mon=0
+    final today = _dayOrder.keys.toList()[DateTime.now().weekday - 1];
     return weekdays.contains(today);
   }
 }
@@ -70,4 +83,60 @@ class TimetableData {
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
   bool get hasSchedule => sessions.isNotEmpty;
+}
+
+// ── 커스텀 일정 (학원, 과외 등) ────────────────────────────────────
+class CustomEvent {
+  final String id;
+  final String title;
+  final String location;       // 빈 문자열 = 없음
+  final List<String> weekdays; // ['MO', 'TH']
+  final String startTime;      // 'HH:mm'
+  final String endTime;        // 'HH:mm'
+  final int colorIndex;        // 0~7
+
+  const CustomEvent({
+    required this.id,
+    required this.title,
+    this.location = '',
+    required this.weekdays,
+    required this.startTime,
+    required this.endTime,
+    this.colorIndex = 0,
+  });
+
+  factory CustomEvent.fromJson(Map<String, dynamic> j) => CustomEvent(
+        id: j['id'] as String? ?? '',
+        title: j['title'] as String? ?? '',
+        location: j['location'] as String? ?? '',
+        weekdays: List<String>.from(j['weekdays'] as List? ?? []),
+        startTime: j['startTime'] as String? ?? '',
+        endTime: j['endTime'] as String? ?? '',
+        colorIndex: (j['colorIndex'] as num? ?? 0).toInt().clamp(0, 7),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'location': location,
+        'weekdays': weekdays,
+        'startTime': startTime,
+        'endTime': endTime,
+        'colorIndex': colorIndex,
+      };
+
+  // JSON List 직렬화 헬퍼
+  static String encodeList(List<CustomEvent> list) =>
+      jsonEncode(list.map((e) => e.toJson()).toList());
+
+  static List<CustomEvent> decodeList(String raw) {
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((e) => CustomEvent.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
 }

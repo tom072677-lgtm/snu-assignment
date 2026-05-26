@@ -12,14 +12,15 @@ import 'app.dart';
 import 'core/analytics.dart';
 import 'core/constants.dart';
 import 'firebase_options.dart';
-import 'shared/providers/notification_service.dart';
+import 'shared/providers/notification_service.dart' show NotificationService, handleBackgroundFcm, notificationServiceProvider;
 import 'shared/providers/settings_provider.dart';
 
 /// 백그라운드 FCM 메시지 핸들러 (top-level 함수여야 함)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint('[FCM BG] ${message.notification?.title}');
+  debugPrint('[FCM BG] type=${message.data["type"]} title=${message.notification?.title}');
+  await handleBackgroundFcm(message);
 }
 
 Future<void> main() async {

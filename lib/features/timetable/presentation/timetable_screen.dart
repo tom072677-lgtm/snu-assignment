@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../data/timetable_repository.dart';
 import '../domain/timetable_models.dart';
 import '../../library/presentation/library_screen.dart';
+import '../data/ics_import_service.dart';
+import 'mysnu_webview_screen.dart';
+import 'timetable_grid.dart';
+
+const _uuid = Uuid();
 
 class TimetableScreen extends ConsumerWidget {
   const TimetableScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final icalUrl = ref.watch(icalUrlProvider);
+    final icalUrl    = ref.watch(icalUrlProvider);
     final canvasToken = ref.watch(canvasTokenProvider);
 
     return Scaffold(
@@ -33,35 +39,98 @@ class TimetableScreen extends ConsumerWidget {
         ],
       ),
       body: icalUrl == null || icalUrl.isEmpty
-          ? const _NoEtlView()
+          ? _CustomOnlyBody()
           : _TimetableBody(
               hasToken: canvasToken != null && canvasToken.isNotEmpty),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEventSheet(context, ref),
+        tooltip: '일정 추가',
+        child: const Icon(Icons.add),
+      ),
     );
   }
-}
 
-class _NoEtlView extends StatelessWidget {
-  const _NoEtlView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.calendar_view_week_outlined,
-              size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text('eTL 연동 후 시간표를 볼 수 있어요',
-              style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 8),
-          const Text('과제 탭 → 설정에서 eTL URL을 입력해 주세요',
-              style: TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
+  void _showAddEventSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AddEventSheet(
+        onSave: (event) =>
+            ref.read(customEventsProvider.notifier).add(event),
       ),
     );
   }
 }
+
+// ── eTL 미연동 시에도 커스텀 이벤트 그리드 표시 ─────────────────────
+
+class _CustomOnlyBody extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customEvents  = ref.watch(customEventsProvider);
+    final mySNUSessions = ref.watch(mySNUSessionsProvider);
+
+    return Column(
+      children: [
+        // 상태 배너
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          color: const Color(0xFFF0F4FF),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 18, color: Color(0xFF1A73E8)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  mySNUSessions.isNotEmpty
+                      ? '마이스누에서 ${mySNUSessions.length}개 수업 불러옴.'
+                      : 'eTL 연동 또는 마이스누 로그인으로 시간표를 불러올 수 있어요.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF3C5A99), height: 1.4),
+                ),
+              ),
+              if (mySNUSessions.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF1A73E8)),
+                  tooltip: '마이스누 데이터 초기화',
+                  onPressed: () => ref.read(mySNUSessionsProvider.notifier).clear(),
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _openMySNU(context, ref),
+                      child: const Text('마이스누', style: TextStyle(fontSize: 12)),
+                    ),
+                    TextButton(
+                      onPressed: () => _importIcs(context, ref),
+                      child: const Text('ICS', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // 시간표 그리드 (mySNU 세션 우선)
+        Expanded(
+          child: TimetableGrid(
+            sessions: mySNUSessions,
+            customEvents: customEvents,
+            onDeleteCustomEvent: (id) =>
+                ref.read(customEventsProvider.notifier).remove(id),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 시간표 본문 ──────────────────────────────────────────────────
 
 class _TimetableBody extends ConsumerWidget {
   final bool hasToken;
@@ -69,7 +138,8 @@ class _TimetableBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(timetableProvider);
+    final async        = ref.watch(timetableProvider);
+    final customEvents = ref.watch(customEventsProvider);
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -88,223 +158,479 @@ class _TimetableBody extends ConsumerWidget {
           ],
         ),
       ),
-      data: (data) => ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _TodaySection(data: data),
-          const SizedBox(height: 24),
-          if (data.hasSchedule) ...[
-            _WeeklyGrid(sessions: data.sessions),
-            const SizedBox(height: 24),
-          ],
-          if (!hasToken && data.courses.isEmpty) ...[
-            const _TokenPrompt(),
-            const SizedBox(height: 24),
-          ],
-          if (data.courses.isNotEmpty) ...[
-            Text('수강 과목 (${data.courses.length}개)',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 8),
-            ...data.courses.map((c) => _CourseCard(course: c)),
-          ],
-          if (data.courses.isEmpty && data.sessions.isEmpty && hasToken)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text('등록된 수강 과목이 없습니다',
-                    style: TextStyle(color: Colors.grey)),
+      data: (data) {
+        final hasSessions = data.sessions.isNotEmpty || customEvents.isNotEmpty;
+        return Column(
+          children: [
+            // ① 오늘 수업 배너
+            _TodayBanner(sessions: data.todaySessions, customEvents: customEvents),
+            // ② 세션이 하나도 없으면 안내 배너
+            if (!hasSessions)
+              _buildNoSessionBanner(context, ref),
+            // ③ 그리드 시간표 (항상 표시 — 커스텀 이벤트만 있어도 보여야 함)
+            Expanded(
+              child: TimetableGrid(
+                sessions:     data.sessions,
+                customEvents: customEvents,
+                onDeleteCustomEvent: (id) =>
+                    ref.read(customEventsProvider.notifier).remove(id),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodaySection extends StatelessWidget {
-  final TimetableData data;
-  const _TodaySection({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateFormat('M월 d일 (E)', 'ko').format(DateTime.now());
-    final todaySessions = data.todaySessions;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('오늘 · $today',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 8),
-        if (todaySessions.isEmpty && !data.hasSchedule)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.grey),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'eTL 캘린더에서 수업 일정을 가져오지 못했어요.\nCanvas API 토큰을 추가하면 과목 목록을 볼 수 있어요.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else if (todaySessions.isEmpty)
-          const Text('오늘 수업 없음', style: TextStyle(color: Colors.grey))
-        else
-          ...todaySessions.map((s) => _SessionTile(session: s, highlight: true)),
-      ],
-    );
-  }
-}
-
-class _WeeklyGrid extends StatelessWidget {
-  final List<ClassSession> sessions;
-  const _WeeklyGrid({required this.sessions});
-
-  static const _days = ['MO', 'TU', 'WE', 'TH', 'FR'];
-  static const _dayLabels = ['월', '화', '수', '목', '금'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('주간 시간표',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        ...List.generate(5, (i) {
-          final daySessions = sessions
-              .where((s) => s.weekdays.contains(_days[i]))
-              .toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-          if (daySessions.isEmpty) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 28,
-                  child: Text(_dayLabels[i],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 13)),
-                ),
-                Expanded(
-                  child: Column(
-                    children:
-                        daySessions.map((s) => _SessionTile(session: s)).toList(),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-}
-
-class _SessionTile extends StatelessWidget {
-  final ClassSession session;
-  final bool highlight;
-  const _SessionTile({required this.session, this.highlight = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        highlight ? Theme.of(context).colorScheme.primary : Colors.grey[600];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: highlight
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
-            : Colors.grey.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: highlight
-            ? Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.3))
-            : null,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(session.summary,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500)),
-          ),
-          if (session.startTime.isNotEmpty)
-            Text('${session.startTime}~${session.endTime}',
-                style: TextStyle(fontSize: 12, color: color)),
-          if (session.location.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            Icon(Icons.location_on_outlined, size: 12, color: color),
-            Text(session.location,
-                style: TextStyle(fontSize: 11, color: color)),
           ],
+        );
+      },
+    );
+  }
+}
+
+// ── 수업 없음 안내 배너 ──────────────────────────────────────────
+
+Widget _buildNoSessionBanner(BuildContext context, WidgetRef ref) {
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F4FF),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFBBCCF8)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.info_outline, size: 18, color: Color(0xFF1A73E8)),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text(
+            'eTL에서 수업 일정을 가져오지 못했어요.\n마이스누 로그인으로 불러오거나 직접 추가해 보세요.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF3C5A99), height: 1.4),
+          ),
+        ),
+        TextButton(
+          onPressed: () => _openMySNU(context, ref),
+          child: const Text('마이스누', style: TextStyle(fontSize: 12)),
+        ),
+        TextButton(
+          onPressed: () => _importIcs(context, ref),
+          child: const Text('ICS', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    ),
+  );
+}
+
+// ── mySNU 웹뷰 열기 ──────────────────────────────────────────────
+
+Future<void> _openMySNU(BuildContext context, WidgetRef ref) async {
+  final result = await Navigator.push<List<ClassSession>?>(
+    context,
+    MaterialPageRoute(builder: (_) => const MySNUWebViewScreen()),
+  );
+  if (result != null && result.isNotEmpty) {
+    ref.read(mySNUSessionsProvider.notifier).setSessions(result);
+    // timetableProvider는 mySNU 세션을 우선 사용하므로 invalidate 필요 없음
+    // (mySNUSessionsProvider 변경이 timetableProvider를 자동으로 재계산)
+  }
+}
+
+// ── ICS 파일 가져오기 ─────────────────────────────────────────────
+
+Future<void> _importIcs(BuildContext context, WidgetRef ref) async {
+  List<ClassSession>? sessions;
+  try {
+    sessions = await IcsImportService.pickAndParse();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
+      );
+    }
+    return;
+  }
+
+  if (sessions == null) return; // 취소
+  if (!context.mounted) return;
+
+  if (sessions.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('수업 일정을 찾을 수 없었어요. SnuTT나 에브리타임에서 내보낸 .ics 파일인지 확인해 주세요.')),
+    );
+    return;
+  }
+
+  // 프리뷰 다이얼로그
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => _IcsPreviewDialog(sessions: sessions!),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  ref.read(mySNUSessionsProvider.notifier).setSessions(sessions);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${sessions.length}개 수업을 시간표에 추가했어요.')),
+    );
+  }
+}
+
+// ── ICS 프리뷰 다이얼로그 ──────────────────────────────────────────
+
+class _IcsPreviewDialog extends StatelessWidget {
+  final List<ClassSession> sessions;
+  const _IcsPreviewDialog({required this.sessions});
+
+  static const _dayLabel = {'MO':'월','TU':'화','WE':'수','TH':'목','FR':'금','SA':'토','SU':'일'};
+
+  String _formatDays(List<String> days) =>
+      days.map((d) => _dayLabel[d] ?? d).join('·');
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${sessions.length}개 수업 확인'),
+      contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: sessions.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, indent: 16),
+          itemBuilder: (_, i) {
+            final s = sessions[i];
+            return ListTile(
+              dense: true,
+              title: Text(s.summary, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              subtitle: Text(
+                '${_formatDays(s.weekdays)}  ${s.startTime}–${s.endTime}'
+                '${s.location.isNotEmpty ? '  ${s.location}' : ''}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('추가'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 오늘 배너 ────────────────────────────────────────────────────
+
+class _TodayBanner extends StatelessWidget {
+  final List<ClassSession> sessions;
+  final List<CustomEvent>  customEvents;
+  const _TodayBanner({required this.sessions, required this.customEvents});
+
+  @override
+  Widget build(BuildContext context) {
+    final today     = DateFormat('M월 d일 (E)', 'ko').format(DateTime.now());
+    final dayCode   = const ['MO','TU','WE','TH','FR','SA','SU']
+        [DateTime.now().weekday - 1];
+
+    // 오늘 커스텀 일정
+    final todayCustom = customEvents
+        .where((e) => e.weekdays.contains(dayCode))
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // 합쳐서 시간 순 정렬
+    final allToday = <(String startTime, String label, Color color)>[
+      for (final s in sessions)
+        (s.startTime, '${s.summary}${s.location.isNotEmpty ? ' · ${s.location}' : ''}',
+         courseColor(s.summary)),
+      for (final ce in todayCustom)
+        (ce.startTime, ce.title, paletteColor(ce.colorIndex)),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Text(
+              '오늘 · $today',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ),
+          if (allToday.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Text('오늘 수업 없음', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            )
+          else
+            SizedBox(
+              height: 58,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                itemCount: allToday.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final item = allToday[i];
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: item.$3.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: item.$3.withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(item.$1,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: item.$3,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(item.$2,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 1),
         ],
       ),
     );
   }
 }
 
-class _CourseCard extends StatelessWidget {
-  final TimetableCourse course;
-  const _CourseCard({required this.course});
+// ── 커스텀 일정 추가 바텀시트 ────────────────────────────────────
+
+class _AddEventSheet extends StatefulWidget {
+  final void Function(CustomEvent) onSave;
+  const _AddEventSheet({required this.onSave});
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.book_outlined, size: 20),
-        title: Text(course.name,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w500)),
-        subtitle: course.courseCode.isNotEmpty
-            ? Text(course.courseCode,
-                style: const TextStyle(fontSize: 11))
-            : null,
-      ),
-    );
-  }
+  State<_AddEventSheet> createState() => _AddEventSheetState();
 }
 
-class _TokenPrompt extends StatelessWidget {
-  const _TokenPrompt();
+class _AddEventSheetState extends State<_AddEventSheet> {
+  final _titleCtrl    = TextEditingController();
+  final _locationCtrl = TextEditingController();
+
+  final Set<String> _selectedDays = {};
+  TimeOfDay _startTime = const TimeOfDay(hour: 9,  minute: 0);
+  TimeOfDay _endTime   = const TimeOfDay(hour: 10, minute: 0);
+  int _colorIndex = 0;
+
+  static const _dayItems = [
+    ('MO', '월'), ('TU', '화'), ('WE', '수'),
+    ('TH', '목'), ('FR', '금'),
+  ];
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _locationCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  bool get _valid {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) return false;
+    if (_selectedDays.isEmpty) return false;
+    // 종료 > 시작
+    final startMin = _startTime.hour * 60 + _startTime.minute;
+    final endMin   = _endTime.hour   * 60 + _endTime.minute;
+    return endMin > startMin;
+  }
+
+  Future<void> _pickTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _startTime : _endTime,
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isStart) {
+        _startTime = picked;
+        // 시작 >= 종료면 종료를 +1시간으로 자동 조정
+        final sMin = picked.hour * 60 + picked.minute;
+        final eMin = _endTime.hour * 60 + _endTime.minute;
+        if (eMin <= sMin) {
+          final newEMin = (sMin + 60).clamp(0, 23 * 60 + 59);
+          _endTime = TimeOfDay(hour: newEMin ~/ 60, minute: newEMin % 60);
+        }
+      } else {
+        _endTime = picked;
+      }
+    });
+  }
+
+  void _save() {
+    if (!_valid) return;
+    final event = CustomEvent(
+      id:         _uuid.v4(),
+      title:      _titleCtrl.text.trim(),
+      location:   _locationCtrl.text.trim(),
+      weekdays:   _selectedDays.toList(),
+      startTime:  _fmt(_startTime),
+      endTime:    _fmt(_endTime),
+      colorIndex: _colorIndex,
+    );
+    widget.onSave(event);
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-      ),
-      child: const Row(
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.tips_and_updates_outlined, size: 16, color: Colors.blue),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'eTL API 토큰을 추가하면 수강 과목 목록을 볼 수 있어요.\n과제 탭 → 설정에서 입력하세요.',
-              style: TextStyle(fontSize: 12, color: Colors.blue),
+          // 핸들
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Text('일정 추가',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+
+          // 제목
+          TextField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(
+              labelText: '제목 *',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 10),
+
+          // 장소 (선택)
+          TextField(
+            controller: _locationCtrl,
+            decoration: const InputDecoration(
+              labelText: '장소 (선택)',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 요일 선택
+          const Text('요일', style: TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 6),
+          Row(
+            children: _dayItems.map((item) {
+              final (code, label) = item;
+              final sel = _selectedDays.contains(code);
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text(label),
+                  selected: sel,
+                  onSelected: (_) => setState(() {
+                    if (sel) {
+                      _selectedDays.remove(code);
+                    } else {
+                      _selectedDays.add(code);
+                    }
+                  }),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // 시간 선택
+          const Text('시간', style: TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(isStart: true),
+                  child: Text('시작  ${_fmt(_startTime)}'),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('~'),
+              ),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(isStart: false),
+                  child: Text('종료  ${_fmt(_endTime)}'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // 색상 선택
+          const Text('색상', style: TextStyle(fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 6),
+          Row(
+            children: List.generate(kTimetablePalette.length, (i) {
+              final sel = _colorIndex == i;
+              return GestureDetector(
+                onTap: () => setState(() => _colorIndex = i),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: kTimetablePalette[i],
+                    shape: BoxShape.circle,
+                    border: sel
+                        ? Border.all(color: Colors.black, width: 2.5)
+                        : null,
+                  ),
+                  child: sel
+                      ? const Icon(Icons.check, size: 16, color: Colors.white)
+                      : null,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+
+          // 저장 버튼
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton(
+              onPressed: _valid ? _save : null,
+              child: const Text('저장'),
             ),
           ),
         ],

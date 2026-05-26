@@ -45,6 +45,12 @@ dependencies:
   # 홈 화면 위젯
   home_widget: ^0.7.0
 
+  # 인앱 WebView (mySNU 시간표 로그인)
+  webview_flutter: ^4.8.0
+
+  # 파일 선택 (ICS 가져오기)
+  file_picker: ^8.0.0
+
   # 유틸
   intl: ^0.19.0
   uuid: ^4.4.0
@@ -64,3 +70,4 @@ flutter:
     - assets/marker_restaurant.png
     - assets/marker_cafe.png
     - assets/marker_building.png
+    - assets/marker_convenience.png

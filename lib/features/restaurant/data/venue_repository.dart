@@ -56,12 +56,14 @@ class VenueRepository {
   }
 
   Future<Map<String, dynamic>> _fetchSnuco() async {
-    final res = await DioClient.instance.get('/api/restaurant/snuco');
+    final res = await DioClient.instance.get('/api/restaurant/snuco')
+        .timeout(const Duration(seconds: 5));
     return res.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> _fetchInstagram() async {
-    final res = await DioClient.instance.get('/api/restaurant/gangyeo');
+    final res = await DioClient.instance.get('/api/restaurant/gangyeo')
+        .timeout(const Duration(seconds: 5));
     return res.data as Map<String, dynamic>;
   }
 }

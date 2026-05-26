@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
+import '../../features/timetable/domain/timetable_models.dart';
 import 'notification_service.dart';
 
 // SharedPreferences 인스턴스 provider (main에서 override)
@@ -213,6 +214,14 @@ final newAssignmentNotifProvider =
   return BoolSettingNotifier(prefs, kNewAssignmentNotif, defaultValue: true);
 });
 
+// ─── 공지사항 알림 ON/OFF ──────────────────────────────────────────────────────
+
+final newAnnouncementNotifProvider =
+    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return BoolSettingNotifier(prefs, kNewAnnouncementNotif, defaultValue: true);
+});
+
 class BoolSettingNotifier extends StateNotifier<bool> {
   BoolSettingNotifier(this._prefs, this._key, {bool defaultValue = false})
       : super(_prefs.getBool(_key) ?? defaultValue);
@@ -222,6 +231,78 @@ class BoolSettingNotifier extends StateNotifier<bool> {
   void set(bool value) {
     state = value;
     _prefs.setBool(_key, value);
+  }
+}
+
+// ─── 커스텀 일정 (학원·과외 등) ───────────────────────────────────────────────
+
+final customEventsProvider =
+    StateNotifierProvider<CustomEventsNotifier, List<CustomEvent>>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return CustomEventsNotifier(prefs);
+});
+
+class CustomEventsNotifier extends StateNotifier<List<CustomEvent>> {
+  CustomEventsNotifier(this._prefs) : super(_load(_prefs));
+  final SharedPreferences _prefs;
+
+  static List<CustomEvent> _load(SharedPreferences prefs) {
+    final raw = prefs.getString(kCustomEvents);
+    if (raw == null) return [];
+    return CustomEvent.decodeList(raw); // 파싱 실패 시 [] 반환
+  }
+
+  void add(CustomEvent event) {
+    state = [...state, event];
+    _save();
+  }
+
+  void remove(String id) {
+    state = state.where((e) => e.id != id).toList();
+    _save();
+  }
+
+  void _save() {
+    _prefs.setString(kCustomEvents, CustomEvent.encodeList(state));
+  }
+}
+
+// ─── mySNU 시간표 세션 (WebView 로그인 후 추출) ──────────────────────────────
+
+final mySNUSessionsProvider =
+    StateNotifierProvider<MySNUSessionsNotifier, List<ClassSession>>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return MySNUSessionsNotifier(prefs);
+});
+
+class MySNUSessionsNotifier extends StateNotifier<List<ClassSession>> {
+  MySNUSessionsNotifier(this._prefs) : super(_load(_prefs));
+  final SharedPreferences _prefs;
+
+  static List<ClassSession> _load(SharedPreferences prefs) {
+    final raw = prefs.getString(kMySNUSessions);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((e) => ClassSession.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  void setSessions(List<ClassSession> sessions) {
+    state = sessions;
+    _prefs.setString(
+      kMySNUSessions,
+      jsonEncode(sessions.map((s) => s.toJson()).toList()),
+    );
+  }
+
+  void clear() {
+    state = [];
+    _prefs.remove(kMySNUSessions);
   }
 }
 

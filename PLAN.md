@@ -1,75 +1,99 @@
-# PLAN: 시간표 탭 + 도서관 좌석 + 알림 정교화 + 홈 위젯
+# Plan: Venue Markers on Map Screen
 
-## 목표
-서울대생이 매일 아침 앱을 열게 만드는 핵심 4가지 기능 구현.
-우선순위: 구현 리스크 낮은 것부터, 서버 변경 최소화.
+## Goal
+Show all venues (restaurant/cafe/convenience) on the existing Naver Map screen
+as category-filtered markers. Tapping a marker shows a venue detail bottom sheet.
 
----
+## Existing Architecture
+- `MapScreen` in `lib/features/map/presentation/map_screen.dart`
+- Uses `flutter_naver_map` (`NaverMap`, `NMarker`, `NLatLng`)
+- `_SheetMode` enum controls sheet state (none / placeDetail / routePanel)
+- `venuesProvider` in `lib/features/restaurant/data/venue_repository.dart`
+  returns `AsyncValue<List<Venue>>`
+- `Venue` model in `lib/features/restaurant/domain/venue.dart`
+- `VenueDetailScreen` in `lib/features/restaurant/presentation/venue_detail_screen.dart`
 
-## Phase 1 — 시간표 탭
+## Changes Required
 
-### 전략
-Canvas API의 courses 엔드포인트로 수강 중인 과목 목록,
-ical에서 RRULE이 있는 반복 이벤트(수업 시간)를 파싱해 주간 그리드로 표시.
+### 1. `_SheetMode` — add `venueDetail`
+```dart
+enum _SheetMode { none, placeDetail, routePanel, venueDetail }
+```
 
-### 서버 변경
-- POST /api/timetable — ical URL + canvas token 받아서:
-  1. Canvas API GET /courses?enrollment_state=active → 과목 목록
-  2. ical 파싱 → RRULE 있는 VEVENT 추출
-  3. 두 데이터 병합 반환
-- ical에 RRULE 없으면 과목 목록만 반환
+### 2. State additions to `_MapScreenState`
+```dart
+VenueCategory? _venueFilter;   // null = no venue markers shown
+Venue? _selectedVenue;
+final _venueMarkerIds = <String>{};  // track added marker IDs for removal
+```
 
-### 성공 기준
-- Canvas API 토큰 없으면 빈 상태 표시
-- 과목 목록 카드 표시
-- RRULE 이벤트 있으면 주간 그리드 렌더링
+### 3. Category filter chips row
+Horizontal chip row shown ONLY when sheetMode == none.
+Chips: 음식점 (Icons.restaurant), 카페 (Icons.local_cafe), 편의점 (Icons.store_mall_directory).
+Tapping same chip again deselects → clears markers.
 
----
+### 4. `_applyVenueFilter(VenueCategory? cat, List<Venue> venues)`
+- Remove existing venue markers by ID
+- If cat is null: done
+- Filter venues by category, add NMarker per venue
+- NMarker color: restaurant=orange, cafe=blue, convenience=green (via NOverlayImage)
+- `marker.setOnTapListener((_) => _showVenueDetail(venue))`
+- Max markers: if category total > 500, skip (show warning). In practice:
+  convenience ~82 → ok, cafe ~270 → ok, restaurant ~800 → cap at 500 nearest to center
 
-## Phase 2 — 도서관 좌석 조회
+### 5. `_showVenueDetail(Venue venue)`
+```dart
+setState(() {
+  _sheetMode = _SheetMode.venueDetail;
+  _selectedVenue = venue;
+  _selectedPlace = null;
+});
+// Pan map to venue
+_mapCtrl?.updateCamera(NCameraUpdate.withParams(
+  target: NLatLng(venue.lat, venue.lng), zoom: 16,
+));
+```
 
-### 전략
-lib.snu.ac.kr 스크래핑, 60초 캐시.
+### 6. `_buildVenueDetailSheet(Venue venue)`
+Reuse existing `_buildPlaceDetailSheet` style. Shows:
+- Name + area badge (서울대입구/대학동/교내)
+- Category chip (음식점/카페/편의점)
+- Hours today (from venue.todayHoursText), open/closed badge
+- Phone number
+- Price level (₩/₩₩/₩₩₩)
+- "길찾기" button → converts Venue to PlaceResult → opens route panel
+- "상세보기" button → Navigator.push to VenueDetailScreen
 
-### 서버 변경
-- GET /api/library/seats — 열람실별 현황 반환
+### 7. `_closeVenueDetail()`
+```dart
+setState(() {
+  _sheetMode = _SheetMode.none;
+  _selectedVenue = null;
+});
+// Do NOT clear overlays — keep venue markers visible
+```
 
-### 성공 기준
-- 열람실별 남은 좌석 수 표시
-- 60초마다 자동 갱신
+### 8. Integrate with `build()` — consume venuesProvider
+```dart
+// At top of build():
+final venuesAsync = ref.watch(venuesProvider);
+final venues = venuesAsync.valueOrNull ?? [];
+```
+Pass venues to `_applyVenueFilter` when filter changes.
 
----
+## Performance Notes
+- restaurant: ~800 markers → cap at 500 sorted by distance from current camera center
+- cafe: ~270 → all ok
+- convenience: ~82 → all ok
+- Use `NOverlayImage.fromWidget` for custom icon, or simpler `NOverlayImage.fromAssetImage`
+  if custom PNG markers are available. Fall back to default colored NMarker if needed.
+- Marker updates are async (addOverlay is async) — do them in a single batch
 
-## Phase 3 — 새 과제/공지 push 알림
-
-### 전략
-서버가 ical URL을 저장해 15분마다 폴링, 새 etlId 감지 시 FCM 전송.
-Canvas token 있으면 공지사항도 폴링.
-
-### 서버 변경
-1. POST /api/fcm/subscribe-etl — ical URL + canvas token 저장
-2. 15분 주기 루프: ical diff → 새 과제 FCM
-3. Canvas 공지사항 폴링 (token 있는 경우)
-
-### 성공 기준
-- 교수 과제 등록 후 15분 내 FCM 수신
-- 설정에서 ON/OFF 가능
-
----
-
-## Phase 4 — 홈 화면 위젯
-
-### 전략
-home_widget 패키지 + Android AppWidgetProvider.
-다음 과제 2개 + 오늘 수업 표시.
-
-### 성공 기준
-- 홈 화면에 위젯 추가 가능
-- 과제 갱신 시 위젯도 갱신
-
----
-
-## 공통 원칙
-- 모든 기능: eTL 미연동 시 graceful degradation
-- 서버 실패 시 빈 상태 (앱 크래시 없음)
-- 도서관/시간표는 기존 탭에서 Modal Sheet로 접근 (탭 추가 X)
+## Success Criteria
+- Selecting 음식점 chip shows orange restaurant markers on the map
+- Selecting 카페 chip clears restaurant markers, shows blue cafe markers
+- Tapping a marker shows venue detail sheet with hours/phone/price
+- "길찾기" button opens existing route panel with venue as destination
+- "상세보기" opens VenueDetailScreen
+- Deselecting chip clears markers
+- No crash or freeze with 800 restaurant markers

@@ -6,6 +6,80 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import '../../core/dio_client.dart';
 
+/// 백그라운드/종료 상태 FCM — 공지사항·새 과제 data-only 메시지 처리.
+/// top-level 함수 필요 (main.dart 에서 등록).
+Future<void> handleBackgroundFcm(RemoteMessage message) async {
+  final data = message.data;
+  final type = data['type'] as String? ?? '';
+
+  // notification payload가 있으면 Android가 자동으로 표시함.
+  // 사용자가 해당 타입을 비활성화한 경우 자동 표시된 알림을 취소한다.
+  if (message.notification != null) {
+    final prefs = await SharedPreferences.getInstance();
+    final shouldSuppress =
+        (type == 'new_assignment' && !(prefs.getBool(kNewAssignmentNotif) ?? true)) ||
+        (type == 'announcement' && !(prefs.getBool(kNewAnnouncementNotif) ?? true));
+    if (shouldSuppress) {
+      final localNotif = FlutterLocalNotificationsPlugin();
+      await localNotif.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
+      );
+      final android = localNotif.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      // FCM 알림 메시지는 서버가 notification_id를 지정하지 않으면 ID=0이 기본값.
+      await android?.cancel(0, tag: message.notification?.android?.tag);
+    }
+    return;
+  }
+
+  // data-only 메시지: 직접 로컬 알림 표시
+  final localNotif = FlutterLocalNotificationsPlugin();
+  await localNotif.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    ),
+  );
+
+  if (type == 'announcement') {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(kNewAnnouncementNotif) ?? true)) return;
+    final announcementId = data['announcementId'] ?? data['id'] ?? '';
+    await localNotif.show(
+      NotificationService._stableId(
+          'announcement:${announcementId.isNotEmpty ? announcementId : 'ann_${data['title']?.hashCode}'}'),
+      data['title'] ?? '새 공지사항',
+      data['body'] ?? '과제 탭을 확인해 주세요',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          NotificationService.announcementChannelId,
+          NotificationService.announcementChannelName,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  } else if (type == 'new_assignment') {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(kNewAssignmentNotif) ?? true)) return;
+    final etlId = data['etlId'] ?? '';
+    await localNotif.show(
+      NotificationService._stableId('assignment:${etlId.isNotEmpty ? etlId : 'new_assign'}'),
+      data['title'] ?? '새 과제',
+      data['body'] ?? '과제 탭을 확인해 주세요',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          NotificationService.alertChannelId,
+          NotificationService.alertChannelName,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+}
+
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
 
@@ -15,11 +89,25 @@ class NotificationService {
   // FCM 토큰 등록 전에 subscribeEtl이 호출된 경우 URL 보관 → 토큰 등록 후 재시도
   String? _pendingEtlUrl;
 
-  // 일반 알림 채널 (FCM 포그라운드)
+  // ── 채널 ID 상수 (외부에서 참조 가능) ────────────────────────────────────
+  static const alertChannelId   = 'sharap_alerts';
+  static const alertChannelName = '샤랍 알림';
+  static const announcementChannelId   = 'sharap_announcements';
+  static const announcementChannelName = '샤랍 공지사항 알림';
+
+  // 일반 알림 채널 (FCM 포그라운드 / 새 과제)
   static const _channel = AndroidNotificationChannel(
-    'sharap_alerts',
-    '샤랍 알림',
-    description: '과제 마감 알림',
+    alertChannelId,
+    alertChannelName,
+    description: '새 과제 및 마감 알림',
+    importance: Importance.high,
+  );
+
+  // 공지사항 알림 채널
+  static const _announcementChannel = AndroidNotificationChannel(
+    announcementChannelId,
+    announcementChannelName,
+    description: '교수님 공지사항 알림',
     importance: Importance.high,
   );
 
@@ -54,6 +142,7 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(_channel);
+    await androidPlugin?.createNotificationChannel(_announcementChannel);
     await androidPlugin?.createNotificationChannel(_ongoingChannel);
 
     // FCM 권한 요청
@@ -74,65 +163,7 @@ class NotificationService {
 
     // 포그라운드 메시지 수신
     FirebaseMessaging.onMessage.listen((message) {
-      final data = message.data;
-
-      // deadline 타입이면 ongoing 알림 갱신
-      if (data['type'] == 'deadline' && data['etlId'] != null) {
-        try {
-          final dueDate = DateTime.parse(data['dueDate']!);
-          final remaining = dueDate.difference(DateTime.now());
-          if (remaining.inSeconds > 0) {
-            showOngoingNotification(
-              etlId: data['etlId']!,
-              title: data['title'] ?? '',
-              courseName: data['courseName'] ?? '',
-              remaining: remaining,
-            ).ignore();
-          }
-        } catch (e) {
-          debugPrint('[FCM] ongoing 알림 생성 실패: $e');
-        }
-      }
-
-      // 새 과제 감지 알림
-      if (data['type'] == 'new_assignment') {
-        final n = message.notification;
-        _localNotif.show(
-          'new_assignment'.hashCode,
-          n?.title ?? '새 과제 알림',
-          n?.body ?? '과제 탭을 확인해 주세요',
-          NotificationDetails(
-            android: AndroidNotificationDetails(
-              _channel.id,
-              _channel.name,
-              channelDescription: _channel.description,
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-          ),
-        ).ignore();
-        return;
-      }
-
-      // 시스템 알림도 표시
-      final notification = message.notification;
-      final android = message.notification?.android;
-      if (notification != null && android != null) {
-        _localNotif.show(
-          notification.hashCode,
-          notification.title,
-          notification.body,
-          NotificationDetails(
-            android: AndroidNotificationDetails(
-              _channel.id,
-              _channel.name,
-              channelDescription: _channel.description,
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-          ),
-        );
-      }
+      _handleForegroundMessage(message);
     });
 
     // FCM 토큰 서버에 등록
@@ -140,7 +171,106 @@ class NotificationService {
     if (token != null) {
       await _registerToken(token);
     }
-    messaging.onTokenRefresh.listen(_registerToken);
+    // 토큰 갱신 시: 서버 재등록 + 기존 구독 재시도
+    messaging.onTokenRefresh.listen((newToken) async {
+      await _registerToken(newToken);
+      // eTL 구독 상태 복원 (과제 또는 공지사항 알림 중 하나라도 ON이면 재구독)
+      final prefs = await SharedPreferences.getInstance();
+      final icalUrl = prefs.getString(kIcalUrl);
+      final assignmentOn = prefs.getBool(kNewAssignmentNotif) ?? true;
+      final announcementOn = prefs.getBool(kNewAnnouncementNotif) ?? true;
+      if (icalUrl != null && (assignmentOn || announcementOn)) {
+        await subscribeEtl(icalUrl: icalUrl);
+      }
+    });
+  }
+
+  /// 포그라운드 FCM 메시지 처리 — type별 분기 + 로컬 설정 가드
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    final data = message.data;
+    final type = data['type'] as String? ?? '';
+    final prefs = await SharedPreferences.getInstance();
+
+    // deadline 타입 → ongoing 알림 갱신 (설정 무관)
+    if (type == 'deadline' && data['etlId'] != null) {
+      try {
+        final dueDate = DateTime.parse(data['dueDate']!);
+        final remaining = dueDate.difference(DateTime.now());
+        if (remaining.inSeconds > 0) {
+          await showOngoingNotification(
+            etlId: data['etlId']!,
+            title: data['title'] ?? '',
+            courseName: data['courseName'] ?? '',
+            remaining: remaining,
+          );
+        }
+      } catch (e) {
+        debugPrint('[FCM] ongoing 알림 생성 실패: $e');
+      }
+      return;
+    }
+
+    // 새 과제 알림 (로컬 설정 가드)
+    if (type == 'new_assignment') {
+      if (!(prefs.getBool(kNewAssignmentNotif) ?? true)) return;
+      final etlId = data['etlId'] ?? '';
+      final n = message.notification;
+      await _localNotif.show(
+        _stableId('assignment:${etlId.isNotEmpty ? etlId : 'new_assign'}'),
+        n?.title ?? data['title'] ?? '새 과제',
+        n?.body ?? data['body'] ?? '과제 탭을 확인해 주세요',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id, _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 공지사항 알림 (로컬 설정 가드)
+    if (type == 'announcement') {
+      if (!(prefs.getBool(kNewAnnouncementNotif) ?? true)) return;
+      final announcementId = data['announcementId'] ?? data['id'] ?? '';
+      final n = message.notification;
+      await _localNotif.show(
+        _stableId('announcement:${announcementId.isNotEmpty ? announcementId : 'ann_${data['title']?.hashCode}'}'),
+        n?.title ?? data['title'] ?? '새 공지사항',
+        n?.body ?? data['body'] ?? '공지사항을 확인해 주세요',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _announcementChannel.id,
+            _announcementChannel.name,
+            channelDescription: _announcementChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 기타 notification payload 표시
+    final notification = message.notification;
+    final android = message.notification?.android;
+    if (notification != null && android != null) {
+      await _localNotif.show(
+        _stableId(notification.title ?? 'sys'),
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id, _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    }
   }
 
   /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가)
@@ -156,7 +286,7 @@ class NotificationService {
     final notifTitle = courseName.isNotEmpty ? courseName : title;
 
     await _localNotif.show(
-      _stableId(etlId),
+      _stableId('deadline:$etlId'),
       notifTitle,
       '$title  ·  $timeStr',
       NotificationDetails(
@@ -176,7 +306,7 @@ class NotificationService {
 
   /// 과제 완료/만료 시 고정 알림 취소 (static — CompletedTasksNotifier에서도 호출)
   static Future<void> cancelOngoingNotification(String etlId) async {
-    await _localNotif.cancel(_stableId(etlId));
+    await _localNotif.cancel(_stableId('deadline:$etlId'));
   }
 
   /// FCM 토큰을 서버에 전송
@@ -198,7 +328,8 @@ class NotificationService {
   }
 
   /// 새 과제 감지를 위해 eTL URL을 서버에 등록 (새 알림 구독)
-  Future<void> subscribeEtl({
+  /// 성공하면 true, 실패하면 false 반환 (토큰 미발급 시 pending 처리 후 true 반환)
+  Future<bool> subscribeEtl({
     required String icalUrl,
     String? canvasToken, // 서버에 전송하지 않음 (보안) — 파라미터는 호환성 유지
   }) async {
@@ -207,7 +338,7 @@ class NotificationService {
     if (token == null) {
       // 아직 토큰 미발급 — 등록 후 자동 재시도
       _pendingEtlUrl = icalUrl;
-      return;
+      return true; // pending 처리됐으므로 사용자 입장에선 성공으로 처리
     }
     try {
       await DioClient.instance.post('/api/fcm/subscribe-etl', data: {
@@ -215,8 +346,10 @@ class NotificationService {
         'icalUrl': icalUrl,
       });
       debugPrint('[FCM] eTL 구독 등록 완료');
+      return true;
     } catch (e) {
       debugPrint('[FCM] eTL 구독 실패: $e');
+      return false;
     }
   }
 

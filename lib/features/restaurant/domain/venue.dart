@@ -40,6 +40,12 @@ class VenueHours {
       );
 }
 
+// 지역 구분
+const List<String> kVenueAreas = ['교내', '서울대입구', '대학동'];
+
+// 음식 종류 (restaurant 카테고리에만 적용)
+const List<String> kCuisineTypes = ['한식', '중식', '양식', '일식', '분식', '카페', '기타'];
+
 class Venue {
   final String id;
   final String name;
@@ -54,6 +60,12 @@ class Venue {
   final VenueHours hours;
   final String? snucoName;        // maps to SNUCO scraper name
   final String? instagramHandle;  // for instagram-type venues
+
+  // 지역·음식종류·가격대 (신규 필드, 기존 JSON은 기본값으로 호환)
+  final String area;           // '교내' | '서울대입구' | '낙성대' | '대학동'
+  final String? cuisineType;   // '한식' | '중식' | '양식' | '일식' | '분식' | '기타'
+  final int? priceLevel;       // 1=저렴(~8천원) 2=보통(~15천원) 3=비쌈(15천원+)
+  final String? searchTokens;  // 검색 보조 토큰 (한국어·영문 이름 등 공백구분)
 
   // Set externally after SNUCO fetch
   String? snucoBreakfast;
@@ -77,6 +89,10 @@ class Venue {
     this.tags = const [],
     this.snucoName,
     this.instagramHandle,
+    this.area = '교내',
+    this.cuisineType,
+    this.priceLevel,
+    this.searchTokens,
     this.snucoBreakfast,
     this.snucoLunch,
     this.snucoDinner,
@@ -97,6 +113,10 @@ class Venue {
         hours: VenueHours.fromJson(j['hours'] as Map<String, dynamic>),
         snucoName: j['snucoName'] as String?,
         instagramHandle: j['instagramHandle'] as String?,
+        area: (j['area'] as String?) ?? '교내',
+        cuisineType: j['cuisineType'] as String?,
+        priceLevel: j['priceLevel'] as int?,
+        searchTokens: j['searchTokens'] as String?,
       );
 
   DayHours _dayHours(DateTime kst) {
