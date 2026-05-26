@@ -630,6 +630,24 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
 }
 
 
+// ── 버스 도착 API 원시 응답 확인용 (일시적 디버그, 추후 삭제)
+app.get("/api/debug/bus-raw", async (req, res) => {
+  const { stId, busRouteId, ord } = req.query;
+  const key = process.env.SEOUL_BUS_API_KEY;
+  if (!key) return res.json({ error: "SEOUL_BUS_API_KEY 미설정" });
+  const ordParam = ord != null ? `&ord=${ord}` : '';
+  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
+    + `?serviceKey=${encodeURIComponent(key)}`
+    + `&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}${ordParam}&resultType=json`;
+  try {
+    const raw = await fetchText(url);
+    const data = JSON.parse(raw);
+    res.json({ raw: data });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 app.post("/api/transit/arrival", async (req, res) => {
   const { legType, routeName, startStation, subwayCode, stId, busRouteId, ord,
           shuttleRouteId, shuttleStationCode } = req.body;
