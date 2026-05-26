@@ -630,33 +630,6 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
 }
 
 
-// ── 버스 도착 API 원시 응답 확인용 (일시적 디버그, 추후 삭제)
-app.get("/api/debug/bus-raw", async (req, res) => {
-  const { stId, busRouteId, ord } = req.query;
-  const key = process.env.SEOUL_BUS_API_KEY;
-  if (!key) return res.json({ error: "SEOUL_BUS_API_KEY 미설정" });
-  const keyPreview = key.slice(0, 8) + '...' + key.slice(-4);
-  // 여러 엔드포인트 순차 테스트
-  // 버스도착정보조회 서비스 엔드포인트만 테스트
-  const endpoints = [
-    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodeURIComponent(key)}&busRouteId=${busRouteId || '100100250'}&resultType=json`,
-    `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByStIdList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&resultType=json`,
-    `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&busRouteId=${busRouteId || '100100250'}&resultType=json`,
-  ];
-  const results = [];
-  for (const url of endpoints) {
-    const label = url.split('?')[0].split('/').pop();
-    try {
-      const raw = await fetchText(url);
-      let parsed; try { parsed = JSON.parse(raw); } catch { parsed = raw.slice(0, 500); }
-      results.push({ endpoint: label, status: 'ok', data: parsed });
-    } catch (e) {
-      results.push({ endpoint: label, status: 'error', error: e.message.slice(0, 300) });
-    }
-  }
-  res.json({ keyPreview, results });
-});
-
 app.post("/api/transit/arrival", async (req, res) => {
   const { legType, routeName, startStation, subwayCode, stId, busRouteId, ord,
           shuttleRouteId, shuttleStationCode } = req.body;
@@ -1219,13 +1192,15 @@ if (FCM_SERVER_KEY) {
 // FCM 토큰 저장소 { token → { tasks: [...] } }
 const fcmTokenStore = new Map();
 let fcmCol = null; // MongoDB fcm_tokens 컬렉션
+let sentKeysCol = null; // MongoDB sent_keys 컬렉션 (재시작 후에도 중복 방지)
 
 async function connectFcmMongo() {
   if (!MONGO_URI) return;
   try {
     const client = new MongoClient(MONGO_URI);
     await client.connect();
-    fcmCol = client.db("sharap").collection("fcm_tokens");
+    const db = client.db("sharap");
+    fcmCol = db.collection("fcm_tokens");
     const docs = await fcmCol.find({}).toArray();
     docs.forEach((doc) => fcmTokenStore.set(doc._id, {
       tasks: doc.tasks || [],
@@ -1233,8 +1208,31 @@ async function connectFcmMongo() {
       ...(doc.knownEtlIds !== undefined ? { knownEtlIds: doc.knownEtlIds } : {}),
     }));
     console.log(`[FCM] 토큰 로드: ${fcmTokenStore.size}개`);
+
+    // sentKeys 영속화: 2일 TTL 컬렉션
+    sentKeysCol = db.collection("sent_keys");
+    await sentKeysCol.createIndex({ createdAt: 1 }, { expireAfterSeconds: 2 * 24 * 60 * 60 });
+    // 기존 발송 키를 메모리로 로드 (재시작 후 중복 방지)
+    const keyDocs = await sentKeysCol.find({}, { projection: { _id: 1 } }).toArray();
+    keyDocs.forEach((d) => sentKeys.add(d._id));
+    console.log(`[FCM] sentKeys 로드: ${sentKeys.size}개`);
   } catch (err) {
     console.error("[FCM] MongoDB 연결 실패:", err.message);
+  }
+}
+
+// sentKey를 메모리 + MongoDB에 원자적으로 기록 (중복 발송 방지)
+async function markSentKey(key) {
+  sentKeys.add(key);
+  if (!sentKeysCol) return;
+  try {
+    await sentKeysCol.updateOne(
+      { _id: key },
+      { $setOnInsert: { _id: key, createdAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (err) {
+    // upsert 실패 무시 (중복 key는 이미 삽입된 것)
   }
 }
 
@@ -1301,7 +1299,7 @@ if (fcmAdmin) {
           if (diffH <= h + WINDOW && diffH > h - WINDOW) {
             const key = `fcm:${token}:${task.etlId}:${h}`;
             if (sentKeys.has(key)) continue;
-            sentKeys.add(key);
+            await markSentKey(key);
 
             try {
               await fcmAdmin.send({

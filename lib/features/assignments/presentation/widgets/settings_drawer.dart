@@ -36,7 +36,6 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
     final assignmentDays = ref.watch(assignmentDaysProvider);
     final hasIcal = ref.watch(icalUrlProvider) != null;
     final isConnected = hasIcal; // 토큰은 선택 사항 — URL만 있으면 연동됨
@@ -159,45 +158,6 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                       child: const Text('연동 해제'),
                     ),
                   ],
-
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // ─── 테마 설정 ─────────────────────────────────────────────
-                  const Text('화면 테마',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 10),
-                  SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.brightness_auto, size: 18),
-                        label: Text('자동'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode, size: 18),
-                        label: Text('라이트'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode, size: 18),
-                        label: Text('다크'),
-                      ),
-                    ],
-                    selected: {themeMode},
-                    onSelectionChanged: (Set<ThemeMode> s) {
-                      final mode = s.first;
-                      ref.read(themeModeProvider.notifier).set(mode);
-                      Analytics.themeModeChanged(switch (mode) {
-                        ThemeMode.system => 'system',
-                        ThemeMode.light => 'light',
-                        ThemeMode.dark => 'dark',
-                      });
-                    },
-                  ),
 
                   const SizedBox(height: 24),
                   const Divider(),

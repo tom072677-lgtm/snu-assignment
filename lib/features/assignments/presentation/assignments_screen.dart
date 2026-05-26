@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../data/assignment_repository.dart';
-import '../domain/assignment.dart';
 import 'widgets/assignment_card.dart';
+import 'widgets/bomb_countdown_banner.dart';
 import 'widgets/settings_drawer.dart';
 
 class AssignmentsScreen extends ConsumerWidget {
@@ -16,6 +16,20 @@ class AssignmentsScreen extends ConsumerWidget {
     final assignmentsAsync = ref.watch(assignmentsProvider);
     final completed = ref.watch(completedTasksProvider);
 
+    // 24시간 이내 미완료·미만료 과제 → 폭탄 배너 대상
+    final urgentAssignments = assignmentsAsync.valueOrNull
+            ?.where((a) =>
+                !completed.contains(a.etlId) &&
+                !a.isOverdue &&
+                a.remaining.inHours < 24)
+            .map((a) => (
+                  title: a.title,
+                  courseName: a.courseName,
+                  remaining: a.remaining,
+                ))
+            .toList() ??
+        [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('샤랍', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -26,45 +40,56 @@ class AssignmentsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: icalUrl == null
-          ? _buildNoEtl(context, ref)
-          : assignmentsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => ErrorView(
-                message: e.toString(),
-                onRetry: () => ref.invalidate(assignmentsProvider),
-              ),
-              data: (assignments) {
-                final active = assignments
-                    .where((a) => !completed.contains(a.etlId))
-                    .toList();
-                final done = assignments
-                    .where((a) => completed.contains(a.etlId))
-                    .toList();
+      body: Column(
+        children: [
+          // 폭탄 카운트다운 배너 (24h 이내 과제 있을 때만)
+          BombCountdownBanner(urgentAssignments: urgentAssignments),
+          // 본문
+          Expanded(
+            child: icalUrl == null
+                ? _buildNoEtl(context, ref)
+                : assignmentsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => ErrorView(
+                      message: e.toString(),
+                      onRetry: () => ref.invalidate(assignmentsProvider),
+                    ),
+                    data: (assignments) {
+                      final active = assignments
+                          .where((a) => !completed.contains(a.etlId))
+                          .toList();
+                      final done = assignments
+                          .where((a) => completed.contains(a.etlId))
+                          .toList();
 
-                if (active.isEmpty && done.isEmpty) {
-                  return _buildEmpty();
-                }
+                      if (active.isEmpty && done.isEmpty) {
+                        return _buildEmpty();
+                      }
 
-                return RefreshIndicator(
-                  onRefresh: () => ref.read(assignmentsProvider.notifier).refresh(),
-                  child: ListView(
-                    padding: const EdgeInsets.all(12),
-                    children: [
-                      if (active.isNotEmpty) ...[
-                        const _SectionHeader(title: '과제 목록'),
-                        ...active.map((a) => AssignmentCard(assignment: a)),
-                      ],
-                      if (done.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        const _SectionHeader(title: '최근 완료한 과제'),
-                        ...done.map((a) => AssignmentCard(assignment: a, isCompleted: true)),
-                      ],
-                    ],
+                      return RefreshIndicator(
+                        onRefresh: () =>
+                            ref.read(assignmentsProvider.notifier).refresh(),
+                        child: ListView(
+                          padding: const EdgeInsets.all(12),
+                          children: [
+                            if (active.isNotEmpty) ...[
+                              const _SectionHeader(title: '과제 목록'),
+                              ...active.map((a) => AssignmentCard(assignment: a)),
+                            ],
+                            if (done.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              const _SectionHeader(title: '최근 완료한 과제'),
+                              ...done.map(
+                                  (a) => AssignmentCard(assignment: a, isCompleted: true)),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
     );
   }
 

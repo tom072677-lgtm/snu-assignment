@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'core/analytics.dart';
 import 'core/theme.dart';
 import 'features/assignments/presentation/assignments_screen.dart';
@@ -7,19 +7,16 @@ import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
 import 'features/timetable/presentation/timetable_screen.dart';
-import 'shared/providers/settings_provider.dart';
 
-class SharapApp extends ConsumerWidget {
+class SharapApp extends StatelessWidget {
   const SharapApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: '샤랍',
       theme: lightTheme(),
-      darkTheme: darkTheme(),
-      themeMode: themeMode,
+      themeMode: ThemeMode.light,
       navigatorObservers: [Analytics.observer],
       home: const _MainShell(),
       debugShowCheckedModeBanner: false,
@@ -27,14 +24,14 @@ class SharapApp extends ConsumerWidget {
   }
 }
 
-class _MainShell extends ConsumerStatefulWidget {
+class _MainShell extends StatefulWidget {
   const _MainShell();
 
   @override
-  ConsumerState<_MainShell> createState() => _MainShellState();
+  State<_MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<_MainShell> {
+class _MainShellState extends State<_MainShell> {
   int _index = 0;
 
   static const _screens = [

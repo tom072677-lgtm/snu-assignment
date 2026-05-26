@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,42 +10,6 @@ import 'notification_service.dart';
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPrefsProvider must be overridden in main');
 });
-
-// ─── 테마 모드 (system / light / dark) ───────────────────────────────────────
-
-final themeModeProvider =
-    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return ThemeModeNotifier(prefs);
-});
-
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static ThemeMode _load(SharedPreferences prefs) {
-    final raw = prefs.getString(kThemeMode);
-    if (raw != null) {
-      if (raw == 'light') return ThemeMode.light;
-      if (raw == 'dark') return ThemeMode.dark;
-      return ThemeMode.system;
-    }
-    // 기존 dark_mode bool 값 마이그레이션
-    final legacyDark = prefs.getBool(kDarkMode);
-    if (legacyDark == true) return ThemeMode.dark;
-    return ThemeMode.system;
-  }
-
-  void set(ThemeMode mode) {
-    state = mode;
-    final raw = switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
-    };
-    _prefs.setString(kThemeMode, raw);
-  }
-}
 
 // ─── 과제 조회 기간 (7 / 14 / 30일) ─────────────────────────────────────────
 

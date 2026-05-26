@@ -9,6 +9,7 @@ import '../data/map_repository.dart';
 import '../../../features/restaurant/data/venue_repository.dart';
 import '../../../features/restaurant/domain/venue.dart';
 import '../../../features/restaurant/presentation/venue_detail_screen.dart';
+import '../../../shared/providers/settings_provider.dart';
 import 'route_search_screen.dart';
 import 'widgets/route_panel.dart' show RouteOverlayPanel, resolveCurrentPosition;
 
@@ -16,6 +17,86 @@ import 'widgets/route_panel.dart' show RouteOverlayPanel, resolveCurrentPosition
 const _snuCenter = NLatLng(37.4607, 126.9526);
 
 enum _SheetMode { none, placeDetail, routePanel, venueDetail }
+
+/// 드래그 가능한 바텀시트 (NaverMap Stack 내에서 동작).
+/// minHeight ↔ maxHeight 사이를 수직 드래그로 조절.
+class _DraggableMapSheet extends StatefulWidget {
+  final double minHeight;
+  final double maxHeight;
+  final Widget Function(ScrollController) builder;
+  const _DraggableMapSheet({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.builder,
+  });
+
+  @override
+  State<_DraggableMapSheet> createState() => _DraggableMapSheetState();
+}
+
+class _DraggableMapSheetState extends State<_DraggableMapSheet> {
+  late double _height;
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _height = widget.minHeight;
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 0, left: 0, right: 0,
+      child: GestureDetector(
+        onVerticalDragUpdate: (d) {
+          setState(() {
+            _height = (_height - d.delta.dy)
+                .clamp(widget.minHeight, widget.maxHeight);
+          });
+        },
+        onVerticalDragEnd: (_) {
+          // 절반 이상 올리면 최대, 절반 이하면 최소로 스냅
+          final mid = (widget.minHeight + widget.maxHeight) / 2;
+          setState(() {
+            _height = _height > mid ? widget.maxHeight : widget.minHeight;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: _height,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(color: Color(0x1F000000), blurRadius: 20, offset: Offset(0, -3)),
+            ],
+          ),
+          child: Column(
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(child: widget.builder(_scrollCtrl)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 // ── 색상/치수 상수 ─────────────────────────────────────────────────
 class _MC {
@@ -170,23 +251,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _onVenueFilterTapped(VenueCategory cat, List<Venue> venues) {
-    final newFilter = _venueFilter == cat ? null : cat;
-    // 다른 시트 닫기
-    if (_sheetMode == _SheetMode.placeDetail ||
-        _sheetMode == _SheetMode.routePanel) return;
-    if (_sheetMode == _SheetMode.venueDetail) {
-      setState(() {
-        _sheetMode = _SheetMode.none;
-        _selectedVenue = null;
-      });
+    // 경로 패널이나 장소 상세가 열려 있으면 먼저 닫기
+    if (_sheetMode == _SheetMode.routePanel ||
+        _sheetMode == _SheetMode.placeDetail) {
+      if (_sheetMode == _SheetMode.routePanel) _closeRoutePanel();
+      if (_sheetMode == _SheetMode.placeDetail) _closePlaceDetail();
+      return; // 닫고 나서 다음 탭에서 필터 적용
     }
+    if (_sheetMode == _SheetMode.venueDetail) {
+      setState(() { _sheetMode = _SheetMode.none; _selectedVenue = null; });
+    }
+    final newFilter = _venueFilter == cat ? null : cat;
     setState(() => _venueFilter = newFilter);
     if (newFilter != null) {
-      // 필터 선택 시 카메라를 SNU 캠퍼스 중심으로 이동
-      _mapCtrl?.updateCamera(NCameraUpdate.withParams(
-        target: _snuCenter,
-        zoom: 15,
-      ));
+      _mapCtrl?.updateCamera(NCameraUpdate.withParams(target: _snuCenter, zoom: 15));
     }
     _applyVenueMarkers(venues);
   }
@@ -456,22 +534,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
               ),
             ),
 
-          // 4. POI 상세 시트
+          // 4. POI 상세 시트 (드래그 가능)
           if (_sheetMode == _SheetMode.placeDetail && _selectedPlace != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _buildPlaceDetailSheet(_selectedPlace!),
+            _DraggableMapSheet(
+              minHeight: 230,
+              maxHeight: 360,
+              builder: (scroll) => _buildPlaceDetailContent(_selectedPlace!, scroll),
             ),
 
-          // 5. Venue 상세 시트
+          // 5. Venue 상세 시트 (드래그 가능)
           if (_sheetMode == _SheetMode.venueDetail && _selectedVenue != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _buildVenueDetailSheet(_selectedVenue!),
+            _DraggableMapSheet(
+              minHeight: 260,
+              maxHeight: 420,
+              builder: (scroll) => _buildVenueDetailContent(_selectedVenue!, scroll),
             ),
 
           // 6. 경로 패널
@@ -594,46 +670,53 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
-  // ── POI 상세 시트 (기존 장소 검색) ────────────────────────────────
+  // ── POI 상세 콘텐츠 (DraggableMapSheet 내부) ─────────────────────
 
-  Widget _buildPlaceDetailSheet(PlaceResult place) {
+  Widget _buildPlaceDetailContent(PlaceResult place, ScrollController scroll) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    return _DetailSheet(
-      onClose: _closePlaceDetail,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(place.name,
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: _MC.textMain)),
-          const SizedBox(height: 6),
-          if (place.category.isNotEmpty)
-            _Chip(label: place.category),
-          if (place.address.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _AddressRow(address: place.address),
+    return ListView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      children: [
+        // 제목 + 닫기
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(place.name,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w700, color: _MC.textMain)),
+            ),
+            GestureDetector(
+              onTap: _closePlaceDetail,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.close, size: 20, color: _MC.textSub),
+              ),
+            ),
           ],
-          const SizedBox(height: 16),
-          _RouteButtons(
-            onOrigin: _openAsOrigin,
-            onDest: _openAsDest,
-          ),
-          SizedBox(height: 16 + bottomInset),
+        ),
+        const SizedBox(height: 6),
+        if (place.category.isNotEmpty) _Chip(label: place.category),
+        if (place.address.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _AddressRow(address: place.address),
         ],
-      ),
+        const SizedBox(height: 16),
+        _RouteButtons(onOrigin: _openAsOrigin, onDest: _openAsDest),
+        SizedBox(height: 16 + bottomInset),
+      ],
     );
   }
 
-  // ── Venue 상세 시트 (식당/카페/편의점) ────────────────────────────
+  // ── Venue 상세 콘텐츠 (DraggableMapSheet 내부) ───────────────────
 
-  Widget _buildVenueDetailSheet(Venue venue) {
+  Widget _buildVenueDetailContent(Venue venue, ScrollController scroll) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final now = DateTime.now();
     final isOpen = venue.isOpenAt(now);
     final hoursText = venue.todayHoursText(now);
+    final isFav = ref.watch(favVenuesProvider).contains(venue.id);
 
     String catLabel;
     Color catColor;
@@ -646,197 +729,133 @@ class _MapScreenState extends ConsumerState<MapScreen>
         catLabel = '편의점'; catColor = Colors.green[700]!;
     }
 
-    return _DetailSheet(
-      onClose: _closeVenueDetail,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 이름 + 영업중 배지
-          Row(
-            children: [
-              Expanded(
-                child: Text(venue.name,
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: _MC.textMain)),
+    return ListView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      children: [
+        // 이름 + 영업중 배지 + 닫기
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(venue.name,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w700, color: _MC.textMain)),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isOpen
+                    ? Colors.green.withValues(alpha: 0.12)
+                    : Colors.grey.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isOpen
-                      ? Colors.green.withValues(alpha: 0.12)
-                      : Colors.grey.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isOpen ? '영업중' : '준비중',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isOpen ? Colors.green[700] : Colors.grey[600],
-                  ),
+              child: Text(
+                isOpen ? '영업중' : '준비중',
+                style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: isOpen ? Colors.green[700] : Colors.grey[600],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // 카테고리 + 지역 + 가격
-          Wrap(
-            spacing: 6,
-            children: [
-              _Chip(label: catLabel, color: catColor),
-              _Chip(label: venue.area),
-              if (venue.priceLevel != null)
-                _Chip(
-                  label: '₩' * venue.priceLevel!,
-                  color: Colors.green[700]!,
+            ),
+            const SizedBox(width: 6),
+            // 즐겨찾기 버튼
+            GestureDetector(
+              onTap: () => ref.read(favVenuesProvider.notifier).toggle(venue.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  isFav ? Icons.favorite : Icons.favorite_border,
+                  color: isFav ? Colors.red : _MC.textSub,
+                  size: 22,
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 주소
-          if (venue.address.isNotEmpty)
-            _AddressRow(address: venue.address),
-          // 영업시간
-          if (hoursText != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.access_time_outlined,
-                    size: 14, color: _MC.textHint),
-                const SizedBox(width: 4),
-                Text(hoursText,
-                    style: const TextStyle(
-                        fontSize: 13, color: _MC.textSub)),
-              ],
+              ),
+            ),
+            GestureDetector(
+              onTap: _closeVenueDetail,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.close, size: 20, color: _MC.textSub),
+              ),
             ),
           ],
-          // 전화번호
-          if (venue.phone != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.phone_outlined,
-                    size: 14, color: _MC.textHint),
-                const SizedBox(width: 4),
-                Text(venue.phone!,
-                    style: const TextStyle(
-                        fontSize: 13, color: _MC.textSub)),
-              ],
-            ),
+        ),
+        const SizedBox(height: 8),
+        // 카테고리 + 지역 + 가격
+        Wrap(
+          spacing: 6,
+          children: [
+            _Chip(label: catLabel, color: catColor),
+            _Chip(label: venue.area),
+            if (venue.priceLevel != null)
+              _Chip(label: '₩' * venue.priceLevel!, color: Colors.green[700]!),
           ],
-          const SizedBox(height: 16),
-          // 버튼 행
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _openAsOrigin,
-                    icon: const Icon(Icons.my_location, size: 16),
-                    label: const Text('출발'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _MC.primary,
-                      side: const BorderSide(color: _MC.primary),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: FilledButton.icon(
-                    onPressed: _openAsDest,
-                    icon: const Icon(Icons.location_on, size: 16),
-                    label: const Text('길찾기'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _MC.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => VenueDetailScreen(venue: venue),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _MC.textMain,
-                      side: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    child: const Text('상세보기'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16 + bottomInset),
+        ),
+        const SizedBox(height: 8),
+        if (venue.address.isNotEmpty) _AddressRow(address: venue.address),
+        if (hoursText != null) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.access_time_outlined, size: 14, color: _MC.textHint),
+            const SizedBox(width: 4),
+            Text(hoursText, style: const TextStyle(fontSize: 13, color: _MC.textSub)),
+          ]),
         ],
-      ),
-    );
-  }
-}
-
-// ── 공통 시트 래퍼 ────────────────────────────────────────────────
-class _DetailSheet extends StatelessWidget {
-  final Widget child;
-  final VoidCallback onClose;
-  const _DetailSheet({required this.child, required this.onClose});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1F000000),
-            blurRadius: 20,
-            offset: Offset(0, -3),
-          ),
+        if (venue.phone != null) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.phone_outlined, size: 14, color: _MC.textHint),
+            const SizedBox(width: 4),
+            Text(venue.phone!, style: const TextStyle(fontSize: 13, color: _MC.textSub)),
+          ]),
         ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 드래그 핸들 + 닫기
-          Row(
-            children: [
-              const Spacer(),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+        const SizedBox(height: 16),
+        // 버튼 행
+        Row(children: [
+          Expanded(
+            child: SizedBox(
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: _openAsOrigin,
+                icon: const Icon(Icons.my_location, size: 16),
+                label: const Text('출발'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _MC.primary, side: const BorderSide(color: _MC.primary),
                 ),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onClose,
-                child: const Icon(Icons.close, size: 20, color: Color(0xFF767676)),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: 44,
+              child: FilledButton.icon(
+                onPressed: _openAsDest,
+                icon: const Icon(Icons.location_on, size: 16),
+                label: const Text('길찾기'),
+                style: FilledButton.styleFrom(backgroundColor: _MC.primary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: 44,
+              child: OutlinedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue)),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _MC.textMain, side: BorderSide(color: Colors.grey[300]!),
+                ),
+                child: const Text('상세보기'),
+              ),
+            ),
+          ),
+        ]),
+        SizedBox(height: 16 + bottomInset),
+      ],
     );
   }
 }
