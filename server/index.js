@@ -640,6 +640,8 @@ app.get("/api/debug/bus-raw", async (req, res) => {
   const endpoints = [
     `http://ws.bus.go.kr/api/rest/stationinfo/getArrInfoByStId?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&resultType=json`,
     `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}&ord=${ord || 1}&resultType=json`,
+    `https://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}&ord=${ord || 1}&resultType=json`,
+    `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?serviceKey=${encodeURIComponent(key)}&arsId=02-104&resultType=json`,
   ];
   const results = [];
   for (const url of endpoints) {
