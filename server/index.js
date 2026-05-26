@@ -639,12 +639,17 @@ app.get("/api/debug/bus-raw", async (req, res) => {
   const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
     + `?serviceKey=${encodeURIComponent(key)}`
     + `&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}${ordParam}&resultType=json`;
+  // 키 앞 8자리만 노출 (디버그용)
+  const keyPreview = key.slice(0, 8) + '...' + key.slice(-4);
+  console.log(`[debug/bus-raw] url=${url.replace(encodeURIComponent(key), '[KEY]')}`);
   try {
     const raw = await fetchText(url);
-    const data = JSON.parse(raw);
-    res.json({ raw: data });
+    // XML이면 그대로, JSON이면 파싱
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+    res.json({ keyPreview, url: url.replace(encodeURIComponent(key), '[KEY]'), raw: parsed });
   } catch (e) {
-    res.json({ error: e.message });
+    res.json({ keyPreview, url: url.replace(encodeURIComponent(key), '[KEY]'), error: e.message.slice(0, 500) });
   }
 });
 
