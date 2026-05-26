@@ -578,17 +578,18 @@ async function fetchBusArrival(stId, busRouteId, ord) {
 }
 
 async function fetchSubwayArrival(routeName, startStation, subwayCode) {
-  const key = process.env.SEOUL_SUBWAY_API_KEY;
-  if (!key) return null;
+  // swopenAPI.seoul.go.kr는 'sample' 키로도 실제 실시간 데이터 제공
+  const key = process.env.SEOUL_SUBWAY_API_KEY || 'sample';
 
   // 역명 정리: 괄호 제거, "역" 접미사 제거
-  const cleanStation = startStation
+  const cleanStation = (startStation || '')
     .replace(/\(.*?\)/g, '')
     .replace(/역$/, '')
     .trim();
+  if (!cleanStation) return null;
 
   const url = `http://swopenAPI.seoul.go.kr/api/subway`
-    + `/${encodeURIComponent(key)}/json/realtimeStationArrival/0/5`
+    + `/${encodeURIComponent(key)}/json/realtimeStationArrival/0/10`
     + `/${encodeURIComponent(cleanStation)}`;
   const data = JSON.parse(await fetchText(url));
 
