@@ -269,6 +269,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       if (!mounted || reqId != _arrivalReqId) return;
       if (msg != null) {
         setState(() { _arrivalMsg = msg; _arrivalLoading = false; });
+        // 도착 정보가 있어도 30초 후 갱신 (실시간 유지)
+        _scheduleArrivalRefresh(routes, seconds: 30);
         return;
       }
     }
@@ -276,13 +278,13 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     if (!mounted || reqId != _arrivalReqId) return;
     setState(() { _arrivalMsg = null; _arrivalLoading = false; });
 
-    // 도착 정보가 없어도 60초 후 재시도 (null → 갱신 가능)
-    _scheduleArrivalRefresh(routes);
+    // 도착 정보가 없으면 60초 후 재시도
+    _scheduleArrivalRefresh(routes, seconds: 60);
   }
 
-  void _scheduleArrivalRefresh(List<RouteResult> routes) {
+  void _scheduleArrivalRefresh(List<RouteResult> routes, {int seconds = 60}) {
     _arrivalTimer?.cancel();
-    _arrivalTimer = Timer(const Duration(seconds: 60), () {
+    _arrivalTimer = Timer(Duration(seconds: seconds), () {
       if (mounted) _fetchArrival(routes);
     });
   }
