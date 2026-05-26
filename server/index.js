@@ -563,18 +563,35 @@ app.post("/api/route/tmap/car", async (req, res) => {
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId, ord) {
   const key = process.env.SEOUL_BUS_API_KEY;
-  if (!key || !stId || !busRouteId) return null;
+  if (!key || !stId || !busRouteId) {
+    console.log(`[bus] 파라미터 누락 key=${!!key} stId=${stId} busRouteId=${busRouteId}`);
+    return null;
+  }
 
   // getArrInfoByRouteList: 한 정류소의 특정노선 도착예정정보 조회
-  // ord: 정류소 순번 (필수 파라미터)
   const ordParam = ord != null ? `&ord=${ord}` : '';
   const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
     + `?serviceKey=${encodeURIComponent(key)}`
     + `&stId=${stId}&busRouteId=${busRouteId}${ordParam}&resultType=json`;
-  const data = JSON.parse(await fetchText(url));
-  const items = data.msgBody?.itemList ?? [];
-  if (!items.length) return null;
-  return items[0]?.arrmsg1 ?? null;
+  try {
+    const raw = await fetchText(url);
+    const data = JSON.parse(raw);
+    const comMsgHeader = data.comMsgHeader ?? {};
+    const errMsg = comMsgHeader.returnCode ?? comMsgHeader.errMsg ?? '';
+    console.log(`[bus] stId=${stId} routeId=${busRouteId} returnCode=${errMsg} items=${(data.msgBody?.itemList ?? []).length}`);
+    if (errMsg && errMsg !== '0') {
+      console.log(`[bus] API 오류: ${JSON.stringify(comMsgHeader)}`);
+      return null;
+    }
+    const items = data.msgBody?.itemList ?? [];
+    if (!items.length) return null;
+    const msg = items[0]?.arrmsg1 ?? null;
+    console.log(`[bus] arrmsg1=${msg}`);
+    return msg;
+  } catch (e) {
+    console.log(`[bus] fetch 오류: ${e.message}`);
+    return null;
+  }
 }
 
 async function fetchSubwayArrival(routeName, startStation, subwayCode) {
