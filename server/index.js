@@ -614,11 +614,38 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
 
 
 app.post("/api/transit/arrival", async (req, res) => {
-  const { legType, routeName, startStation, subwayCode, stId, busRouteId, ord } = req.body;
+  const { legType, routeName, startStation, subwayCode, stId, busRouteId, ord,
+          shuttleRouteId, shuttleStationCode } = req.body;
   if (!legType) return res.status(400).json({ error: "파라미터 필요" });
   try {
     let arrmsg = null;
-    if (legType === "subway") {
+    if (legType === "shuttle" && shuttleRouteId && shuttleStationCode) {
+      // SNU 셔틀버스 실시간 도착 정보
+      const cacheKey = `${shuttleRouteId}_${shuttleStationCode}`;
+      const cached = shuttleArrivalCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < SHUTTLE_CACHE_TTL_MS) {
+        arrmsg = cached.data.first ?? null;
+      } else {
+        const url = `http://shuttlebus.snu.ac.kr/mobile/station/stationBusDetail.action`
+          + `?bus_route_id=${encodeURIComponent(shuttleRouteId)}`
+          + `&bus_station_code=${encodeURIComponent(shuttleStationCode)}`
+          + `&type=SHUTTLE`;
+        try {
+          const html = await fetchText(url);
+          const cheerio = require('cheerio');
+          const $ = cheerio.load(html);
+          const arrivals = [];
+          $('ul.busSch li .pos').each((_, el) => {
+            const raw = $(el).find('.time strong').text().trim();
+            arrivals.push(raw || '운행정보없음');
+          });
+          const data = { first: arrivals[0] ?? '운행정보없음', second: arrivals[1] ?? null };
+          shuttleArrivalCache.set(cacheKey, { data, ts: Date.now() });
+          // "운행정보없음"은 null로 처리 (UI에 안 보이게)
+          arrmsg = (data.first && data.first !== '운행정보없음') ? data.first : null;
+        } catch (_) { arrmsg = null; }
+      }
+    } else if (legType === "subway") {
       arrmsg = await fetchSubwayArrival(routeName, startStation, subwayCode);
     } else if (legType === "bus") {
       arrmsg = await fetchBusArrival(stId, busRouteId, ord);
@@ -1805,7 +1832,9 @@ function computeShuttleRoutes(olat, olng, dlat, dlng) {
         legs.push({ type: 'shuttle', name: route.name, color: '#1A73E8',
           duration: shuttleSec, distance: 0,
           startStation: board.st.name, endStation: alight.st.name,
-          stations: passNames });
+          stations: passNames,
+          shuttleRouteId: String(route.id),
+          shuttleStationCode: String(board.st.code) });
         if (alight.dWalk > 30)
           legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
             duration: walkAlightSec, distance: Math.round(alight.dWalk),
