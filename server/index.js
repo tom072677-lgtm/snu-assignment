@@ -710,7 +710,7 @@ function buildOdsayRoute(pathObj) {
     const type = sub.trafficType === 1 ? 'subway'
                : sub.trafficType === 2 ? 'bus'
                : 'walk';
-    const name = sub.lane?.[0]?.name || sub.lane?.[0]?.subwayCode?.toString() || '';
+    const name = sub.lane?.[0]?.name || sub.lane?.[0]?.busNo || sub.lane?.[0]?.subwayCode?.toString() || '';
     const color = sub.lane?.[0]?.subwayColor || sub.lane?.[0]?.busColor || '#4CAF50';
     const subwayCode = type === 'subway' ? (sub.lane?.[0]?.subwayCode ?? null) : null;
     const stId = type === 'bus' ? (sub.startLocalStationID ? String(sub.startLocalStationID) : null) : null;
