@@ -635,22 +635,24 @@ app.get("/api/debug/bus-raw", async (req, res) => {
   const { stId, busRouteId, ord } = req.query;
   const key = process.env.SEOUL_BUS_API_KEY;
   if (!key) return res.json({ error: "SEOUL_BUS_API_KEY 미설정" });
-  const ordParam = ord != null ? `&ord=${ord}` : '';
-  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList`
-    + `?serviceKey=${encodeURIComponent(key)}`
-    + `&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}${ordParam}&resultType=json`;
-  // 키 앞 8자리만 노출 (디버그용)
   const keyPreview = key.slice(0, 8) + '...' + key.slice(-4);
-  console.log(`[debug/bus-raw] url=${url.replace(encodeURIComponent(key), '[KEY]')}`);
-  try {
-    const raw = await fetchText(url);
-    // XML이면 그대로, JSON이면 파싱
-    let parsed;
-    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-    res.json({ keyPreview, url: url.replace(encodeURIComponent(key), '[KEY]'), raw: parsed });
-  } catch (e) {
-    res.json({ keyPreview, url: url.replace(encodeURIComponent(key), '[KEY]'), error: e.message.slice(0, 500) });
+  // 여러 엔드포인트 순차 테스트
+  const endpoints = [
+    `http://ws.bus.go.kr/api/rest/stationinfo/getArrInfoByStId?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&resultType=json`,
+    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}&ord=${ord || 1}&resultType=json`,
+  ];
+  const results = [];
+  for (const url of endpoints) {
+    const label = url.split('?')[0].split('/').pop();
+    try {
+      const raw = await fetchText(url);
+      let parsed; try { parsed = JSON.parse(raw); } catch { parsed = raw.slice(0, 500); }
+      results.push({ endpoint: label, status: 'ok', data: parsed });
+    } catch (e) {
+      results.push({ endpoint: label, status: 'error', error: e.message.slice(0, 300) });
+    }
   }
+  res.json({ keyPreview, results });
 });
 
 app.post("/api/transit/arrival", async (req, res) => {
