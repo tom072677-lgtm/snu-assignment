@@ -637,11 +637,11 @@ app.get("/api/debug/bus-raw", async (req, res) => {
   if (!key) return res.json({ error: "SEOUL_BUS_API_KEY 미설정" });
   const keyPreview = key.slice(0, 8) + '...' + key.slice(-4);
   // 여러 엔드포인트 순차 테스트
+  // 버스도착정보조회 서비스 엔드포인트만 테스트
   const endpoints = [
-    `http://ws.bus.go.kr/api/rest/stationinfo/getArrInfoByStId?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&resultType=json`,
-    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}&ord=${ord || 1}&resultType=json`,
-    `https://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&busRouteId=${busRouteId || '100100250'}&ord=${ord || 1}&resultType=json`,
-    `http://ws.bus.go.kr/api/rest/stationinfo/getStationByUid?serviceKey=${encodeURIComponent(key)}&arsId=02-104&resultType=json`,
+    `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?serviceKey=${encodeURIComponent(key)}&busRouteId=${busRouteId || '100100250'}&resultType=json`,
+    `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByStIdList?serviceKey=${encodeURIComponent(key)}&stId=${stId || '120000195'}&resultType=json`,
+    `http://ws.bus.go.kr/api/rest/arrive/getLowArrInfoByRouteList?serviceKey=${encodeURIComponent(key)}&busRouteId=${busRouteId || '100100250'}&resultType=json`,
   ];
   const results = [];
   for (const url of endpoints) {
