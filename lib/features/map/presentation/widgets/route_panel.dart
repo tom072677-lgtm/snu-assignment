@@ -6,6 +6,22 @@ import '../../../../core/analytics.dart';
 import '../../data/map_repository.dart';
 import '../route_search_screen.dart';
 
+// ── 색상/치수 상수 ────────────────────────────────────────────────
+class _C {
+  _C._();
+  static const primary     = Color(0xFF1A73E8);
+  static const primaryBg   = Color(0xFFF0F6FF);
+  static const textMain    = Color(0xFF191919);
+  static const textSub     = Color(0xFF767676);
+  static const textHint    = Color(0xFFAAAAAA);
+  static const border      = Color(0xFFE8E8E8);
+  static const panelBg     = Color(0xFFF5F5F5);
+  static const walkColor   = Color(0xFFDDDDDD);
+  static const shadow      = Color(0x1F000000);
+  static const cardRadius  = 14.0;
+  static const panelRadius = 20.0;
+}
+
 /// 위치 권한 체크 + 현재위치 취득 헬퍼.
 /// 1) 권한 확인/요청 → 거부 시 null 반환
 /// 2) 서비스 꺼짐 시 null 반환
@@ -20,7 +36,7 @@ Future<Position?> resolveCurrentPosition() async {
       perm = await Geolocator.requestPermission();
     }
     if (perm == LocationPermission.denied ||
-        perm == LocationPermission.deniedForever) return null;
+        perm == LocationPermission.deniedForever) { return null; }
 
     final last = await Geolocator.getLastKnownPosition();
     if (last != null) {
@@ -49,17 +65,16 @@ const _modeOrder = [
 
 class _ModeState {
   final bool loading;
-  final List<RouteResult> routes; // 비어 있으면 미로드 상태
+  final List<RouteResult> routes;
   final String? error;
   const _ModeState({this.loading = false, this.routes = const [], this.error});
 }
 
 class RouteOverlayPanel extends ConsumerStatefulWidget {
   final PlaceResult dest;
-  final PlaceResult? origin; // null = 현재위치
-  final Position? initialPosition; // map_screen에서 이미 취득한 현재위치
+  final PlaceResult? origin;
+  final Position? initialPosition;
   final VoidCallback onClose;
-  // result == null → 지도 오버레이 클리어 신호
   final void Function(RouteResult? result, RouteMode mode) onRouteLoaded;
   final void Function(PlaceResult?) onOriginChanged;
 
@@ -83,19 +98,16 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   int _selectedTransitIndex = 0;
   late Map<RouteMode, _ModeState> _states;
   late final DateTime _requestedAt;
-  // widget.origin은 부모가 rebuild한 뒤에야 반영되므로, 변경 즉시 추적
   PlaceResult? _currentOrigin;
 
-  // 버스 실시간 도착 정보
   String? _arrivalMsg;
   bool _arrivalLoading = false;
   int _arrivalReqId = 0;
 
-  // 드래그/스냅 상태
   late final AnimationController _anim;
   double _panelHeight = 0;
-  double _dragOffset = 0; // 현재 드래그 중인 추가 오프셋
-  static const double _peekHeight = 90.0; // 최소 표시 높이 (탭 바 높이)
+  double _dragOffset = 0;
+  static const double _peekHeight = 94.0; // 탭 바 높이 (아이콘 제거로 약간 줄어듦)
 
   @override
   void initState() {
@@ -124,7 +136,6 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       olat = _currentOrigin!.lat;
       olng = _currentOrigin!.lng;
     } else {
-      // map_screen에서 전달받은 위치 우선 사용, 없으면 직접 취득
       final pos = widget.initialPosition ?? await resolveCurrentPosition();
       if (!mounted) return;
       if (pos == null) {
@@ -171,12 +182,8 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
         _notifyMap(mode, routes);
         if (mode == RouteMode.transit) _fetchArrival(routes);
       }
-      // transit 결과가 처음 들어올 때 경로 검색 이벤트 로그 (1회만)
       if (mode == RouteMode.transit) {
-        Analytics.routeSearched(
-          destName: widget.dest.name,
-          mode: 'transit',
-        );
+        Analytics.routeSearched(destName: widget.dest.name, mode: 'transit');
       }
     } catch (e) {
       if (!mounted) return;
@@ -207,7 +214,10 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   void _selectTransitRoute(int index) {
     final routes = _states[RouteMode.transit]!.routes;
     if (index < 0 || index >= routes.length) return;
-    setState(() { _selectedTransitIndex = index; _arrivalMsg = null; });
+    setState(() {
+      _selectedTransitIndex = index;
+      _arrivalMsg = null;
+    });
     widget.onRouteLoaded(routes[index], RouteMode.transit);
     _fetchArrival(routes);
   }
@@ -216,17 +226,24 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     if (routes.isEmpty) return;
     final route = routes[_selectedTransitIndex.clamp(0, routes.length - 1)];
 
-    // 경로 순서대로 첫 번째 버스 또는 지하철 leg 선택
-    RouteLeg? transitLeg;
-    for (final leg in route.legs) {
-      if (leg.type == 'bus' || leg.type == 'subway') { transitLeg = leg; break; }
-    }
-    // 버스: stId+busRouteId 필요 / 지하철: startStation 필요 / 셔틀: 실시간 조회 없음
-    final bool canFetch = transitLeg != null && (
-      (transitLeg.type == 'bus' && transitLeg.stId != null && transitLeg.busRouteId != null) ||
-      (transitLeg.type == 'subway' && transitLeg.startStation != null && transitLeg.name.isNotEmpty)
-    );
-    if (!canFetch) {
+    // 셔틀 구간 우선 (캠퍼스 출발 경로에 항상 존재, SNU 셔틀 API 이용 가능)
+    // → 그 다음 지하철 구간 (sample 키로 실시간 데이터 제공됨)
+    // → 마지막으로 버스 구간 (SEOUL_BUS_API_KEY 필요)
+    final shuttleLegs = route.legs.where((l) =>
+        l.type == 'shuttle' &&
+        l.shuttleRouteId != null &&
+        l.shuttleStationCode != null).toList();
+    final subwayLegs = route.legs.where((l) =>
+        l.type == 'subway' &&
+        l.startStation != null &&
+        l.name.isNotEmpty).toList();
+    final busLegs = route.legs.where((l) =>
+        l.type == 'bus' &&
+        l.stId != null &&
+        l.busRouteId != null).toList();
+    final candidates = [...shuttleLegs, ...subwayLegs, ...busLegs];
+
+    if (candidates.isEmpty) {
       setState(() { _arrivalMsg = null; _arrivalLoading = false; });
       return;
     }
@@ -234,41 +251,43 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     final reqId = ++_arrivalReqId;
     setState(() { _arrivalLoading = true; _arrivalMsg = null; });
 
-    final msg = await ref.read(mapRepositoryProvider).getTransitArrival(
-      legType: transitLeg.type,
-      routeName: transitLeg.name,
-      startStation: transitLeg.startStation,
-      subwayCode: transitLeg.subwayCode,
-      stId: transitLeg.stId,
-      busRouteId: transitLeg.busRouteId,
-      ord: transitLeg.ord,
-    );
+    for (final leg in candidates) {
+      final msg = await ref.read(mapRepositoryProvider).getTransitArrival(
+        legType: leg.type,
+        routeName: leg.name,
+        startStation: leg.startStation,
+        subwayCode: leg.subwayCode,
+        stId: leg.stId,
+        busRouteId: leg.busRouteId,
+        ord: leg.ord,
+        shuttleRouteId: leg.shuttleRouteId,
+        shuttleStationCode: leg.shuttleStationCode,
+      );
+      if (!mounted || reqId != _arrivalReqId) return;
+      if (msg != null) {
+        setState(() { _arrivalMsg = msg; _arrivalLoading = false; });
+        return;
+      }
+    }
 
     if (!mounted || reqId != _arrivalReqId) return;
-    setState(() { _arrivalMsg = msg; _arrivalLoading = false; });
+    setState(() { _arrivalMsg = null; _arrivalLoading = false; });
   }
 
   // ── Helpers ─────────────────────────────────────────────────
 
   String _modeLabel(RouteMode mode) => switch (mode) {
-        RouteMode.walk => '도보',
-        RouteMode.bike => '자전거',
+        RouteMode.walk    => '도보',
+        RouteMode.bike    => '자전거',
         RouteMode.transit => '대중교통',
-        RouteMode.car => '자동차',
-      };
-
-  IconData _modeIcon(RouteMode mode) => switch (mode) {
-        RouteMode.walk => Icons.directions_walk,
-        RouteMode.bike => Icons.directions_bike,
-        RouteMode.transit => Icons.directions_transit,
-        RouteMode.car => Icons.directions_car,
+        RouteMode.car     => '자동차',
       };
 
   Color _modeColor(RouteMode mode) => switch (mode) {
         RouteMode.transit => const Color(0xFF1565C0),
-        RouteMode.car => const Color(0xFFE53935),
-        RouteMode.bike => const Color(0xFF2E7D32),
-        RouteMode.walk => const Color(0xFF0288D1),
+        RouteMode.car     => const Color(0xFFE53935),
+        RouteMode.bike    => const Color(0xFF2E7D32),
+        RouteMode.walk    => const Color(0xFF0288D1),
       };
 
   String _formatDuration(double seconds) {
@@ -295,10 +314,18 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   int _transferCount(List<RouteLeg> legs) =>
       (legs.where((l) => l.type != 'walk').length - 1).clamp(0, 99);
 
+  /// 비선택 카드에 한 줄로 표시할 주요 노선명 (버스번호, 지하철호선, 셔틀)
+  String _mainRouteNames(List<RouteLeg> legs) {
+    final names = legs
+        .where((l) => l.type != 'walk' && l.name.isNotEmpty)
+        .map((l) => l.name)
+        .toList();
+    return names.join(' · ');
+  }
+
   Color _parseLegColor(String hexColor) {
     try {
-      final hex =
-          hexColor.startsWith('#') ? hexColor.substring(1) : hexColor;
+      final hex = hexColor.startsWith('#') ? hexColor.substring(1) : hexColor;
       if (hex.length != 6) return Colors.blue;
       return Color(int.parse('FF$hex', radix: 16));
     } catch (_) {
@@ -310,37 +337,60 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final topPadding = mediaQuery.padding.top;
+    final bottomInset = mediaQuery.padding.bottom;
 
-    _panelHeight = screenHeight * 0.5 + bottomInset;
+    // 전체화면 패널 — 상태바 높이만큼 spacer로 안전하게 처리
+    _panelHeight = screenHeight;
     final collapsedOffset = _panelHeight - _peekHeight;
 
     final panel = Container(
       height: _panelHeight,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        color: _C.panelBg,
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(_C.panelRadius)),
         boxShadow: [
-          BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, -2)),
+          BoxShadow(color: _C.shadow, blurRadius: 20, offset: Offset(0, -3)),
         ],
       ),
       child: Column(
         children: [
+          // 상태바 높이만큼 여백 (전체화면에서 status bar와 겹치지 않도록)
+          SizedBox(height: topPadding),
+          // 드래그 핸들
           Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 4),
+            margin: const EdgeInsets.only(top: 6, bottom: 4),
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Colors.grey[400],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          _buildModeTabs(),
-          const Divider(height: 1),
-          _buildHeader(),
-          const Divider(height: 1),
-          Expanded(child: _buildContent()),
+          // 탭 바 (흰 배경)
+          Container(
+            color: Colors.white,
+            child: _buildModeTabs(),
+          ),
+          // 헤더 + 콘텐츠
+          Expanded(
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                // 출발-도착 헤더
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: _buildHeader(),
+                ),
+                const SizedBox(height: 8),
+                // 경로 콘텐츠
+                Expanded(child: _buildContent()),
+              ],
+            ),
+          ),
           SizedBox(height: bottomInset),
         ],
       ),
@@ -352,26 +402,24 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       },
       onVerticalDragEnd: (d) {
         final velocity = d.primaryVelocity ?? 0;
-        final currentOffset =
-            _anim.value * collapsedOffset + _dragOffset;
+        final currentOffset = _anim.value * collapsedOffset + _dragOffset;
 
         if (velocity > 300 || currentOffset > collapsedOffset * 0.5) {
-          // 접기
           _anim.value = (currentOffset / collapsedOffset).clamp(0.0, 1.0);
           _anim.animateTo(1.0, curve: Curves.easeOut);
-          setState(() { _dragOffset = 0; });
+          setState(() => _dragOffset = 0);
         } else {
-          // 펼치기
           _anim.value = (currentOffset / collapsedOffset).clamp(0.0, 1.0);
           _anim.animateTo(0.0, curve: Curves.easeOut);
-          setState(() { _dragOffset = 0; });
+          setState(() => _dragOffset = 0);
         }
       },
       child: AnimatedBuilder(
         animation: _anim,
         builder: (context, child) {
-          final offset = (_anim.value * collapsedOffset + _dragOffset)
-              .clamp(0.0, collapsedOffset + 40);
+          final offset =
+              (_anim.value * collapsedOffset + _dragOffset)
+                  .clamp(0.0, collapsedOffset + 40);
           return Transform.translate(
             offset: Offset(0, offset),
             child: child,
@@ -382,13 +430,15 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     );
   }
 
+  // ── 모드 탭 바 ────────────────────────────────────────────────
+
   Widget _buildModeTabs() {
     return Row(
       children: _modeOrder.map((mode) {
         final isSelected = mode == _mode;
         final state = _states[mode]!;
         final activeColor = _modeColor(mode);
-        final color = isSelected ? activeColor : Colors.grey[600]!;
+        final color = isSelected ? activeColor : _C.textSub;
 
         final String timeText;
         if (state.loading) {
@@ -400,35 +450,35 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
         }
 
         return Expanded(
-          child: GestureDetector(
+          child: InkWell(
             onTap: () => _selectMode(mode),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
                     color: isSelected ? activeColor : Colors.transparent,
-                    width: 2,
+                    width: 3,
                   ),
                 ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_modeIcon(mode), color: color, size: 20),
-                  const SizedBox(height: 2),
-                  Text(_modeLabel(mode),
-                      style: TextStyle(fontSize: 10, color: color)),
-                  const SizedBox(height: 2),
+                  // 소요시간 (가장 눈에 띄는 요소)
                   Text(
                     timeText,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
                       color: color,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
                     ),
+                  ),
+                  const SizedBox(height: 2),
+                  // 모드 레이블
+                  Text(
+                    _modeLabel(mode),
+                    style: TextStyle(fontSize: 11, color: color),
                   ),
                 ],
               ),
@@ -439,52 +489,97 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     );
   }
 
+  // ── 출발-도착 헤더 ────────────────────────────────────────────
+
   Widget _buildHeader() {
-    final originLabel = widget.origin?.name ?? '현재 위치';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+    final originLabel = _currentOrigin?.name ?? '현재 위치';
+    final hasCustomOrigin = _currentOrigin != null;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: _C.shadow, blurRadius: 8, offset: Offset(0, 1)),
+        ],
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // 수직 트랙 (파란 원 → 선 → 빨간 핀)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _C.primary,
+                ),
+              ),
+              Container(
+                width: 2,
+                height: 18,
+                color: Colors.grey[300],
+              ),
+              const Icon(Icons.location_on, size: 14, color: Colors.red),
+            ],
+          ),
+          const SizedBox(width: 10),
+          // 출발/도착 텍스트
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 출발 행
                 GestureDetector(
                   onTap: _changeOrigin,
-                  child: Row(children: [
-                    Icon(Icons.my_location, size: 14,
-                        color: widget.origin != null ? Colors.green : Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        originLabel,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: widget.origin != null ? Colors.black87 : Colors.grey,
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          originLabel,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: hasCustomOrigin
+                                ? _C.textMain
+                                : _C.textSub,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const Icon(Icons.edit, size: 12, color: Colors.grey),
-                  ]),
-                ),
-                const SizedBox(height: 8),
-                Row(children: [
-                  const Icon(Icons.location_on, size: 14, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.dest.name,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.edit, size: 12, color: _C.textHint),
+                    ],
                   ),
-                ]),
+                ),
+                const SizedBox(height: 14),
+                // 도착 행
+                Text(
+                  widget.dest.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _C.textMain,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.close), onPressed: widget.onClose),
+          // 닫기
+          IconButton(
+            icon: const Icon(Icons.close, color: _C.textSub, size: 20),
+            tooltip: '닫기',
+            onPressed: widget.onClose,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
         ],
       ),
     );
@@ -496,20 +591,24 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       MaterialPageRoute(builder: (_) => const RouteSearchScreen()),
     );
     if (!mounted) return;
-    widget.onOriginChanged(result); // null이면 현재위치로 리셋
-    // _currentOrigin을 즉시 갱신해야 _fetchAll이 새 좌표를 읽음
-    // (widget.origin은 부모 rebuild 후에야 반영됨)
+    widget.onOriginChanged(result);
     setState(() {
       _currentOrigin = result;
-      _states = {for (final m in RouteMode.values) m: const _ModeState(loading: true)};
+      _states = {
+        for (final m in RouteMode.values) m: const _ModeState(loading: true)
+      };
       _arrivalMsg = null;
     });
     _fetchAll();
   }
 
+  // ── 콘텐츠 ───────────────────────────────────────────────────
+
   Widget _buildContent() {
     final state = _states[_mode]!;
-    if (state.loading) return const Center(child: CircularProgressIndicator());
+    if (state.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (state.error != null) {
       return Center(
         child: Padding(
@@ -519,9 +618,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 32),
               const SizedBox(height: 8),
-              Text(state.error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                  textAlign: TextAlign.center),
+              Text(
+                state.error!,
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -535,11 +636,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
     return _buildSingleResult(state.routes.first);
   }
 
-  // ── 대중교통: 카드 목록 ─────────────────────────────────────
+  // ── 대중교통 카드 목록 ────────────────────────────────────────
 
   Widget _buildTransitRoutes(List<RouteResult> routes) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
       itemCount: routes.length,
       itemBuilder: (_, i) => _buildTransitCard(routes[i], i),
     );
@@ -548,142 +649,231 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   Widget _buildTransitCard(RouteResult result, int index) {
     final isSelected = index == _selectedTransitIndex;
     final transfers = _transferCount(result.legs);
-    final cardColor = _modeColor(RouteMode.transit);
 
     return GestureDetector(
       onTap: () => _selectTransitRoute(index),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? cardColor.withValues(alpha: 0.04)
-              : Colors.white,
-          border: Border.all(
-            color: isSelected ? cardColor : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? _C.primaryBg : Colors.white,
+          borderRadius: BorderRadius.circular(_C.cardRadius),
+          border: isSelected
+              ? null
+              : Border.all(color: _C.border),
+          boxShadow: isSelected
+              ? [
+                  const BoxShadow(
+                      color: _C.shadow, blurRadius: 6, offset: Offset(0, 2))
+                ]
+              : null,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 상단: 뱃지 + 도착시각 / 소요시간 / 거리 / 요금
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_C.cardRadius),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (result.isFastest) ...[
-                  _BadgeChip(label: '⚡ 빠름', color: const Color(0xFF1565C0)),
-                  const SizedBox(width: 6),
-                ],
-                if (result.isFree) ...[
-                  _BadgeChip(label: '🆓 무료', color: const Color(0xFF2E7D32)),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  '도착 ${_arrivalTime(result.durationSeconds)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                // 선택된 카드: 왼쪽 파란 세로 바
+                if (isSelected)
+                  Container(width: 4, color: _C.primary),
+                // 카드 본문
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: _buildTransitCardBody(
+                        result, isSelected, transfers),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 2),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  _formatDuration(result.durationSeconds),
-                  style: TextStyle(
-                    fontSize: isSelected ? 22 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? cardColor : Colors.black87,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDistance(result.distanceMeters),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                const Spacer(),
-                if (result.fare > 0)
-                  Text(
-                    _formatFare(result.fare),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-              ],
-            ),
-            // 환승 횟수
-            if (result.legs.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                transfers == 0 ? '직행' : '환승 $transfers회',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-              ),
-              const SizedBox(height: 8),
-              // 구간 바
-              _buildMiniBar(result.legs, height: isSelected ? 10 : 7),
-              // 선택된 카드만 상세 정보 표시
-              if (isSelected) ...[
-                const SizedBox(height: 8),
-                _buildStationNames(result.legs),
-                const SizedBox(height: 8),
-                _buildLegChipRow(result.legs),
-                const SizedBox(height: 8),
-                _buildIntermediateStations(result.legs),
-                if (_arrivalLoading) ...[
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    SizedBox(
-                      width: 12, height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: cardColor,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('버스 도착 정보 조회 중...',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                  ]),
-                ] else if (_arrivalMsg != null) ...[
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Icon(Icons.directions_bus, size: 13, color: cardColor),
-                    const SizedBox(width: 4),
-                    Text(_arrivalMsg!,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: cardColor,
-                            fontWeight: FontWeight.w600)),
-                  ]),
-                ],
-              ],
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMiniBar(List<RouteLeg> legs, {double height = 8}) {
+  Widget _buildTransitCardBody(
+      RouteResult result, bool isSelected, int transfers) {
+    final timeColor = isSelected ? _C.primary : _C.textMain;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 뱃지 + 도착시각
+        Row(
+          children: [
+            if (result.isFastest) ...[
+              const _BadgeChip(label: '⚡ 빠름', color: _C.primary),
+              const SizedBox(width: 6),
+            ],
+            if (result.isFree) ...[
+              const _BadgeChip(
+                  label: '🆓 무료', color: Color(0xFF2E7D32)),
+              const SizedBox(width: 6),
+            ],
+            const Spacer(),
+            Text(
+              '도착 ${_arrivalTime(result.durationSeconds)}',
+              style: const TextStyle(fontSize: 12, color: _C.textSub),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // 소요시간
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              _formatDuration(result.durationSeconds),
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: timeColor,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _formatDistance(result.distanceMeters),
+              style: const TextStyle(fontSize: 13, color: _C.textSub),
+            ),
+            const Spacer(),
+            if (result.fare > 0)
+              Text(
+                _formatFare(result.fare),
+                style: const TextStyle(fontSize: 13, color: _C.textSub),
+              ),
+          ],
+        ),
+        // 환승 횟수 + 노선명 요약 (비선택 카드도 표시)
+        if (result.legs.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text(
+                transfers == 0 ? '직행' : '환승 $transfers회',
+                style: const TextStyle(fontSize: 12, color: _C.textHint),
+              ),
+              // 비선택 카드: 주요 노선 번호 요약
+              if (!isSelected) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _mainRouteNames(result.legs),
+                    style: const TextStyle(fontSize: 12, color: _C.textSub),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 구간 바 (아이콘 + 소요시간 표시)
+          _buildMiniBar(result.legs),
+          // 선택 카드 상세
+          if (isSelected) ...[
+            const SizedBox(height: 10),
+            _buildLegChipRow(result.legs),
+            const SizedBox(height: 8),
+            _buildIntermediateStations(result.legs),
+            // 실시간 도착 정보
+            if (_arrivalLoading) ...[
+              const SizedBox(height: 8),
+              const Row(children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 1.5, color: _C.primary),
+                ),
+                SizedBox(width: 6),
+                Text('도착 정보 조회 중...',
+                    style: TextStyle(fontSize: 11, color: _C.textSub)),
+              ]),
+            ] else if (_arrivalMsg != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _C.border),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.access_time,
+                      size: 14, color: _C.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    _arrivalMsg!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _C.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+          ],
+        ],
+      ],
+    );
+  }
+
+  // ── 라벨드 구간 바 (아이콘 + 소요시간 표시) ──────────────────
+
+  Widget _buildMiniBar(List<RouteLeg> legs) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(6),
       child: SizedBox(
-        height: height,
+        height: 28,
         child: Row(
           children: legs.map((leg) {
             final flex = max(1, leg.durationSeconds);
-            final color = leg.type == 'walk'
-                ? Colors.grey[300]!
-                : _parseLegColor(leg.color);
-            return Expanded(flex: flex, child: Container(color: color));
+            final isWalk = leg.type == 'walk';
+            final bgColor = isWalk ? _C.walkColor : _parseLegColor(leg.color);
+            final textColor = isWalk ? _C.textSub : Colors.white;
+            final icon = isWalk
+                ? Icons.directions_walk
+                : leg.type == 'subway'
+                    ? Icons.directions_subway
+                    : Icons.directions_bus;
+            final dur = _formatDuration(leg.durationSeconds.toDouble());
+
+            return Expanded(
+              flex: flex,
+              child: Container(
+                color: bgColor,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 11, color: textColor),
+                      const SizedBox(width: 2),
+                      Text(
+                        dur,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
           }).toList(),
         ),
       ),
     );
   }
 
-  // ── 도보/자전거/자동차: 단일 결과 ───────────────────────────
+  // ── 도보/자전거/자동차 단일 결과 ─────────────────────────────
 
   IconData _turnIcon(int turnType) {
     switch (turnType) {
@@ -692,106 +882,90 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       case 14: return Icons.u_turn_left;
       case 16: return Icons.turn_slight_left;
       case 17: return Icons.turn_slight_right;
-      case 11: case 0: default: return Icons.straight;
+      case 11:
+      case 0:
+      default: return Icons.straight;
     }
   }
 
   Widget _buildSingleResult(RouteResult result) {
     final color = _modeColor(_mode);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '도착 ${_arrivalTime(result.durationSeconds)}',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                _formatDuration(result.durationSeconds),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _formatDistance(result.distanceMeters),
-                style: TextStyle(fontSize: 16, color: Colors.grey[500]),
-              ),
-            ],
-          ),
-          if (result.steps.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            ...result.steps.map((step) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(_turnIcon(step.turnType), size: 18, color: color),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      step.description,
-                      style: const TextStyle(fontSize: 13),
-                    ),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_C.cardRadius),
+          border: Border.all(color: _C.border),
+          boxShadow: const [
+            BoxShadow(color: _C.shadow, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '도착 ${_arrivalTime(result.durationSeconds)}',
+              style:
+                  const TextStyle(fontSize: 13, color: _C.textSub),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  _formatDuration(result.durationSeconds),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
-                  if (step.distanceMeters > 0)
-                    Text(
-                      _formatDistance(step.distanceMeters.toDouble()),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _formatDistance(result.distanceMeters),
+                  style: const TextStyle(fontSize: 16, color: _C.textSub),
+                ),
+              ],
+            ),
+            if (result.steps.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: _C.border),
+              const SizedBox(height: 8),
+              ...result.steps.map((step) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(_turnIcon(step.turnType),
+                            size: 18, color: color),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            step.description,
+                            style: const TextStyle(
+                                fontSize: 13, color: _C.textMain),
+                          ),
+                        ),
+                        if (step.distanceMeters > 0)
+                          Text(
+                            _formatDistance(step.distanceMeters.toDouble()),
+                            style: const TextStyle(
+                                fontSize: 12, color: _C.textHint),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-            )),
+                  )),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
-  // ── 공통 위젯 ────────────────────────────────────────────────
-
-  Widget _buildStationNames(List<RouteLeg> legs) {
-    final stations = <String>[];
-    bool firstTransit = true;
-    for (final leg in legs) {
-      if (leg.type == 'walk') continue;
-      if (firstTransit && leg.startStation != null) {
-        stations.add(leg.startStation!);
-        firstTransit = false;
-      } else {
-        firstTransit = false;
-      }
-      if (leg.endStation != null) stations.add(leg.endStation!);
-    }
-    if (stations.isEmpty) return const SizedBox.shrink();
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (int i = 0; i < stations.length; i++) ...[
-            if (i > 0)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
-              ),
-            Text(stations[i],
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          ],
-        ],
-      ),
-    );
-  }
+  // ── leg chip 행 ──────────────────────────────────────────────
 
   Widget _buildLegChipRow(List<RouteLeg> legs) {
     return SingleChildScrollView(
@@ -802,15 +976,72 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
             _buildLegChip(legs[i]),
             if (i < legs.length - 1)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child:
-                    Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+                padding: EdgeInsets.symmetric(horizontal: 3),
+                child: Icon(Icons.chevron_right, size: 14, color: _C.textHint),
               ),
           ],
         ],
       ),
     );
   }
+
+  Widget _buildLegChip(RouteLeg leg) {
+    if (leg.type == 'walk') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F0F0),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.directions_walk,
+                size: 13, color: _C.textSub),
+            const SizedBox(width: 3),
+            Text(
+              _formatDuration(leg.durationSeconds.toDouble()),
+              style: const TextStyle(fontSize: 12, color: _C.textSub),
+            ),
+          ],
+        ),
+      );
+    }
+    final color = _parseLegColor(leg.color);
+    final icon = leg.type == 'subway'
+        ? Icons.directions_subway
+        : Icons.directions_bus;
+    final label = leg.type == 'shuttle'
+        ? '셔틀'
+        : (leg.name.isEmpty
+            ? _formatDuration(leg.durationSeconds.toDouble())
+            : leg.name);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 중간 정류장 ───────────────────────────────────────────────
 
   Widget _buildIntermediateStations(List<RouteLeg> legs) {
     final transitLegs =
@@ -823,7 +1054,6 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       final color = _parseLegColor(leg.color);
       final count = leg.stations.length;
 
-      // 구간 헤더 (호선명 + 정거장 수)
       items.add(Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(children: [
@@ -843,12 +1073,11 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
           const SizedBox(width: 4),
           Text(
             '$count 정거장',
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            style: const TextStyle(fontSize: 11, color: _C.textHint),
           ),
         ]),
       ));
 
-      // 정거장 세로 목록
       for (int i = 0; i < count; i++) {
         final isFirst = i == 0;
         final isLast = i == count - 1;
@@ -867,20 +1096,20 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                     if (!isFirst)
                       Expanded(
                         child: Container(
-                            width: 2, color: color.withValues(alpha: 0.25)),
+                            width: 2,
+                            color: color.withValues(alpha: 0.25)),
                       ),
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: dotColor,
-                      ),
+                      decoration:
+                          BoxDecoration(shape: BoxShape.circle, color: dotColor),
                     ),
                     if (!isLast)
                       Expanded(
                         child: Container(
-                            width: 2, color: color.withValues(alpha: 0.25)),
+                            width: 2,
+                            color: color.withValues(alpha: 0.25)),
                       ),
                   ],
                 ),
@@ -892,8 +1121,9 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                   leg.stations[i],
                   style: TextStyle(
                     fontSize: 12,
-                    color:
-                        (isFirst || isLast) ? Colors.black87 : Colors.grey[600],
+                    color: (isFirst || isLast)
+                        ? _C.textMain
+                        : _C.textSub,
                     fontWeight: (isFirst || isLast)
                         ? FontWeight.w600
                         : FontWeight.normal,
@@ -918,49 +1148,9 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       ),
     );
   }
-
-  Widget _buildLegChip(RouteLeg leg) {
-
-    if (leg.type == 'walk') {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.directions_walk, size: 14, color: Colors.grey[500]),
-          const SizedBox(width: 2),
-          Text(_formatDuration(leg.durationSeconds.toDouble()),
-              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-        ],
-      );
-    }
-    final color = _parseLegColor(leg.color);
-    final icon = leg.type == 'subway'
-        ? Icons.directions_subway
-        : Icons.directions_bus;
-    final label = leg.type == 'shuttle'
-        ? '셔틀'
-        : (leg.name.isEmpty ? _formatDuration(leg.durationSeconds.toDouble()) : leg.name);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  color: color,
-                  fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
 }
+
+// ── 뱃지 칩 ─────────────────────────────────────────────────────
 
 class _BadgeChip extends StatelessWidget {
   const _BadgeChip({required this.label, required this.color});
@@ -970,7 +1160,7 @@ class _BadgeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
@@ -978,7 +1168,8 @@ class _BadgeChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(
+            fontSize: 11, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }

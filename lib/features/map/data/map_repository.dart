@@ -29,17 +29,19 @@ class PlaceResult {
 }
 
 class RouteLeg {
-  final String type; // 'walk' | 'bus' | 'subway'
+  final String type; // 'walk' | 'bus' | 'subway' | 'shuttle'
   final String name;
   final String color;
   final int durationSeconds;
   final int distanceMeters;
   final String? startStation;
   final String? endStation;
-  final int? subwayCode;   // ODSAY 지하철 코드 (subway만 해당)
-  final String? stId;      // 버스 정류장 내부 ID (bus만 해당, ODSAY startStationID)
-  final String? busRouteId; // 버스 노선 ID (bus만 해당, ODSAY lane[0].busRouteId)
-  final int? ord;           // 버스 정류소 순번 (bus만 해당, getArrInfoByRouteList 필수 파라미터)
+  final int? subwayCode;       // ODSAY 지하철 코드 (subway만 해당)
+  final String? stId;          // 버스 정류장 내부 ID (bus만 해당, ODSAY startStationID)
+  final String? busRouteId;    // 버스 노선 ID (bus만 해당, ODSAY lane[0].busRouteId)
+  final int? ord;              // 버스 정류소 순번 (bus만 해당)
+  final String? shuttleRouteId;    // SNU 셔틀 노선 ID (shuttle만 해당)
+  final String? shuttleStationCode; // SNU 셔틀 정류장 코드 (shuttle만 해당)
   final List<String> stations; // 경유 정류장/역 이름 목록
 
   const RouteLeg({
@@ -54,6 +56,8 @@ class RouteLeg {
     this.stId,
     this.busRouteId,
     this.ord,
+    this.shuttleRouteId,
+    this.shuttleStationCode,
     this.stations = const [],
   });
 
@@ -69,6 +73,8 @@ class RouteLeg {
         stId: j['stId'] as String?,
         busRouteId: j['busRouteId'] as String?,
         ord: j['ord'] as int?,
+        shuttleRouteId: j['shuttleRouteId'] as String?,
+        shuttleStationCode: j['shuttleStationCode'] as String?,
         stations: (j['stations'] as List? ?? [])
             .map((e) => e as String)
             .toList(),
@@ -180,7 +186,7 @@ class MapRepository {
     );
   }
 
-  /// 버스/지하철 실시간 도착 메시지 반환. 키 미설정/실패 시 null.
+  /// 버스/지하철/셔틀 실시간 도착 메시지 반환. 키 미설정/실패 시 null.
   Future<String?> getTransitArrival({
     required String legType,
     required String routeName,
@@ -189,6 +195,8 @@ class MapRepository {
     String? stId,
     String? busRouteId,
     int? ord,
+    String? shuttleRouteId,
+    String? shuttleStationCode,
   }) async {
     try {
       final response = await DioClient.instance.post(
@@ -201,6 +209,8 @@ class MapRepository {
           if (stId != null) 'stId': stId,
           if (busRouteId != null) 'busRouteId': busRouteId,
           if (ord != null) 'ord': ord,
+          if (shuttleRouteId != null) 'shuttleRouteId': shuttleRouteId,
+          if (shuttleStationCode != null) 'shuttleStationCode': shuttleStationCode,
         },
       );
       return response.data['arrmsg'] as String?;
