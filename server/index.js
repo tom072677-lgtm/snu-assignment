@@ -1277,16 +1277,6 @@ setInterval(() => {
   fetchSnucoMenu().catch(err => console.error('[snuco] 주기적 갱신 실패:', err.message));
 }, 60 * 60 * 1000);
 
-// 서버 공인 IP 확인용 (ODSAY 등록 후 삭제 가능)
-app.get('/api/myip', async (req, res) => {
-  try {
-    const text = await fetchText('https://api.ipify.org');
-    res.json({ ip: text.trim() });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ── 시간표 ────────────────────────────────────────────────────────────────────
 
 async function fetchCanvasCourses(token) {
@@ -1916,8 +1906,8 @@ app.get('/api/route/shuttle', async (req, res) => {
         ];
 
         combinedRoutes.push({
-          duration: shuttle.duration + TRANSFER_SEC + odsay.durationSeconds,
-          distance: shuttle.distance + odsay.distanceMeters,
+          duration: shuttle.duration + TRANSFER_SEC + odsay.duration,
+          distance: shuttle.distance + odsay.distance,
           fare: odsay.fare,
           path: combinedPath,
           legs: combinedLegs,
