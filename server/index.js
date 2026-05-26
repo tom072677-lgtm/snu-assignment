@@ -589,7 +589,7 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
   if (!cleanStation) return null;
 
   const url = `http://swopenAPI.seoul.go.kr/api/subway`
-    + `/${encodeURIComponent(key)}/json/realtimeStationArrival/0/10`
+    + `/${encodeURIComponent(key)}/json/realtimeStationArrival/0/5`
     + `/${encodeURIComponent(cleanStation)}`;
   const data = JSON.parse(await fetchText(url));
 
