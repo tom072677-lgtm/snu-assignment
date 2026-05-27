@@ -626,7 +626,10 @@ async function fetchSubwayArrival(routeName, startStation, subwayCode) {
   const match = list.find(a => targetId && a.subwayId === targetId)
     ?? list.find(a => a.trainLineNm?.includes(routeName));
 
-  return match?.arvlMsg2 ?? null;
+  if (!match) return null;
+  const sec = parseInt(match.barvlDt || '0', 10);
+  const min = Math.round(sec / 60);
+  return min === 0 ? '곧 도착' : `${min}분 후 도착`;
 }
 
 
