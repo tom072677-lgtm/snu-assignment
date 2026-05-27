@@ -56,6 +56,36 @@ class _BombCountdownBannerState extends ConsumerState<BombCountdownBanner>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _update();
+    // 앱이 백그라운드로 전환되는 순간 → 알림 재발송으로 heads-up 팝업 트리거
+    // (Android는 포그라운드 앱의 알림에 heads-up을 표시하지 않으므로)
+    if (state == AppLifecycleState.paused) _triggerHeadsUpOnBackground();
+  }
+
+  /// 앱이 백그라운드로 전환될 때: 기존 알림 취소 후 재발송 → Android가 신규 알림으로
+  /// 인식해 상단에 heads-up 팝업 표시.
+  /// 600ms 딜레이: 홈 전환 애니메이션 완료 후 DISABLE_HEADS_UP이 해제되면 발송
+  Future<void> _triggerHeadsUpOnBackground() async {
+    final assignments = widget.urgentAssignments;
+    if (assignments.isEmpty) return;
+
+    // 전환 애니메이션이 끝나고 DISABLE_HEADS_UP 플래그가 해제될 때까지 대기
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+
+    final notifService = ref.read(notificationServiceProvider);
+    for (final a in assignments) {
+      if (a.remaining.inSeconds <= 0) continue;
+      // 취소 후 재발송 → Android/Samsung이 신규 알림으로 인식 → heads-up 팝업
+      await NotificationService.cancelOngoingNotification(a.etlId);
+      if (!mounted) return;
+      await notifService.showOngoingNotification(
+        etlId: a.etlId,
+        title: a.title,
+        courseName: a.courseName,
+        remaining: a.remaining,
+        headsUp: true,
+      );
+    }
   }
 
   void _update() {

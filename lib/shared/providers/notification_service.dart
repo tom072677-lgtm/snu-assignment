@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -296,13 +298,15 @@ class NotificationService {
     return '[${'█' * filled}${'░' * empty}]';
   }
 
-  /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가, heads-up 팝업)
+  /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가)
+  /// [headsUp] true: 폭탄 채널로 팝업 알림(non-ongoing) + ongoing 알림 동시 발송
+  ///           false: ongoing 알림만 조용히 갱신
   Future<void> showOngoingNotification({
     required String etlId,
     required String title,
     required String courseName,
     required Duration remaining,
-    bool headsUp = false, // true 시 폭탄 채널로 heads-up 팝업
+    bool headsUp = false,
   }) async {
     final h = remaining.inHours;
     final m = remaining.inMinutes % 60;
@@ -311,33 +315,72 @@ class NotificationService {
     final bar = _progressBar(remaining);
     final body = '$bar  $timeStr\n$title';
 
-    // headsUp: 새로 감지된 과제 → 폭탄 채널(max importance)로 팝업
-    // 이후 1분 갱신: ongoing 채널(high importance)로 조용히 업데이트
-    final channelId   = headsUp ? _bombChannelId   : _ongoingChannel.id;
-    final channelName = headsUp ? _bombChannelName : _ongoingChannel.name;
-    final importance  = headsUp ? Importance.max   : Importance.low;
-    final priority    = headsUp ? Priority.max     : Priority.low;
-
+    // ① ongoing 알림 — 알림 바에 항상 고정 (스와이프 불가)
     await _localNotif.show(
       _stableId('deadline:$etlId'),
       notifTitle,
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          channelId,
-          channelName,
-          importance: importance,
-          priority: priority,
+          _ongoingChannel.id,
+          _ongoingChannel.name,
+          channelDescription: _ongoingChannel.description,
+          importance: Importance.low,   // 채널은 high이지만 업데이트 시 소리 없음
+          priority: Priority.low,
           ongoing: true,
           autoCancel: false,
           onlyAlertOnce: true,
-          styleInformation: BigTextStyleInformation(
-            body,
-            contentTitle: notifTitle,
-          ),
+          styleInformation: BigTextStyleInformation(body, contentTitle: notifTitle),
         ),
       ),
     );
+
+    if (!headsUp) return;
+
+    // ② heads-up 팝업 전용 알림 — non-ongoing, 별도 ID
+    // fullScreenIntent: Samsung Edge Lighting 우회 → 화면 위에 팝업 카드 표시
+    // Android 14+에서는 USE_FULL_SCREEN_INTENT 권한이 필요 (앱 설정에서 허가)
+    final bombId = _stableId('bomb:$etlId');
+    await _localNotif.show(
+      bombId,
+      notifTitle,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _bombChannelId,
+          _bombChannelName,
+          importance: Importance.max,
+          priority: Priority.max,
+          ongoing: false,
+          autoCancel: true,
+          onlyAlertOnce: false,
+          fullScreenIntent: true,   // Samsung Edge Lighting 우회
+          styleInformation: BigTextStyleInformation(body, contentTitle: notifTitle),
+        ),
+      ),
+    );
+
+    // [Codex P2 수정] 30초 후 자동 취소 — 팝업 역할만 하고 알림 바에서 제거
+    // ongoing 알림(deadline:)이 계속 남아 있으므로 중복 표시 방지
+    Future.delayed(const Duration(seconds: 30), () {
+      _localNotif.cancel(bombId);
+    });
+  }
+
+  /// heads-up 팝업 전용 알림만 취소 (bomb: prefix)
+  static Future<void> cancelBombNotification(String etlId) async {
+    await _localNotif.cancel(_stableId('bomb:$etlId'));
+  }
+
+  /// Samsung 기기에서 폭탄 알림 채널 설정 페이지 열기
+  /// → 사용자가 Edge Lighting 대신 "팝업으로 표시" 선택 가능
+  static Future<void> openBombChannelSettings() async {
+    const ch = MethodChannel('com.tom07.sharap/settings');
+    try {
+      await ch.invokeMethod('openChannelSettings', {'channelId': _bombChannelId});
+    } catch (e) {
+      debugPrint('[Notif] 채널 설정 열기 실패: $e');
+    }
   }
 
   /// 앱 포그라운드에서 urgent 목록 변경 시 알림 동기화
@@ -362,17 +405,18 @@ class NotificationService {
       }
     }
 
-    // 더 이상 urgent 아닌 과제 → 알림 취소
+    // 더 이상 urgent 아닌 과제 → ongoing + bomb 알림 모두 취소
     for (final oldId in previousEtlIds) {
       if (!currentIds.contains(oldId)) {
-        await cancelOngoingNotification(oldId);
+        await cancelOngoingNotification(oldId); // ongoing + bomb 둘 다 취소
       }
     }
   }
 
-  /// 과제 완료/만료 시 고정 알림 취소 (static — CompletedTasksNotifier에서도 호출)
+  /// 과제 완료/만료 시 고정 알림 + 팝업 알림 모두 취소
   static Future<void> cancelOngoingNotification(String etlId) async {
     await _localNotif.cancel(_stableId('deadline:$etlId'));
+    await _localNotif.cancel(_stableId('bomb:$etlId'));
   }
 
   /// FCM 토큰을 서버에 전송

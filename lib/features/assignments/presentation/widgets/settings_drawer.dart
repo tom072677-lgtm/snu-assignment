@@ -290,6 +290,25 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   const Divider(),
                   const SizedBox(height: 8),
 
+                  // ─── 삼성 알림 팝업 설정 ───────────────────────────────────
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Text('🔔', style: TextStyle(fontSize: 20)),
+                    title: const Text('알림 팝업 설정',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                      '삼성 기기: "팝업으로 표시" 켜면 화면 위에 팝업 알림이 뜹니다',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    trailing: const Icon(Icons.open_in_new, size: 16),
+                    onTap: () => NotificationService.openBombChannelSettings(),
+                  ),
+
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  const SizedBox(height: 8),
+
                   // ─── 버전 (5번 탭하면 개발자 메뉴 등장) ─────────────────
                   GestureDetector(
                     onTap: () {
