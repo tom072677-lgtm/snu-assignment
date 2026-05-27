@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../shared/providers/notification_service.dart';
 
 /// 24시간 이내 마감 과제가 있을 때 상단에 고정 표시되는 폭탄 카운트다운 배너.
 /// 닫기 버튼 없음 — 학생이 과제를 까먹지 않도록 항상 표시.
-class BombCountdownBanner extends StatefulWidget {
-  /// 24시간 이내 마감 과제 목록 (제목, 남은 시간). 비어있으면 배너 숨김.
-  final List<({String title, String courseName, Duration remaining})> urgentAssignments;
+/// 내부 1분 타이머와 동기화해 시스템 알림도 함께 갱신.
+class BombCountdownBanner extends ConsumerStatefulWidget {
+  /// 24시간 이내 마감 과제 목록 (etlId 포함). 비어있으면 배너 숨김.
+  final List<({String etlId, String title, String courseName, Duration remaining})> urgentAssignments;
 
   const BombCountdownBanner({super.key, required this.urgentAssignments});
 
   @override
-  State<BombCountdownBanner> createState() => _BombCountdownBannerState();
+  ConsumerState<BombCountdownBanner> createState() => _BombCountdownBannerState();
 }
 
-class _BombCountdownBannerState extends State<BombCountdownBanner>
+class _BombCountdownBannerState extends ConsumerState<BombCountdownBanner>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   Timer? _timer;
   late AnimationController _pulseCtrl;
@@ -23,6 +26,9 @@ class _BombCountdownBannerState extends State<BombCountdownBanner>
   Duration _mostUrgentRemaining = Duration.zero;
   String _mostUrgentTitle = '';
   String _mostUrgentCourse = '';
+
+  // 이전 urgent 과제 ID 집합 (새로 추가된 과제 감지용)
+  Set<String> _prevEtlIds = {};
 
   @override
   void initState() {
@@ -55,6 +61,15 @@ class _BombCountdownBannerState extends State<BombCountdownBanner>
   void _update() {
     if (!mounted) return;
     final assignments = widget.urgentAssignments;
+
+    // 시스템 알림 동기화 (새 과제 → heads-up 팝업, 만료 과제 → 알림 취소)
+    final notifService = ref.read(notificationServiceProvider);
+    notifService.syncUrgentNotifications(
+      assignments: assignments,
+      previousEtlIds: _prevEtlIds,
+    ).ignore();
+    _prevEtlIds = assignments.map((a) => a.etlId).toSet();
+
     if (assignments.isEmpty) return;
 
     // 남은 시간이 가장 짧은 과제 선택

@@ -119,6 +119,16 @@ class NotificationService {
     importance: Importance.high,
   );
 
+  // 폭탄 긴급 알림 채널 (heads-up 팝업 보장 — Importance.max)
+  static const _bombChannelId   = 'sharap_bomb';
+  static const _bombChannelName = '샤랍 폭탄 알림';
+  static const _bombChannel = AndroidNotificationChannel(
+    _bombChannelId,
+    _bombChannelName,
+    description: '24시간 이내 마감 과제 긴급 팝업 알림',
+    importance: Importance.max,
+  );
+
   /// etlId → 안정적인 정수 알림 ID (앱 재시작 후에도 동일)
   /// Dart의 String.hashCode는 실행마다 달라질 수 있으므로
   /// djb2 해시로 결정적(deterministic) ID를 보장함
@@ -144,6 +154,7 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(_channel);
     await androidPlugin?.createNotificationChannel(_announcementChannel);
     await androidPlugin?.createNotificationChannel(_ongoingChannel);
+    await androidPlugin?.createNotificationChannel(_bombChannel);
 
     // FCM 권한 요청
     final messaging = FirebaseMessaging.instance;
@@ -273,35 +284,90 @@ class NotificationService {
     }
   }
 
-  /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가)
+  /// 텍스트 진행바 생성 (남은 시간 비율 시각화)
+  static String _progressBar(Duration remaining) {
+    const total = 24 * 3600;
+    final secs = remaining.inSeconds.clamp(0, total);
+    // 경과 비율 (0 = 24h 남음, 1 = 마감)
+    final ratio = 1.0 - (secs / total);
+    const bars = 12;
+    final filled = (ratio * bars).round().clamp(0, bars);
+    final empty = bars - filled;
+    return '[${'█' * filled}${'░' * empty}]';
+  }
+
+  /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가, heads-up 팝업)
   Future<void> showOngoingNotification({
     required String etlId,
     required String title,
     required String courseName,
     required Duration remaining,
+    bool headsUp = false, // true 시 폭탄 채널로 heads-up 팝업
   }) async {
     final h = remaining.inHours;
     final m = remaining.inMinutes % 60;
     final timeStr = h > 0 ? '$h시간 $m분 후 마감' : '$m분 후 마감';
-    final notifTitle = courseName.isNotEmpty ? courseName : title;
+    final notifTitle = '💣 ${courseName.isNotEmpty ? courseName : title}';
+    final bar = _progressBar(remaining);
+    final body = '$bar  $timeStr\n$title';
+
+    // headsUp: 새로 감지된 과제 → 폭탄 채널(max importance)로 팝업
+    // 이후 1분 갱신: ongoing 채널(high importance)로 조용히 업데이트
+    final channelId   = headsUp ? _bombChannelId   : _ongoingChannel.id;
+    final channelName = headsUp ? _bombChannelName : _ongoingChannel.name;
+    final importance  = headsUp ? Importance.max   : Importance.low;
+    final priority    = headsUp ? Priority.max     : Priority.low;
 
     await _localNotif.show(
       _stableId('deadline:$etlId'),
       notifTitle,
-      '$title  ·  $timeStr',
+      body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _ongoingChannel.id,
-          _ongoingChannel.name,
-          channelDescription: _ongoingChannel.description,
-          importance: Importance.high,
-          priority: Priority.high,
+          channelId,
+          channelName,
+          importance: importance,
+          priority: priority,
           ongoing: true,
           autoCancel: false,
           onlyAlertOnce: true,
+          styleInformation: BigTextStyleInformation(
+            body,
+            contentTitle: notifTitle,
+          ),
         ),
       ),
     );
+  }
+
+  /// 앱 포그라운드에서 urgent 목록 변경 시 알림 동기화
+  /// [newEtlIds] 현재 urgent 과제 ID 집합 — 없어진 ID는 알림 취소
+  Future<void> syncUrgentNotifications({
+    required List<({String etlId, String title, String courseName, Duration remaining})> assignments,
+    required Set<String> previousEtlIds,
+  }) async {
+    final currentIds = assignments.map((a) => a.etlId).toSet();
+
+    // 새로 추가된 과제 → heads-up 팝업
+    for (final a in assignments) {
+      final isNew = !previousEtlIds.contains(a.etlId);
+      if (a.remaining.inSeconds > 0) {
+        await showOngoingNotification(
+          etlId: a.etlId,
+          title: a.title,
+          courseName: a.courseName,
+          remaining: a.remaining,
+          headsUp: isNew,
+        );
+      }
+    }
+
+    // 더 이상 urgent 아닌 과제 → 알림 취소
+    for (final oldId in previousEtlIds) {
+      if (!currentIds.contains(oldId)) {
+        await cancelOngoingNotification(oldId);
+      }
+    }
   }
 
   /// 과제 완료/만료 시 고정 알림 취소 (static — CompletedTasksNotifier에서도 호출)

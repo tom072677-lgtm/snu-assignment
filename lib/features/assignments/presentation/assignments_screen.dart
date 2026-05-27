@@ -23,6 +23,7 @@ class AssignmentsScreen extends ConsumerWidget {
                 !a.isOverdue &&
                 a.remaining.inHours < 24)
             .map((a) => (
+                  etlId: a.etlId,
                   title: a.title,
                   courseName: a.courseName,
                   remaining: a.remaining,
