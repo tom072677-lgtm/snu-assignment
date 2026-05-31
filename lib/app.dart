@@ -6,6 +6,7 @@ import 'core/theme.dart';
 import 'features/assignments/presentation/assignments_screen.dart';
 import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
+import 'features/notices/presentation/notices_screen.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
 import 'features/timetable/presentation/timetable_screen.dart';
@@ -52,6 +53,7 @@ class _MainShellState extends State<_MainShell> {
     AssignmentsScreen(),
     TimetableScreen(),
     CalendarScreen(),
+    NoticesScreen(),
     RestaurantScreen(),
     MapScreen(),
   ];
@@ -84,6 +86,11 @@ class _MainShellState extends State<_MainShell> {
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: '달력',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.campaign_outlined),
+            selectedIcon: Icon(Icons.campaign),
+            label: '공지',
           ),
           NavigationDestination(
             icon: Icon(Icons.restaurant_outlined),

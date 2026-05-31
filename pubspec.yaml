@@ -19,6 +19,7 @@ dependencies:
 
   # 네트워크
   dio: ^5.4.3
+  html: ^0.15.4
 
   # 로컬 저장소
   shared_preferences: ^2.2.3
