@@ -2,6 +2,8 @@ const express = require("express");
 const ical = require("node-ical");
 const https = require("https");
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const webpush = require("web-push");
 const { MongoClient } = require("mongodb");
 const cheerio = require("cheerio");
@@ -1151,6 +1153,27 @@ app.get("/api/restaurant/list", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// ──────────────────────────────────────────
+// 제휴 식당 목록 (앱 배포 없이 서버에서 업데이트 가능)
+// ──────────────────────────────────────────
+let _partnerRestaurants = null;
+try {
+  const raw = fs.readFileSync(path.join(__dirname, "data", "partner_restaurants.json"), "utf8");
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("partner_restaurants.json must be a JSON array");
+  _partnerRestaurants = parsed;
+  console.log(`[partner] loaded ${_partnerRestaurants.length} restaurants`);
+} catch (e) {
+  console.error("[partner] failed to load partner_restaurants.json:", e.message);
+}
+
+app.get("/api/partner-restaurants", (req, res) => {
+  if (!_partnerRestaurants) {
+    return res.status(500).json({ error: "Partner restaurant data unavailable" });
+  }
+  res.json(_partnerRestaurants);
+});
 
 // ──────────────────────────────────────────
 // 카카오 길찾기 프록시 (CORS 방지)

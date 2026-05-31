@@ -1,0 +1,2921 @@
+[
+  {
+    "id": "agri_maekju_byeolchaek",
+    "name": "맥주는 별책부록",
+    "address": "서울대입구역 3번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "주말 제외 안주 10% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481323,
+    "lng": 126.95194
+  },
+  {
+    "id": "agri_yugaekju",
+    "name": "유객주",
+    "address": "서울대입구역 2번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "소주/맥주 최초 1병 주문 시 1병 무료",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.48074,
+    "lng": 126.952257
+  },
+  {
+    "id": "agri_syaro_fish",
+    "name": "샤로수길 생선구이",
+    "address": "서울대입구역 1번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "주류 10% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481478,
+    "lng": 126.952983
+  },
+  {
+    "id": "agri_osio",
+    "name": "오시오포차",
+    "address": "서울대입구역 2번 출구 도보 5분",
+    "category": "음식점",
+    "benefit": "소주/맥주 최초 1병 주문 시 1병 무료",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481727,
+    "lng": 126.952039
+  },
+  {
+    "id": "agri_ssukgogae",
+    "name": "쑥고개",
+    "address": "서울대입구역 2번 출구 도보 4분",
+    "category": "음식점",
+    "benefit": "소주/맥주 최초 1병 주문 시 1병 무료 or 요거트 아이스크림 무료",
+    "colleges": [
+      "agriculture",
+      "home_economics"
+    ],
+    "departments": [],
+    "lat": 37.480975,
+    "lng": 126.951948
+  },
+  {
+    "id": "agri_elephant_kitchen",
+    "name": "엘리펀트키친",
+    "address": "서울대입구역 2번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "수제맥주 1잔당 1,000원 할인 + 주문 시 테이블당 음료 1개 제공",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.48065,
+    "lng": 126.952709
+  },
+  {
+    "id": "agri_record_pizza",
+    "name": "레코드피자",
+    "address": "서울대입구역 1번 출구 도보 4분",
+    "category": "음식점",
+    "benefit": "포장/매장취식 결제금액 10% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.480342,
+    "lng": 126.952218
+  },
+  {
+    "id": "agri_urijigeummanna",
+    "name": "우리지금만나",
+    "address": "낙성대역 4번 출구 도보 1분",
+    "category": "음식점",
+    "benefit": "3만원 이상 주문 시 5% 할인 + 음료 1개 (대학원생 제외)",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.47644,
+    "lng": 126.963672
+  },
+  {
+    "id": "agri_maekju_changgo",
+    "name": "맥주창고",
+    "address": "서울대입구역 1번 출구 도보 2분",
+    "category": "음식점",
+    "benefit": "3만원 이상 주문 시 팥빙수/샤베트/감자튀김 중 1 제공",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.480653,
+    "lng": 126.952843
+  },
+  {
+    "id": "agri_fishngrill_chireuchireu",
+    "name": "피쉬앤그릴&치르치르",
+    "address": "낙성대역 4번 출구 도보 5분",
+    "category": "음식점",
+    "benefit": "계좌이체 결제 시 10% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.476695,
+    "lng": 126.96281
+  },
+  {
+    "id": "agri_noldam",
+    "name": "한식주점 놀담",
+    "address": "서울대입구역 1번 출구 도보 6분",
+    "category": "음식점",
+    "benefit": "결제 금액 5% 할인 (테이블 절반 이상 농생대 구성원 시)",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481589,
+    "lng": 126.953017
+  },
+  {
+    "id": "agri_jjuanjju",
+    "name": "쭈앤쭈",
+    "address": "서울대입구역 3번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "결제 금액 10% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.480844,
+    "lng": 126.952149
+  },
+  {
+    "id": "agri_chunli_maratang",
+    "name": "춘리마라탕",
+    "address": "서울대입구역 3번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "결제 금액 10% 할인",
+    "colleges": [
+      "agriculture",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481832,
+    "lng": 126.952439
+  },
+  {
+    "id": "agri_nouajet",
+    "name": "누아젯",
+    "address": "낙성대역 도보 9분 / 서울대입구역 도보 11분",
+    "category": "음식점",
+    "benefit": "식사류(샌드위치 제외) 주문 시 테이블당 음료 1잔 제공",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.475548,
+    "lng": 126.962955
+  },
+  {
+    "id": "agri_stamina",
+    "name": "스태미나식당",
+    "address": "서울 관악구 대학동 241-20",
+    "category": "음식점",
+    "benefit": "영수증 리뷰/인스타 스토리(@stamina_bro 태그) 시 개인 PT 이용권 + 무알콜 칵테일 1잔 제공",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.487412,
+    "lng": 126.956184
+  },
+  {
+    "id": "agri_laperiche",
+    "name": "라페리체",
+    "address": "서울대입구역 2번 출구 도보 5분",
+    "category": "음식점",
+    "benefit": "메인 메뉴당 음료 1개 제공 (최대 1인 1병)",
+    "colleges": [
+      "agriculture",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481656,
+    "lng": 126.952866
+  },
+  {
+    "id": "agri_italy_papa",
+    "name": "이태리파파",
+    "address": "서울대입구역 2번 출구 도보 4분",
+    "category": "음식점",
+    "benefit": "포장/방문 식사 결제 금액 15% 할인",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481591,
+    "lng": 126.953068
+  },
+  {
+    "id": "agri_deungchon",
+    "name": "등촌샤브칼국수",
+    "address": "서울대입구역 1번 출구 도보 3분",
+    "category": "음식점",
+    "benefit": "평일 16시 이전 포장/테이블 10% 할인, 그 외 음료수 1개 제공",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.481158,
+    "lng": 126.953457
+  },
+  {
+    "id": "agri_bokdoni",
+    "name": "복돈이 부추삼겹살",
+    "address": "서울대입구역 1번 출구 도보 2분",
+    "category": "음식점",
+    "benefit": "5만원 이상 시 음료2/볶음밥2인분/계란찜/묵사발/현금10% 중 택1, 미만 시 음료 1개",
+    "colleges": [
+      "agriculture",
+      "home_economics",
+      "music",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.480906,
+    "lng": 126.952783
+  },
+  {
+    "id": "agri_jjin_chobap",
+    "name": "찐초밥",
+    "address": "낙성대역 4번 출구 도보 9분",
+    "category": "음식점",
+    "benefit": "주문 인원수만큼 초밥 1pc + 2인당 음료 1병, 5인 이상 시 주류 병당 3000원",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.476727,
+    "lng": 126.96379
+  },
+  {
+    "id": "agri_chengdalbang",
+    "name": "청달방디저트 서울대입구본점",
+    "address": "서울대입구역 3번 출구 도보 3분",
+    "category": "카페",
+    "benefit": "매장 이용 시 전체 금액의 10% 할인 / 스탬프 쿠폰 6개 완성 시 디저트 1개 제공 (탕수이 메뉴 주문 시 스탬프 2개)",
+    "colleges": [
+      "agriculture",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481679,
+    "lng": 126.952824
+  },
+  {
+    "id": "agri_waroom",
+    "name": "와룸 보드게임카페",
+    "address": "서울대입구역 2번 출구 도보 3분",
+    "category": "기타",
+    "benefit": "인원별 할인 2~3인 2천원/4~5인 4천원/6인 이상 6천원 + 와플 1종 무료",
+    "colleges": [
+      "agriculture",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481427,
+    "lng": 126.951973
+  },
+  {
+    "id": "agri_cafe_didim",
+    "name": "카페디딤",
+    "address": "한남운수 대학동 차고지 도보 1분",
+    "category": "카페",
+    "benefit": "유인 운영 시간 결제 금액 10% 할인 (4인 이상: 3인 이상 혜택 대상자 시)",
+    "colleges": [
+      "agriculture"
+    ],
+    "departments": [],
+    "lat": 37.486465,
+    "lng": 126.959763
+  },
+  {
+    "id": "agri_seldok24",
+    "name": "셀독24스터디카페 낙성대점",
+    "address": "낙성대역 인근",
+    "category": "기타",
+    "benefit": "기간권 구매 시 3일(7일권)/6일(14일권)/12일(28일권) 기간 연장 / 정액권 구매 시 구매한 시간의 10% 연장 / 좋은 성과 인증 시 선물 제공",
+    "colleges": [
+      "agriculture",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.475528,
+    "lng": 126.963172
+  },
+  {
+    "id": "home_modernboy",
+    "name": "모던보이작업실",
+    "address": "서울 관악구 관악로14길 70",
+    "category": "음식점",
+    "benefit": "테이블당 연유콘치즈 1개 서비스 제공",
+    "colleges": [
+      "home_economics"
+    ],
+    "departments": [],
+    "lat": 37.480662,
+    "lng": 126.950945
+  },
+  {
+    "id": "home_daily_oasis",
+    "name": "데일리오아시스 샤로수길점",
+    "address": "서울 관악구 관악로14길 74-3 1층",
+    "category": "카페",
+    "benefit": "더치베이비&수플레 팬케이크 20% 할인(~8/30), 테이블당 12,000원 이상 10% 할인(~11/30)",
+    "colleges": [
+      "home_economics"
+    ],
+    "departments": [],
+    "lat": 37.481517,
+    "lng": 126.951084
+  },
+  {
+    "id": "home_dangnabal",
+    "name": "당나발포차 샤로수길점",
+    "address": "서울 관악구 남부순환로230길 31",
+    "category": "음식점",
+    "benefit": "3~5만원 시 음료1, 5~10만원 시 사이드메뉴1, 10만원 이상 시 메인메뉴1 제공",
+    "colleges": [
+      "home_economics"
+    ],
+    "departments": [],
+    "lat": 37.479892,
+    "lng": 126.949435
+  },
+  {
+    "id": "home_parksc_hair",
+    "name": "박승철헤어스투디오 (샤로수길점/서울대입구역점)",
+    "address": "관악로 168 대우디오슈페리움2단지 3층 307호 / 남부순환로 1820 에그옐로우 6층",
+    "category": "기타",
+    "benefit": "네이버페이 예약 후 결제 시 시술 및 케어 25% 할인 (커트/부분시술 제외)",
+    "colleges": [
+      "home_economics",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.480727,
+    "lng": 126.953399
+  },
+  {
+    "id": "music_hansabal",
+    "name": "한사발포차 서울대입구점",
+    "address": "서울 관악구 봉천동 1610-5 1층",
+    "category": "음식점",
+    "benefit": "리뷰 이벤트 작성 시 결제 금액의 10% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480637,
+    "lng": 126.940175
+  },
+  {
+    "id": "music_syaro_fish1",
+    "name": "샤로수길생선구이 1호점",
+    "address": "서울 관악구 봉천동 1601-21",
+    "category": "음식점",
+    "benefit": "현금 또는 계좌이체 결제 시 주류 금액의 10% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.479874,
+    "lng": 126.940367
+  },
+  {
+    "id": "music_wooseok",
+    "name": "우석구석",
+    "address": "서울 관악구 봉천동 1619-5 1층",
+    "category": "음식점",
+    "benefit": "영수증 리뷰 참여 시 결제 금액의 10% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.479861,
+    "lng": 126.939807
+  },
+  {
+    "id": "music_yugaekju",
+    "name": "유객주 서울대입구점",
+    "address": "서울 관악구 봉천동 854-2",
+    "category": "음식점",
+    "benefit": "소주 또는 맥주 최초 1병 주문 시 1병 무료 (1+1)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.481183,
+    "lng": 126.940224
+  },
+  {
+    "id": "music_il_coffee",
+    "name": "일커피",
+    "address": "서울 관악구 봉천동 1568-1 102~105호",
+    "category": "카페",
+    "benefit": "결제 금액의 10% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480491,
+    "lng": 126.940295
+  },
+  {
+    "id": "music_redbutton",
+    "name": "레드버튼 (보드게임카페)",
+    "address": "서울 관악구 봉천동 863-13 지하1층",
+    "category": "기타",
+    "benefit": "평일 18시 이전 퇴실 50% 할인, 18시 이후 30% 할인 (식음료 미포함, 본인만)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480949,
+    "lng": 126.940442
+  },
+  {
+    "id": "music_jungsooksung",
+    "name": "정숙성",
+    "address": "서울 관악구 봉천동 1603-3 1층",
+    "category": "음식점",
+    "benefit": "고기 메뉴 식사 시 총 금액의 10% 할인 (점심 단품 제외)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.479966,
+    "lng": 126.939251
+  },
+  {
+    "id": "music_bokdoni",
+    "name": "복돈이부추삼겹살",
+    "address": "서울 관악구 봉천동 1601-8 1층",
+    "category": "음식점",
+    "benefit": "5만원 미만 시 테이블당 음료1잔, 5만원 이상 시 음료2/볶음밥2인분/계란찜/묵사발/현금10% 중 택1",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480105,
+    "lng": 126.939628
+  },
+  {
+    "id": "music_oneulgeudaewa",
+    "name": "오늘그대와",
+    "address": "서울 관악구 봉천동 1612-30 지하",
+    "category": "음식점",
+    "benefit": "총 식사 금액의 10% 할인 + 테이블당 에이드 1잔 무료",
+    "colleges": [
+      "music",
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.479938,
+    "lng": 126.940709
+  },
+  {
+    "id": "music_pokeallday",
+    "name": "포케올데이 서울대입구점",
+    "address": "서울 관악구 봉천동 1598-31 1층",
+    "category": "음식점",
+    "benefit": "매장 이용 시 10% 할인, 5만원 이상 포장 시 사이다 1병 제공",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.481002,
+    "lng": 126.939703
+  },
+  {
+    "id": "music_pianopia",
+    "name": "피아노피아",
+    "address": "서울시 관악구 봉천로 445 1층",
+    "category": "기타",
+    "benefit": "그랜드/업라이트 피아노 연습 및 중앙홀 대관 제휴 (게시물 참고)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480649,
+    "lng": 126.939833
+  },
+  {
+    "id": "music_dearswan",
+    "name": "디어스완 (꽃집)",
+    "address": "서울 관악구 관악로14길 65 1층",
+    "category": "기타",
+    "benefit": "S다발 5천원/M다발 1만원/L다발 1.5만원 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.481963,
+    "lng": 126.951234
+  },
+  {
+    "id": "music_brillant",
+    "name": "브릴란트 피아노 스튜디오",
+    "address": "서울시 관악구 봉천로 568-1",
+    "category": "기타",
+    "benefit": "메인홀 시간당 1만원 할인, 그 외 연습실 시간당 30% 할인, 셀프 레코딩 패키지 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.480024,
+    "lng": 126.939595
+  },
+  {
+    "id": "music_dawnstudio",
+    "name": "던스튜디오 (연습실)",
+    "address": "1호점 관악구 남부순환로 1864 지하1층 / 2호점 관악구 관악로 110-1",
+    "category": "기타",
+    "benefit": "6개월 계약 시 월 4~7만원, 12개월 계약 시 월 5~8만원 할인 (호수별 상이)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.481198,
+    "lng": 126.95232
+  },
+  {
+    "id": "music_ahri_jeongga",
+    "name": "정가단 아리 (국악 연습실)",
+    "address": "서울시 강남구 개포로 22길 100 3층 302호",
+    "category": "기타",
+    "benefit": "2시간 이용 시 30% 할인, 추가 시간당 10%씩 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.515135,
+    "lng": 127.047637
+  },
+  {
+    "id": "music_hannover",
+    "name": "하노버 (피아노 연습실)",
+    "address": "본점 서초구 반포대로 9길 28 / 아트센터점 서초구 남부순환로 319길 14 5층",
+    "category": "기타",
+    "benefit": "그랜드 피아노 연습 및 앙상블/홀 대관 제휴 (게시물 참고)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.504339,
+    "lng": 127.024051
+  },
+  {
+    "id": "music_rene",
+    "name": "르네뮤직스튜디오",
+    "address": "서울시 서초구 남부순환로 323길 33",
+    "category": "기타",
+    "benefit": "르네뮤직 홀 시간당 2만원, 그랜드/앙상블룸 3천원, 업라이트룸 2천원, 악기룸 1.5천원 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.505296,
+    "lng": 127.024515
+  },
+  {
+    "id": "music_hongkisook",
+    "name": "홍기숙 우리옷 (한복/반주복)",
+    "address": "서울 강남구 개포로 30길 16 1층",
+    "category": "기타",
+    "benefit": "의상 대여 시 15~30% 할인, 반주복 맞춤 시 10% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.514345,
+    "lng": 127.046275
+  },
+  {
+    "id": "music_casablrose",
+    "name": "까사블로제 (드레스 대여)",
+    "address": "서울 강남구 도산대로 90길 11 3층",
+    "category": "기타",
+    "benefit": "드레스 대여 10% 할인, 3인 이상 단체 15%, 소프유 스튜디오 동시 이용 15% 할인",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.514375,
+    "lng": 127.047204
+  },
+  {
+    "id": "music_city_music",
+    "name": "시티악기",
+    "address": "서울 서초구 남부순환로 323길 25",
+    "category": "기타",
+    "benefit": "악기현 5~12% 할인, 케이스 10%/악세서리 5% 할인, 스트링 클리닉 제공",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.504967,
+    "lng": 127.024375
+  },
+  {
+    "id": "music_classica",
+    "name": "클래시카 서울 (녹음실)",
+    "address": "서울 서초구 반포대로30길 32 지하2층",
+    "category": "기타",
+    "benefit": "데모 녹음/녹화 패키지 1시간 28만→24만원 + 그랜드 피아노 연습실 1시간 무료",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.503802,
+    "lng": 127.024311
+  },
+  {
+    "id": "music_softu",
+    "name": "소프유 스튜디오 (프로필 촬영)",
+    "address": "서울 강남구 선릉로115길 25 지하1층",
+    "category": "기타",
+    "benefit": "음대생 프로필 촬영 제휴 (S-카드/학생증 인증)",
+    "colleges": [
+      "music"
+    ],
+    "departments": [],
+    "lat": 37.503621,
+    "lng": 127.048537
+  },
+  {
+    "id": "lib_onyu",
+    "name": "오뉴 샤로수길본점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "네이버 위치 저장 후 3만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481194,
+    "lng": 126.951347
+  },
+  {
+    "id": "lib_norangtongdak",
+    "name": "노랑통닭 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "포장 및 매장 이용 시 전체 금액의 10% 할인",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481854,
+    "lng": 126.953277
+  },
+  {
+    "id": "lib_doridori_hatchi",
+    "name": "도리도리하찌 닭도리탕",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "닭볶음탕 주문 시 테이블당 라면사리 1개 제공 / 닭볶음탕(대) 주문 시 날치알 주먹밥 1개 제공",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.479618,
+    "lng": 126.951653
+  },
+  {
+    "id": "lib_sambaekdon",
+    "name": "삼백돈 돈가츠 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "매장 이용 시 전체 금액의 20% 할인 (치즈돈가츠/멘치가츠/음료/주류 제외)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481391,
+    "lng": 126.952759
+  },
+  {
+    "id": "lib_eobusasiga",
+    "name": "어부사시가",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "매장 이용 시 전체 금액의 10% 할인 (음료/주류 제외)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.480027,
+    "lng": 126.951526
+  },
+  {
+    "id": "lib_publico_taco",
+    "name": "퍼블리코타코",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "테이블당 나초 메뉴 1개 제공 / 2인당 탄산음료 1개 제공 (2인 이상 방문, 1인 1메뉴)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.479778,
+    "lng": 126.951196
+  },
+  {
+    "id": "lib_rachmont",
+    "name": "라치몬트 본점",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "매장 이용 시 음료 금액의 10% 할인 / 포장 이용 시 음료 금액의 20% 할인 (학생회원 본인에 한해)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.480326,
+    "lng": 126.952026
+  },
+  {
+    "id": "lib_cafe_pol",
+    "name": "카페폴",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "매장/포장 이용 시 음료 1잔당 500원 할인 (디저트 제외)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481001,
+    "lng": 126.950921
+  },
+  {
+    "id": "lib_yeontanjip",
+    "name": "연탄집포차",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "매장 이용 시 전 메뉴 10% 할인",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.480401,
+    "lng": 126.950786
+  },
+  {
+    "id": "lib_choice_billiards",
+    "name": "초이스당구장",
+    "address": "샤로수길",
+    "category": "기타",
+    "benefit": "1만원 이상 계좌이체 결제 시 10% 할인 / 주중 11시-17시 이용 시 1인당 4시간에 1만원으로 할인",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.48106,
+    "lng": 126.951893
+  },
+  {
+    "id": "lib_dongbang_gym",
+    "name": "동방짐 신림본점/신림서원역점/신림3호점",
+    "address": "신림동 인근",
+    "category": "기타",
+    "benefit": "매달 선착순 20명 모든 프로그램 10% 할인 / 체험 시 할인가 11,000원 적용",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.484178,
+    "lng": 126.929822
+  },
+  {
+    "id": "lib_avenue_hair",
+    "name": "애비뉴헤어 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "모든 시술 30% 할인 / 첫 방문 시 50% 할인 (커트 제외)",
+    "colleges": [
+      "humanities"
+    ],
+    "departments": [],
+    "lat": 37.481274,
+    "lng": 126.952145
+  },
+  {
+    "id": "edu_norang_tongdak",
+    "name": "노랑통닭 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "홀·방문포장 시 결제금액 10% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.48152,
+    "lng": 126.952763
+  },
+  {
+    "id": "edu_deungchon",
+    "name": "등촌샤브칼국수 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "평일 16시 이전 10% 할인, 16시 이후 테이블당 음료 1캔",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.481546,
+    "lng": 126.952749
+  },
+  {
+    "id": "edu_bokdoni",
+    "name": "복돈이 부추삼겹살 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 미만 탄산음료 1캔, 5만원 이상 탄산음료 2캔/볶음밥/계란찜/묵사발/현금 10% 중 택1",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480301,
+    "lng": 126.952419
+  },
+  {
+    "id": "edu_baconsi",
+    "name": "베이컨시",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "5만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.479631,
+    "lng": 126.951987
+  },
+  {
+    "id": "edu_sambaekdon",
+    "name": "삼백돈 돈카츠 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "음료/주류 제외 전 메뉴 20% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.481706,
+    "lng": 126.953231
+  },
+  {
+    "id": "edu_shabu1988",
+    "name": "샤브1988",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "점심 특선 5% 할인, 저녁 10% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480092,
+    "lng": 126.950593
+  },
+  {
+    "id": "edu_jubencuba",
+    "name": "쥬벤쿠바",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "5만원 이상 결제 시 프리드링크 또는 디저트 1개",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.481005,
+    "lng": 126.952015
+  },
+  {
+    "id": "edu_rohyang_yangkkochi",
+    "name": "로향양꼬치 1호점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 이상 사이드 1개, 10만원 이상 메인메뉴 1개",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480437,
+    "lng": 126.952678
+  },
+  {
+    "id": "edu_ssukgogae",
+    "name": "쑥고개",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "요거트 아이스크림 1개 또는 소주 1병",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.479711,
+    "lng": 126.951717
+  },
+  {
+    "id": "edu_yeinchon_makgeolli",
+    "name": "예인촌막걸리 낙성대본점",
+    "address": "낙성대역 인근",
+    "category": "음식점",
+    "benefit": "테이블당 음료수 1캔",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.476625,
+    "lng": 126.963005
+  },
+  {
+    "id": "edu_modernboy",
+    "name": "모던보이작업실",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "연유 콘튀김 1개",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.48036,
+    "lng": 126.95138
+  },
+  {
+    "id": "edu_seolip",
+    "name": "설입",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "주류 1병 또는 과일 아이스크림",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480724,
+    "lng": 126.953296
+  },
+  {
+    "id": "edu_redbutton",
+    "name": "레드버튼 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "게임 이용료 평일 18시 이전 50% 할인, 18시 이후 30% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480977,
+    "lng": 126.952239
+  },
+  {
+    "id": "edu_holmes_lupin",
+    "name": "홈즈앤루팡 보드게임카페 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "평일 이용료 20% 할인, 식음료 10% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.481163,
+    "lng": 126.953068
+  },
+  {
+    "id": "edu_waroom",
+    "name": "와롬 보드게임카페 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "와플 1개, 2~3명 2천원/4~5명 4천원/6명 이상 6천원 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480622,
+    "lng": 126.952399
+  },
+  {
+    "id": "edu_vegan_mama",
+    "name": "비건마마",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "전 품목 10% 할인, 텀블러 300원 또는 용기 500원 추가 할인 중 택1",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.481892,
+    "lng": 126.95294
+  },
+  {
+    "id": "edu_nouajet",
+    "name": "누아젯",
+    "address": "낙성대역 인근",
+    "category": "음식점",
+    "benefit": "파스타 주문 시 음료수 1잔",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.476101,
+    "lng": 126.963628
+  },
+  {
+    "id": "edu_pokeallday",
+    "name": "포케올데이 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "10% 할인, 8만원 이상 결제 시 1인당 음료 1개와 서비스 제공",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480494,
+    "lng": 126.95226
+  },
+  {
+    "id": "edu_selleria",
+    "name": "셀러리아 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "1만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "education"
+    ],
+    "departments": [],
+    "lat": 37.480841,
+    "lng": 126.952841
+  },
+  {
+    "id": "eng_chunli_malatang",
+    "name": "춘리마라탕 사로수길점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "결제금액 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480668,
+    "lng": 126.952252
+  },
+  {
+    "id": "eng_eobusasiga",
+    "name": "어부사시가",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "결제금액 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480414,
+    "lng": 126.95291
+  },
+  {
+    "id": "eng_chili_hyang_dosakmyeon",
+    "name": "칠리향도삭면",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "인당 음료 1병 제공 (콜라/환타/사이다)",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480666,
+    "lng": 126.953349
+  },
+  {
+    "id": "eng_la_felice",
+    "name": "라페리체",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "메인메뉴당 음료수 1병 제공 (최대 1인 1음료)",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480975,
+    "lng": 126.950613
+  },
+  {
+    "id": "eng_jju_and_jju",
+    "name": "쭈앤쭈 서울대본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "결제금액 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480681,
+    "lng": 126.95297
+  },
+  {
+    "id": "eng_namginam_budaejjigae",
+    "name": "남기남부대찌개 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "2인 이상 결제금액 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480643,
+    "lng": 126.952112
+  },
+  {
+    "id": "eng_deungchon",
+    "name": "등촌샤브칼국수 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "평일 16시 이전 10% 할인, 16시 이후 테이블당 음료수 제공",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.481797,
+    "lng": 126.952814
+  },
+  {
+    "id": "eng_chungcheong_samgyeop",
+    "name": "충청삼겹",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "카드 5% 할인, 현금·계좌이체 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480356,
+    "lng": 126.951755
+  },
+  {
+    "id": "eng_kkokko_dakgalbi",
+    "name": "꼬꼬숯불닭갈비 서울대입구 본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "카드 5% 할인, 현금·계좌이체 10% 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.481592,
+    "lng": 126.952205
+  },
+  {
+    "id": "eng_bokkeomdang",
+    "name": "보꼼당 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "메인메뉴 결제금액 10% 할인 (점심·1인 불가)",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480455,
+    "lng": 126.95259
+  },
+  {
+    "id": "eng_bokdoni",
+    "name": "복돈이부추삼겹살 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 이상: 음료2개·볶음밥2인분·계란찜·묵사발 중 택1, 5만원 이하: 음료 1개",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.480978,
+    "lng": 126.952647
+  },
+  {
+    "id": "eng_chaeudong",
+    "name": "채우동 본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "1인 1메뉴 주문 시 유부초밥 또는 교자튀김 1피스 제공 (2인 이상)",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.481467,
+    "lng": 126.952977
+  },
+  {
+    "id": "eng_izawa",
+    "name": "이자와 사로수길점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "2인 5%, 3인 이상 10% 할인 / 하이볼 외 주류 2,000원 할인 / 하이볼 1,000원 할인",
+    "colleges": [
+      "engineering"
+    ],
+    "departments": [],
+    "lat": 37.481175,
+    "lng": 126.950657
+  },
+  {
+    "id": "business_gamaro",
+    "name": "가마로강정 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "12,000원 이상 음료/무/소스 택1, 50,000원 이상 감자튀김/치즈볼 택1",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480944,
+    "lng": 126.952443
+  },
+  {
+    "id": "business_chili_hyang_dosakmyeon",
+    "name": "칠리향도삭면",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "인당 음료 1병 제공",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481679,
+    "lng": 126.952298
+  },
+  {
+    "id": "business_chunli_malatang",
+    "name": "춘리 마라탕",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "전메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480604,
+    "lng": 126.952618
+  },
+  {
+    "id": "business_deungchon",
+    "name": "등촌샤브칼국수",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "평일 오후 4시까지 10% 할인, 그 외 시간대 음료 1캔",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480975,
+    "lng": 126.952346
+  },
+  {
+    "id": "business_bokdoni",
+    "name": "복돈이 부추 삼겹살",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 미만 음료수 1개, 5만원 이상 음료2개·볶음밥2인·계란찜·묵사발 택1, 현금 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.4807,
+    "lng": 126.953377
+  },
+  {
+    "id": "business_jju_and_jju",
+    "name": "쭈앤쭈",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "전메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481009,
+    "lng": 126.953278
+  },
+  {
+    "id": "business_sadam",
+    "name": "사담",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480481,
+    "lng": 126.950581
+  },
+  {
+    "id": "business_sambaekdon",
+    "name": "삼백돈 돈가츠",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "음료·주류 제외 전메뉴 20% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481899,
+    "lng": 126.953238
+  },
+  {
+    "id": "business_publico_taco",
+    "name": "퍼블리코타코",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "테이블당 나초 1개, 2인당 탄산음료 1병",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.48115,
+    "lng": 126.951982
+  },
+  {
+    "id": "business_katsu_shoshin",
+    "name": "카츠쇼신 샤로수길점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "메인메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480958,
+    "lng": 126.950766
+  },
+  {
+    "id": "business_beer_byeolchaek",
+    "name": "맥주는 별책부록",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "안주 10% 할인 (네이버 쿠폰 발급 필요)",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481077,
+    "lng": 126.952242
+  },
+  {
+    "id": "business_ssukgogae",
+    "name": "쑥고개",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "요거트 아이스크림 또는 소주 1병 택1",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480242,
+    "lng": 126.950594
+  },
+  {
+    "id": "business_chuksang",
+    "name": "축상",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480206,
+    "lng": 126.952076
+  },
+  {
+    "id": "business_sowooju",
+    "name": "소우주",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "음료 1병 제공",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480024,
+    "lng": 126.951755
+  },
+  {
+    "id": "business_izakaya_soot",
+    "name": "이자카야 숯",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전메뉴 10% 할인 (금·토 제외)",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480328,
+    "lng": 126.951177
+  },
+  {
+    "id": "business_fish_grill",
+    "name": "샤로수길 생선구이",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "현금/계좌이체 시 주류 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481832,
+    "lng": 126.953493
+  },
+  {
+    "id": "business_noldam",
+    "name": "놀담",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전메뉴 5% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480489,
+    "lng": 126.951649
+  },
+  {
+    "id": "business_sponsor",
+    "name": "스폰서",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "5만원 이상 10%, 10만원 이상 15% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.479848,
+    "lng": 126.950975
+  },
+  {
+    "id": "business_hwaryong",
+    "name": "화룡주점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "금·토 제외 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.48115,
+    "lng": 126.951427
+  },
+  {
+    "id": "business_cheongdalbang",
+    "name": "청달방 디저트",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "전메뉴 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480468,
+    "lng": 126.951697
+  },
+  {
+    "id": "business_fourqueens",
+    "name": "포퀸스 보드카페 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "푸드·음료 10% 할인 (평일 1시간 무료 혜택과 중복 가능)",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480391,
+    "lng": 126.952835
+  },
+  {
+    "id": "business_bokhodu",
+    "name": "복호두 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "카페",
+    "benefit": "3만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481105,
+    "lng": 126.953264
+  },
+  {
+    "id": "business_coffee_moon",
+    "name": "커피문 카페앤와인샵 낙성대점",
+    "address": "낙성대역 인근",
+    "category": "카페",
+    "benefit": "평일 방문 시 10% 할인 (와인 포함)",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.475652,
+    "lng": 126.964337
+  },
+  {
+    "id": "business_cafe_didim",
+    "name": "카페디딤 대학동점",
+    "address": "대학동",
+    "category": "카페",
+    "benefit": "결제 금액의 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.486228,
+    "lng": 126.959597
+  },
+  {
+    "id": "business_bound_gym",
+    "name": "바운드짐 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "PT·헬스 10% 할인",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.481252,
+    "lng": 126.95298
+  },
+  {
+    "id": "business_hegemony_gym",
+    "name": "헤게모니짐PT",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "PT 단가 할인, 2인 등록 시 PT 1회 제공, 네이버 예약 비타민 증정, 체험PT 45분, 헬스+락카 무료",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.480676,
+    "lng": 126.952092
+  },
+  {
+    "id": "business_maeil_study_cafe",
+    "name": "매일스터디카페 서울대점",
+    "address": "대학동",
+    "category": "기타",
+    "benefit": "시간권 50시간 이상·기간권 2주 이상 10% 할인 + 마일리지 10% 적립",
+    "colleges": [
+      "business"
+    ],
+    "departments": [],
+    "lat": 37.487524,
+    "lng": 126.959694
+  },
+  {
+    "id": "liberal_arts_kkokko_dakgalbi",
+    "name": "꼬꼬숯불닭갈비 서울대입구본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "현금/계좌이체 10% 할인, 카드 5% 할인 + 캔음료 1개",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.481251,
+    "lng": 126.952891
+  },
+  {
+    "id": "liberal_arts_deungchon",
+    "name": "등촌샤브칼국수 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "평일 16시 이전 10% 할인, 그 외 테이블당 음료수 1개",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480971,
+    "lng": 126.952834
+  },
+  {
+    "id": "liberal_arts_eobusasiga",
+    "name": "어부사시가",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.481136,
+    "lng": 126.953396
+  },
+  {
+    "id": "liberal_arts_chungcheong_samgyeop",
+    "name": "충청삼겹",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "현금/계좌이체 10% 할인, 카드 5% 할인 + 캔음료 1개",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.479927,
+    "lng": 126.951646
+  },
+  {
+    "id": "liberal_arts_rohyang_yangkkochi",
+    "name": "로향양꼬치",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "7만원 이상 사이드 랜덤, 10만원 이상 메인 랜덤, 20만원 이상 10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480682,
+    "lng": 126.952533
+  },
+  {
+    "id": "liberal_arts_shabu1988",
+    "name": "샤브 1988",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "11:30~16:00 5% 할인, 16:00~23:00 10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480675,
+    "lng": 126.95098
+  },
+  {
+    "id": "liberal_arts_china_dang",
+    "name": "차이나당",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "6인 기준 볶음밥/쟁반짜장/꽃빵튀김 중 1개 서비스",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480106,
+    "lng": 126.951703
+  },
+  {
+    "id": "liberal_arts_chili_hyang_dosakmyeon",
+    "name": "칠리향도삭면",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "1인당 음료수 1개 제공",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480416,
+    "lng": 126.952633
+  },
+  {
+    "id": "liberal_arts_baconsi",
+    "name": "베이컨시",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "5만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.481198,
+    "lng": 126.952094
+  },
+  {
+    "id": "liberal_arts_oneul_geudaewa",
+    "name": "오늘그대와 샤로수길점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "테이블당 에이드 1잔 + 10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.479717,
+    "lng": 126.950841
+  },
+  {
+    "id": "liberal_arts_bokdoni",
+    "name": "복돈이부추삼겹살 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 이하 음료수 1개, 5만원 이상 계란찜·묵사발·볶음밥 2인분·음료수 2개·현금 10% 할인 중 택1",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480724,
+    "lng": 126.953393
+  },
+  {
+    "id": "liberal_arts_pokeallday",
+    "name": "포케올데이 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "10% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.481709,
+    "lng": 126.953307
+  },
+  {
+    "id": "liberal_arts_lachimont",
+    "name": "라치몬트 본점",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "매장 음료 10% 할인, 테이크아웃 음료 20% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480191,
+    "lng": 126.950752
+  },
+  {
+    "id": "liberal_arts_bageltoon",
+    "name": "베이글툰 만화카페&디저트카페",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "만화카페 기본 음료 1잔 무료, 디저트카페 10% 할인 (최대 2,000원)",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480934,
+    "lng": 126.951626
+  },
+  {
+    "id": "liberal_arts_dangnabal",
+    "name": "당나발포차 샤로수길점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "3만원 이상 음료, 5만원 이상 사이드, 10만원 이상 메인 안주 제공",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480579,
+    "lng": 126.95208
+  },
+  {
+    "id": "liberal_arts_dukkubi",
+    "name": "두꺼비식당&포차",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "계좌이체 10% 할인, 카드 5% 할인",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480646,
+    "lng": 126.950513
+  },
+  {
+    "id": "liberal_arts_beer_byeolchaek",
+    "name": "맥주는 별책부록 관악점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "주문 안주 10% 할인 네이버 쿠폰 발급",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.481607,
+    "lng": 126.952379
+  },
+  {
+    "id": "liberal_arts_modernboy",
+    "name": "모던보이작업실",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "연유콘튀김 제공",
+    "colleges": [
+      "liberal_arts"
+    ],
+    "departments": [],
+    "lat": 37.480661,
+    "lng": 126.952002
+  },
+  {
+    "id": "css_hobuchimgae",
+    "name": "호부침개",
+    "address": "대학동",
+    "category": "음식점",
+    "benefit": "주류 제외 15,000원 이상 주문 시 테이블마다 해장라면 or 계란찜 제공",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.486315,
+    "lng": 126.959485
+  },
+  {
+    "id": "css_hongoro",
+    "name": "홍오로",
+    "address": "대학동",
+    "category": "음식점",
+    "benefit": "매장/포장 결제 금액 10% 할인, 배달 주문 시 음료+감자튀김 or 만두 제공",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.486271,
+    "lng": 126.960185
+  },
+  {
+    "id": "css_gossine",
+    "name": "고씨네",
+    "address": "대학동",
+    "category": "음식점",
+    "benefit": "1인당 1,000원 할인",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.486536,
+    "lng": 126.960268
+  },
+  {
+    "id": "css_gudong_morning",
+    "name": "구동의 아침",
+    "address": "대학동",
+    "category": "음식점",
+    "benefit": "매장 방문 시 결제 금액 5% 할인",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.487248,
+    "lng": 126.959626
+  },
+  {
+    "id": "css_stamina",
+    "name": "스태미나식당",
+    "address": "대학동",
+    "category": "음식점",
+    "benefit": "무알콜 칵테일 제공, 영수증 리뷰 시 원포인트 레슨 쿠폰 증정",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.487115,
+    "lng": 126.959722
+  },
+  {
+    "id": "css_osamsuki",
+    "name": "오삼숙이",
+    "address": "녹두거리",
+    "category": "음식점",
+    "benefit": "현금/계좌이체 결제 시 1인당 1,000원 할인 쿠폰 + 5% 할인 (중복 허용)",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.484482,
+    "lng": 126.930249
+  },
+  {
+    "id": "css_fave_bakery",
+    "name": "페이브베이커리 서울대점",
+    "address": "신림동",
+    "category": "카페",
+    "benefit": "10,000원 이상 구매 시 음료 결제 금액 10% 할인",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.485054,
+    "lng": 126.928948
+  },
+  {
+    "id": "css_cafe_didim",
+    "name": "카페디딤",
+    "address": "대학동",
+    "category": "카페",
+    "benefit": "매장 방문 시 모든 메뉴 결제 금액 10% 할인",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.486778,
+    "lng": 126.959743
+  },
+  {
+    "id": "css_didim_study",
+    "name": "디딤스터디카페 신림대학점",
+    "address": "신림동",
+    "category": "기타",
+    "benefit": "첫 결제 시 유효기간 없는 10시간권 1회 제공, 학점 4.0 이상 장학금 인증 시 기프트콘 제공",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.483706,
+    "lng": 126.930034
+  },
+  {
+    "id": "css_sinrim_darak",
+    "name": "신림다락",
+    "address": "신림동",
+    "category": "기타",
+    "benefit": "미팅/방음공간 예약 시 이용 금액 50% 할인, 매장 전용 다회용기 스티커 증정",
+    "colleges": [
+      "social_sciences"
+    ],
+    "departments": [],
+    "lat": 37.484719,
+    "lng": 126.929219
+  },
+  {
+    "id": "cns_gogichango",
+    "name": "고기창고 무한리필",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "테이블당 불닭볶음면, 짜파게티, 음료 1개 중 택1 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481486,
+    "lng": 126.952783
+  },
+  {
+    "id": "cns_norang_tongdak",
+    "name": "노랑통닭",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "포장 및 매장 식사 10% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480984,
+    "lng": 126.951915
+  },
+  {
+    "id": "cns_doridori",
+    "name": "도리도리하찌",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "닭볶음탕 중자 라면사리 제공, 대자 주먹밥 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.47972,
+    "lng": 126.951913
+  },
+  {
+    "id": "cns_deungchon",
+    "name": "등촌샤브칼국수",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "평일 16시 이전 10% 할인, 그 외 시간 음료수 1병 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481746,
+    "lng": 126.952773
+  },
+  {
+    "id": "cns_maekju_changgo",
+    "name": "맥주창고",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "테이블당 3만원 이상 결제 시 감자튀김/팥빙수/파인애플 샤베트 중 1개 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481635,
+    "lng": 126.952832
+  },
+  {
+    "id": "cns_mohing",
+    "name": "모힝",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "총 결제 금액 5% 할인, 네이버 예약 시 음료 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480537,
+    "lng": 126.952104
+  },
+  {
+    "id": "cns_bokdoni",
+    "name": "복돈이 부추삼겹살",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "5만원 이하 음료 1개, 5만원 이상 볶음밥 2개/음료 2개/계란찜/묵사발 중 택1",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480793,
+    "lng": 126.953338
+  },
+  {
+    "id": "cns_shabro21",
+    "name": "샤브로21 샤로수점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "총 결제 금액 10% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480874,
+    "lng": 126.951877
+  },
+  {
+    "id": "cns_ssukgogae",
+    "name": "쑥고개",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "테이블당 소주 또는 요거트아이스크림 중 택1 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481038,
+    "lng": 126.950836
+  },
+  {
+    "id": "cns_angyeong_baksa",
+    "name": "안경박사",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "기존 할인 행사에서 추가 할인 10%p (C/L 팩렌즈 제외), 리뷰 작성 시 콘택트렌즈 5알 증정",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480699,
+    "lng": 126.952064
+  },
+  {
+    "id": "cns_yeontanjip",
+    "name": "연탄집 포차",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "계산 시 10% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480848,
+    "lng": 126.951915
+  },
+  {
+    "id": "cns_oneulgeudaewa",
+    "name": "오늘그대와",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "총 결제 금액 10% 할인 및 에이드 1잔 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.48025,
+    "lng": 126.951493
+  },
+  {
+    "id": "cns_waroom",
+    "name": "와룸 보드게임카페",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "테이블당 와플 1개, 시간요금 할인 (2~3인 2천원, 4~5인 4천원, 6인이상 6천원)",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480547,
+    "lng": 126.953388
+  },
+  {
+    "id": "cns_italy_papa",
+    "name": "이태리파파",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "총 결제 금액 15% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480983,
+    "lng": 126.952062
+  },
+  {
+    "id": "cns_jeongtong",
+    "name": "정통집",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "음료수 1병 또는 두부반접시 제공",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481597,
+    "lng": 126.95331
+  },
+  {
+    "id": "cns_cheongdalbang",
+    "name": "청달방디저트",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "전체 메뉴 10% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.47964,
+    "lng": 126.951679
+  },
+  {
+    "id": "cns_chunri_malatang",
+    "name": "춘리마라탕",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "총 결제 금액 10% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480831,
+    "lng": 126.953389
+  },
+  {
+    "id": "cns_noldam",
+    "name": "한식주점 놀담",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "과반수 이상이 자연대 학생일 때 결제 금액 5% 할인",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.480884,
+    "lng": 126.951883
+  },
+  {
+    "id": "cns_hwangto_bang",
+    "name": "황토방",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "테이블당 음료 1개 제공 (1인 식사 시 결제 금액 15,000원 이상)",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.481597,
+    "lng": 126.952327
+  },
+  {
+    "id": "cns_seol_ip",
+    "name": "설입",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "주류 1병 또는 초코아이스크림 중 택1",
+    "colleges": [
+      "natural_sciences"
+    ],
+    "departments": [],
+    "lat": 37.48156,
+    "lng": 126.952073
+  },
+  {
+    "id": "vet_nail_preview",
+    "name": "네일프리뷰",
+    "address": "네일 예약 플랫폼 (앱/온라인)",
+    "category": "기타",
+    "benefit": "쿠폰코드 '26SNUVETER' 입력 시 네일 시술 10% 할인",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "expiresAt": "2026-12-31",
+    "couponCode": "26SNUVETER"
+  },
+  {
+    "id": "vet_wonmoa",
+    "name": "원모아",
+    "address": "전국 1,000여개 제휴병원 (서울·경기·인천·대전·대구·부산 등)",
+    "category": "기타",
+    "benefit": "안과·치과·성형외과·피부과 등 12개 진료과목 할인, 맞춤 영양제 쿠폰, 그린카 제휴 혜택 — 원모아 앱에서 '서울대학교 수의과대학' 입력 또는 카카오채널 '원모아' 검색 (학생·가족·휴학생·졸업생 가능)",
+    "phone": "02-2088-0655",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "vet_donggyeong_sanchaek",
+    "name": "동경산책",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "3만원 이상 주문 시 멘보샤(6,500원) 제공 (기간: 2026년 3~6월)",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.480995,
+    "lng": 126.951874,
+    "expiresAt": "2026-06-30"
+  },
+  {
+    "id": "vet_gran_ppiatti",
+    "name": "그란 삐아띠",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "1인 1메뉴 주문 시 결제금액 10% 할인",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.479956,
+    "lng": 126.951807,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "vet_sadam",
+    "name": "사담",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "상시 10% 할인 / 밥약 기간(3월) 15% 할인",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.480336,
+    "lng": 126.950988,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "vet_redbutton",
+    "name": "레드버튼 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "평일 18시 이전 퇴실 시 게임비 50% 할인, 18시 이후 퇴실 시 30% 할인 (본인만, 일행 적용 불가 / 주말·식음료 제외)",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.481573,
+    "lng": 126.952264,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "vet_ssukgogae",
+    "name": "쑥고개",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "주류 1병 또는 리뷰 아이스크림 중 택1 제공",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.479638,
+    "lng": 126.950809,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "vet_onyu",
+    "name": "오뉴 샤로수길점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "3만원 이상 주문 시 10% 할인",
+    "colleges": [
+      "veterinary"
+    ],
+    "departments": [],
+    "updatedAt": "2026-01-16T00:00:00.000Z",
+    "lat": 37.480125,
+    "lng": 126.951883,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "fine_arts_bgn_eye",
+    "name": "BGN밝은눈안과의원 잠실역점",
+    "address": "서울 송파구 올림픽로 300 롯데월드타워 11층 (잠실역 2번 출구)",
+    "category": "기타",
+    "benefit": "미술대학 학생 및 가족 제휴 혜택 — 자이스스마일·라식·라섹·백내장·렌즈삽입술·노안교정·자이스스마일pro 시술 할인 (담당자 문의: 학과전체단톡방 공지 링크 또는 1600-5770)",
+    "phone": "1600-5770",
+    "colleges": [
+      "fine_arts",
+      "nursing"
+    ],
+    "departments": [],
+    "updatedAt": "2025-12-31T00:00:00.000Z",
+    "lat": 37.513747,
+    "lng": 127.102147
+  },
+  {
+    "id": "med_ihun_hair",
+    "name": "이훈 all 30000 강북본점",
+    "address": "서울 종로구 창경궁로 224 (명륜4가) 1층",
+    "category": "기타",
+    "benefit": "펌·염색·영양 모든 시술 50% 할인 (컷트 단독 제외) / 컷트 단독 시 3,000원 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-05-12T00:00:00.000Z",
+    "lat": 37.581026,
+    "lng": 126.998839
+  },
+  {
+    "id": "med_mencuru",
+    "name": "멘츠루 대학로점",
+    "address": "서울 종로구 창경궁로26길 39 1층",
+    "category": "음식점",
+    "benefit": "테이블당 탄산음료 1개 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.58157,
+    "lng": 126.999058
+  },
+  {
+    "id": "med_onf",
+    "name": "온프",
+    "address": "서울 종로구 성균관로 4-3 1층",
+    "category": "음식점",
+    "benefit": "테이블당 탄산음료 또는 와인 1잔 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.581503,
+    "lng": 126.998385
+  },
+  {
+    "id": "med_inseang_danmat",
+    "name": "인생의 단맛",
+    "address": "서울 종로구 성균관로5가길 1 지하1층",
+    "category": "음식점",
+    "benefit": "결제금액 5% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.581553,
+    "lng": 126.998486
+  },
+  {
+    "id": "med_pokeallday_daehakro",
+    "name": "포케올데이 대학로점",
+    "address": "서울 종로구 창경궁로 256 2층",
+    "category": "음식점",
+    "benefit": "포장·매장 10% 할인 + 제로 탄산음료 (학생증 제시 인원수만큼)",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.58154,
+    "lng": 126.998625
+  },
+  {
+    "id": "med_zerobapsang",
+    "name": "제로밥상 혜화",
+    "address": "서울 종로구 동숭길 74 1층",
+    "category": "음식점",
+    "benefit": "모든 단품메뉴 9,000원 적용 또는 테이블당 음료 1잔 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.580173,
+    "lng": 126.998895
+  },
+  {
+    "id": "med_bokdoni",
+    "name": "복돈이부추삼겹살 서울대입구점",
+    "address": "서울 관악구 남부순환로 1846 1층",
+    "category": "음식점",
+    "benefit": "5만원 이상: 음료2·볶음밥2·계란찜·묵사발·현금10% 중 택1 / 5만원 미만: 탄산음료 1개",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.481466,
+    "lng": 126.952602,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_jeongtong",
+    "name": "정통집 사로수길점",
+    "address": "서울 관악구 관악로14길 65",
+    "category": "음식점",
+    "benefit": "테이블당 두부 반 접시 또는 음료수 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.48147,
+    "lng": 126.951318,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_katsu_shoshin",
+    "name": "카츠쇼신 사로수길점",
+    "address": "서울 관악구 남부순환로224길 25 1층",
+    "category": "음식점",
+    "benefit": "메인 메뉴에 한해 10% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.478916,
+    "lng": 126.949523,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_chili_dosakmyeon",
+    "name": "칠리향도삭면",
+    "address": "서울 관악구 관악로 174 1호 1층",
+    "category": "음식점",
+    "benefit": "매장 이용 시 인당 음료 1병 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.480408,
+    "lng": 126.953234,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_rohyang_yangkkochi",
+    "name": "로향양꼬치 1·2호점",
+    "address": "1호점: 서울 관악구 관악로16길 35 푸르빌 아파트 / 2호점: 서울 관악구 낙성대로 12 1층",
+    "category": "음식점",
+    "benefit": "5만원 이상 구매 시 사이드(온면·마라면·볶음밥 등) 택1 / 7만원 이상 구매 시 요리(숙주볶음·마파두부·마라탕 등) 택1",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.475403,
+    "lng": 126.964281,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_shabu1988",
+    "name": "샤브1988",
+    "address": "서울 관악구 낙성대로 22-14 1층",
+    "category": "음식점",
+    "benefit": "점심 5% 할인, 저녁 10% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.476262,
+    "lng": 126.963951,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_syaro_fish",
+    "name": "사로수길생선구이",
+    "address": "서울 관악구 남부순환로230길 5",
+    "category": "음식점",
+    "benefit": "현금 또는 계좌이체 결제 시 10% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.480487,
+    "lng": 126.950173,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_record_pizza",
+    "name": "레코드피자 사로수길점",
+    "address": "서울 관악구 남부순환로230길 11 1층",
+    "category": "음식점",
+    "benefit": "방문 또는 포장 시 10% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.479883,
+    "lng": 126.949212,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_sowooju",
+    "name": "소우주",
+    "address": "서울 관악구 남부순환로230길 27-1",
+    "category": "음식점",
+    "benefit": "테이블당 음료 1개 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.480363,
+    "lng": 126.949628,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_sui",
+    "name": "수이",
+    "address": "서울 관악구 남부순환로230길 25 102호",
+    "category": "음식점",
+    "benefit": "인당 웰컴드링크 1잔 + 미니플레이트 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.479802,
+    "lng": 126.950457,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_yeeinchon",
+    "name": "예인촌막걸리 낙성대본점",
+    "address": "서울 관악구 봉천로62길 8",
+    "category": "음식점",
+    "benefit": "테이블당 음료 1개 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.476552,
+    "lng": 126.963281,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_baekgeumdang",
+    "name": "백금당 사로수길점",
+    "address": "서울 관악구 남부순환로234길 23 2층",
+    "category": "카페",
+    "benefit": "1만원 이상 시 음료 10% 할인 (파르페·빙수·디저트 제외) / 케이크·팬수플레 구매 시 하겐다즈 아이스크림 제공",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.479295,
+    "lng": 126.949153,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_wondonut",
+    "name": "원도넛",
+    "address": "서울 관악구 관악로 168 1층 107호",
+    "category": "카페",
+    "benefit": "1만원 이상 구매 시 10% 할인",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.480944,
+    "lng": 126.952373,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "med_bultoon",
+    "name": "벌툰 몽유도원 서울대입구점",
+    "address": "서울 관악구 관악로 168 대우디오슈페리움2단지 상가동 4층 401호",
+    "category": "기타",
+    "benefit": "짝가족 행사 10% 쿠폰 할인 (OT·새터에서 지급된 쿠폰도 사용 가능)",
+    "colleges": [
+      "medicine"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-09T00:00:00.000Z",
+    "lat": 37.480504,
+    "lng": 126.952573,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_julis_pizza",
+    "name": "줄리스피자 샤로수길",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전체 가격의 5% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480712,
+    "lng": 126.951438,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_bokdoni",
+    "name": "복돈이부추삼겹살 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "현금 결제 시 10% 할인 / 5만원 이상 구매 시 [음료 2잔/볶음밥 2개/계란찜/묵사발] 중 택1",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481556,
+    "lng": 126.952814,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_kkokko_dakgalbi",
+    "name": "꼬꼬숯불닭갈비 서울대입구 본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "현금 결제 시 10% 할인 / 카드 결제 시 5% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481203,
+    "lng": 126.953105,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_chungcheong_samgyeop",
+    "name": "충청삼겹",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "현금 결제 시 10% 할인 / 카드 결제 시 5% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480388,
+    "lng": 126.951875,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_manseok_gopchang",
+    "name": "만석곱창구이",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전체 가격의 10% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480115,
+    "lng": 126.951602,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_shabro21",
+    "name": "샤브로21 샤로수점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "전체 가격의 10% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.479844,
+    "lng": 126.951344,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_deogoegi",
+    "name": "더고기 서울대본점",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "3만원 이상 구매 시 음료수 무료 제공",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481748,
+    "lng": 126.952481,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_ssukgogae",
+    "name": "쑥고개",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "소주 1병 또는 요거트 아이스크림 제공",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480531,
+    "lng": 126.950981,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_osio",
+    "name": "오시오포차",
+    "address": "서울대입구역 인근",
+    "category": "음식점",
+    "benefit": "3만원 이상 결제 시 맥주 또는 소주 1병 제공",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481624,
+    "lng": 126.953398,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_syaro_fish",
+    "name": "샤로수길생선구이",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "계좌이체 또는 현금 결제 시 주류 10% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480248,
+    "lng": 126.950712,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_onyu",
+    "name": "오뉴 샤로수길 본점",
+    "address": "샤로수길",
+    "category": "음식점",
+    "benefit": "3만원 이상 결제 시 10% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.479672,
+    "lng": 126.951115,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_cafe_pol",
+    "name": "카페폴",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "음료 주문 시 1잔당 500원 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480876,
+    "lng": 126.950438,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_tipe",
+    "name": "티페",
+    "address": "샤로수길",
+    "category": "카페",
+    "benefit": "전 메뉴 10% 할인 (두바이쫀득쿠키 제외)",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.479389,
+    "lng": 126.950875,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_waroom",
+    "name": "와룸 보드게임카페",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "와플 1개 제공 + 방문 인원에 따른 금액 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481042,
+    "lng": 126.953712,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_holmes_lupin",
+    "name": "홈즈앤루팡 보드게임카페 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "평일 방문 시 팀별 감자튀김 1회 제공",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481389,
+    "lng": 126.953956,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_redbutton",
+    "name": "레드버튼 서울대입구역점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "평일 18시 이전 퇴실 시 게임비 50% 할인 / 평일 18시 이후 퇴실 시 30% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.481712,
+    "lng": 126.954134,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_hive_studio",
+    "name": "낙성대 연습실 하이브",
+    "address": "낙성대역 인근",
+    "category": "기타",
+    "benefit": "인원 추가 무료",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.476418,
+    "lng": 126.963842,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_hegemony_gym",
+    "name": "헤게모니짐PT 서울대입구점",
+    "address": "서울대입구역 인근",
+    "category": "기타",
+    "benefit": "PT 회당 단가 할인 / 2인 이상 등록 시 각 PT 1회 서비스 / 체험 45분 / 네이버 예약 시 비타민 영양제 증정 / 회원기간 내 헬스+락카 무료",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-01T00:00:00.000Z",
+    "lat": 37.480965,
+    "lng": 126.954389,
+    "expiresAt": "2026-11-30"
+  },
+  {
+    "id": "pharm_nail_preview",
+    "name": "네일프리뷰",
+    "address": "네일 예약 플랫폼 (앱/온라인)",
+    "category": "기타",
+    "benefit": "앱 쿠폰코드 '2026SNUMED' 입력 시 네일 시술 10% 할인",
+    "colleges": [
+      "pharmacy"
+    ],
+    "departments": [],
+    "updatedAt": "2026-03-07T00:00:00.000Z",
+    "expiresAt": "2026-12-31",
+    "couponCode": "2026SNUMED"
+  }
+]
