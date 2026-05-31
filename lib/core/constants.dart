@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
 
-// 실기기에서 localhost는 기기 자신의 loopback이라 서버에 닿지 않음.
-// 로컬 서버 테스트가 필요하면: flutter run --dart-define SERVER_URL=http://10.0.2.2:3001
+// 빌드 시 dart_defines.json 파일로 환경변수 주입:
+//   flutter run --dart-define-from-file=dart_defines.json
+//   flutter build apk --dart-define-from-file=dart_defines.json
 const String serverUrl = String.fromEnvironment(
   'SERVER_URL',
   defaultValue: 'https://snu-assignment-server.onrender.com',
 );
 
-const String naverMapClientId = 'NAVER_MAP_CLIENT_ID';
+const String naverMapClientId = String.fromEnvironment(
+  'NAVER_MAP_CLIENT_ID',
+);
 
 const String appVersion = '1.0.0';
 

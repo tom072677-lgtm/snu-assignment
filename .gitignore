@@ -25,6 +25,8 @@ lib/firebase_options.dart
 # 환경변수
 .env
 *.env
+dart_defines.json
+replacements.txt
 
 # IDE
 .idea/
