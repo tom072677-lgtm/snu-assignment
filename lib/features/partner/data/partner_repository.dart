@@ -158,9 +158,17 @@ final partnerAllProvider =
   return repo.getAll();
 });
 
-/// 지도 마커 전용 — 만료 및 좌표 없는 매장 제외.
+/// 지도 마커 전용 — 만료·좌표 없는 매장 제외, 사용자 단과대/학과 필터 적용.
 final partnerMapProvider =
     FutureProvider.autoDispose<List<PartnerRestaurant>>((ref) async {
   final all = await ref.watch(partnerAllProvider.future);
-  return all.where((r) => !r.isExpired && r.lat != null && r.lng != null).toList();
+  final college = ref.watch(collegeCodeProvider);
+  final dept = ref.watch(departmentCodeProvider);
+  return all
+      .where((r) =>
+          !r.isExpired &&
+          r.lat != null &&
+          r.lng != null &&
+          r.matchesUser(collegeCode: college, deptCode: dept))
+      .toList();
 });
