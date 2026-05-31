@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/analytics.dart';
 import 'core/theme.dart';
 import 'features/assignments/presentation/assignments_screen.dart';
 import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
+import 'features/onboarding/presentation/onboarding_screen.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
 import 'features/timetable/presentation/timetable_screen.dart';
+import 'shared/providers/settings_provider.dart';
 
 class SharapApp extends StatelessWidget {
   const SharapApp({super.key});
@@ -18,9 +21,20 @@ class SharapApp extends StatelessWidget {
       theme: lightTheme(),
       themeMode: ThemeMode.light,
       navigatorObservers: [Analytics.observer],
-      home: const _MainShell(),
+      home: const _RootScreen(),
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+class _RootScreen extends ConsumerWidget {
+  const _RootScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onboardingDone = ref.watch(onboardingCompleteProvider);
+    if (!onboardingDone) return const OnboardingScreen();
+    return const _MainShell();
   }
 }
 

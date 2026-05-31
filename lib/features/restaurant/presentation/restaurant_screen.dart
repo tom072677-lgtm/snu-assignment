@@ -217,7 +217,7 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
   }
 
   Widget _buildPartnerContent() {
-    final async = ref.watch(partnerAllProvider);
+    final async = ref.watch(partnerRestaurantsProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
