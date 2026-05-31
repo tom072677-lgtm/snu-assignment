@@ -1,39 +1,44 @@
-먼저 계획서 본문이 인코딩 깨짐 상태라 일부 항목은 추정해서 리뷰합니다.
+관련 파일 구조와 기존 패턴을 먼저 확인한 뒤, 계획 자체의 리스크 중심으로 피드백하겠습니다. 코드는 변경하지 않고 검토만 합니다.
+`rg`가 설치되어 있지 않아 PowerShell 검색으로 대체합니다. 현재 작업트리에는 이미 여러 변경 파일이 있으므로, 검토 과정에서는 건드리지 않겠습니다.
+기존 구조상 공지 저장소가 `SharedPreferences` 캐시와 Riverpod provider를 이미 갖고 있고, 비교과 탭은 현재 WebView 전용입니다. 이제 계획의 설계상 빠진 부분과 단순화 여지를 정리하겠습니다.
+## 1. 계획의 문제 / 리스크
 System.Management.Automation.RemoteException
-## 1. 문제 / 리스크
-System.Management.Automation.RemoteException
-- 범위가 너무 큽니다. 서버 알림 중복 방지, 카운트다운 UI, 다크모드 제거, 지도 UX, 장소 마커까지 한 번에 묶여 있어 리뷰와 검증이 어려워집니다. 최소 2~3개 PR로 나누는 편이 안전합니다.
-- `sentKeys`를 MongoDB TTL 컬렉션으로 옮기는 계획은 방향은 맞지만, **atomic upsert + unique index**가 명시되어야 합니다. 단순 저장/조회 방식이면 서버 재시작 문제는 해결해도 동시 실행 중복 발송은 남습니다.
-- `syncTasksForNotification`을 `assignmentsProvider` 로드 후 자동 호출하는 방식은 rebuild마다 API가 반복 호출될 위험이 있습니다. idempotent 처리, debounce, “이미 동기화한 과제” 기준이 필요합니다.
-- `NOverlayImage.fromWidget`로 500개 마커를 만들면 성능 리스크가 큽니다. 카테고리별 아이콘은 캐싱하거나 asset 기반으로 가는 게 더 안전합니다.
-- `_applyVenueFilter`가 async라면 빠르게 칩을 바꿀 때 이전 마커 추가 작업이 뒤늦게 완료되어 잘못된 마커가 남을 수 있습니다. request sequence/cancel guard가 필요합니다.
-- `DraggableScrollableSheet`와 `NaverMap` 제스처 충돌 가능성이 있습니다. 지도 pan/zoom, sheet drag, route panel 전환, back 버튼 동작을 따로 정의해야 합니다.
-- 다크모드 제거는 단순 코드 삭제처럼 보이지만 persisted setting, provider 의존성, system UI overlay style까지 확인해야 합니다.
+- **계획 문서 인코딩이 깨져 있습니다.** 실제 구현 전에 `PLAN.md`, UI 문구, 주석의 한글 인코딩을 먼저 정상화해야 합니다. 지금 상태로는 버튼/빈 상태 메시지/카테고리 문구를 잘못 옮길 위험이 큽니다.
+- **체육교육과 공지 `id = hashCode`는 부적절합니다.** Dart `hashCode`는 영속 ID로 보장되지 않습니다. 캐시/리스트 안정성을 위해 `title + dateText + category`를 정규화한 문자열, 또는 `sha1` 같은 안정 해시를 쓰는 편이 낫습니다.
+- **체육교육과 URL을 전부 `_kSportsUrl`로 두면 상세 이동 품질이 떨어집니다.** 링크가 `#none`이라도 `onclick`, `data-*`, 숨은 input 등에 상세 식별자가 있는지 먼저 확인해야 합니다. 정말 없을 때만 목록 URL fallback으로 두는 것이 안전합니다.
+- **`ul.body li` selector가 넓습니다.** `ul.board_type_list > ul.body > li`처럼 더 좁혀야 다른 중첩 `li`가 섞일 가능성을 줄일 수 있습니다.
+- **비교과 조기 종료 조건이 위험합니다.** “페이지 내 `shouldShow`가 0개면 중단”은 정렬이 완전히 날짜/모집상태 기준이라는 보장이 있을 때만 안전합니다. 이후 페이지에 표시 대상이 있을 수 있습니다.
+- **`startsWithin5Days`의 `inDays <= 5`는 시간 단위 floor 때문에 애매합니다.** 5일 23시간 뒤도 `5`로 계산될 수 있습니다. “한국 날짜 기준 5일 이내”인지 “정확히 120시간 이내”인지 명확히 해야 합니다.
+- **성공 기준이 이미 `[x]`로 체크되어 있습니다.** 구현 전 계획이라면 `[ ]`가 맞습니다. 체크된 상태는 실제 검증 완료처럼 보입니다.
 System.Management.Automation.RemoteException
 ## 2. 빠진 엣지 케이스
 System.Management.Automation.RemoteException
-- 과제 deadline timezone / 서버-클라이언트 시간 차이 / 이미 지난 과제 / 완료된 과제 / deadline이 null인 과제.
-- 앱이 background에 있다가 resume될 때 카운트다운 타이머 갱신.
-- 24시간 경계값: 정확히 24h, 0h, overdue 상태.
-- venuesProvider가 loading/error일 때 칩을 눌렀을 때의 동작.
-- 지도 컨트롤러가 아직 준비되지 않았을 때 `_applyVenueFilter`, `_showVenueDetail` 호출.
-- venue lat/lng가 null, 0, invalid인 데이터.
-- 마커 추가 중 화면 dispose 되었을 때 `setState`/overlay 호출 방지.
-- 선택된 venue가 필터 변경으로 사라졌을 때 detail sheet 닫기 여부.
-- route panel 진입 시 기존 `_selectedPlace`, `_selectedVenue`, `_sheetMode` 상태 정리.
-- 500개 cap 기준: “현재 카메라 중심”을 언제 읽는지, 카메라 중심을 못 읽으면 fallback은 무엇인지.
+- 체육교육과 공지에서 `strong` 없이 제목만 있는 경우, 공지 고정글의 번호가 `em`/텍스트 혼합인 경우.
+- 날짜가 `2026.03.04`, `2026-3-4`, 공백 포함, 또는 없는 경우.
+- 비교과 API 응답이 `Map`인지 `String`인지, 리스트 필드명이 무엇인지, `totalCnt`가 문자열인지 숫자인지.
+- `aplFrDd`, `aplToDd` 중 하나가 비어 있는 프로그램.
+- `aplToDd`가 오늘인 경우 end-of-day 포함 처리.
+- 모집 시작일이 오늘이지만 현재 시간이 시작 전/후인 경우.
+- API가 빈 리스트를 반환했지만 기존 캐시가 있는 경우 캐시 fallback 여부.
+- 상세 URL 열기 실패 시 사용자 피드백.
+- `autoDispose` provider가 탭 전환 시 다시 fetch하는 동작이 의도한 것인지.
 System.Management.Automation.RemoteException
 ## 3. 더 단순한 대안
 System.Management.Automation.RemoteException
-- 첫 구현은 `NOverlayImage.fromAssetImage` 또는 기본 마커로 시작하세요. 커스텀 widget marker는 후순위가 낫습니다.
-- restaurant 800개는 “nearest 500”보다 우선 “최대 500개까지만 표시 + 안내 메시지”로 시작해도 됩니다. 거리 정렬은 카메라 중심 API 확인 후 추가하는 게 안전합니다.
-- 지도 UX 개선, 알림/카운트다운, 다크모드 제거는 분리하는 편이 좋습니다. 특히 지도 마커 기능만 먼저 완성하면 성공 기준이 훨씬 명확합니다.
-- 카운트다운 배너는 `Timer.periodic`보다 deadline 기준으로 남은 시간을 계산하고, lifecycle resume 시 재계산하는 구조가 단순하고 정확합니다.
+- `ExtraProgram`에 `isCurrentlyOpen`, `startsWithin5Days` getter를 넣기보다, 처음에는 repository 안의 순수 함수로 필터링하는 편이 테스트하기 쉽습니다.
 System.Management.Automation.RemoteException
-## 4. Verdict
+```dart
+bool shouldShowProgram(ExtraProgram p, DateTime now)
+```
 System.Management.Automation.RemoteException
-**needs revision**
+- 비교과 페이지 fetch는 조기 종료하지 말고 **최대 5페이지를 항상 fetch 후 filter**가 더 단순하고 안전합니다. 네트워크 비용도 제한되어 있습니다.
+- 체육교육과 parser는 기존 `Notice` 모델을 유지하되 selector만 바꾸는 것이 적절합니다. 별도 모델 추가는 비교과에만 한정하면 됩니다.
+- 비교과 cache TTL은 기존 sports TTL 상수를 공유하지 말고 `_kExtraCacheTtlSeconds`로 분리하는 편이 변경 범위가 명확합니다.
 System.Management.Automation.RemoteException
-방향은 괜찮지만 현재 계획은 범위가 넓고, async marker 처리와 알림 중복 방지 쪽의 핵심 안정성 조건이 부족합니다. 구현 전에 PR 범위를 나누고, MongoDB unique upsert, provider sync idempotency, marker async race 방지, map lifecycle edge case를 계획에 추가하는 게 필요합니다.
-SUCCESS: The process with PID 7468 (child process of PID 44240) has been terminated.
-SUCCESS: The process with PID 44240 (child process of PID 1500) has been terminated.
+## 4. 전체 판정
+System.Management.Automation.RemoteException
+**수정 필요.**
+System.Management.Automation.RemoteException
+방향은 좋지만, 구현 전에 최소한 다음은 고쳐야 합니다: 한글 인코딩 복구, 안정적인 ID 생성, 비교과 조기 종료 로직 제거 또는 근거 명시, 날짜 기준 명확화, API 응답 shape 방어, 성공 기준 체크박스 초기화. 이 수정 후에는 구현 가능한 계획입니다.
+SUCCESS: The process with PID 19076 (child process of PID 10724) has been terminated.
+SUCCESS: The process with PID 10724 (child process of PID 7460) has been terminated.
