@@ -151,9 +151,16 @@ final partnerRestaurantsProvider =
 /// 강제 새로고침용 StateProvider — increment 시 partnerRestaurantsProvider 무효화.
 final partnerRefreshCounterProvider = StateProvider<int>((ref) => 0);
 
-/// 단과대 필터 없이 전체 제휴 매장 목록 (지도 마커 표시용).
+/// 단과대 필터 없이 전체 제휴 매장 목록.
 final partnerAllProvider =
     FutureProvider.autoDispose<List<PartnerRestaurant>>((ref) async {
   final repo = ref.watch(partnerRepositoryProvider);
   return repo.getAll();
+});
+
+/// 지도 마커 전용 — 만료 및 좌표 없는 매장 제외.
+final partnerMapProvider =
+    FutureProvider.autoDispose<List<PartnerRestaurant>>((ref) async {
+  final all = await ref.watch(partnerAllProvider.future);
+  return all.where((r) => !r.isExpired && r.lat != null && r.lng != null).toList();
 });

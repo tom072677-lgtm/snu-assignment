@@ -269,6 +269,53 @@ class MySNUSessionsNotifier extends StateNotifier<List<ClassSession>> {
   }
 }
 
+// ─── 단과대 / 학과 코드 ────────────────────────────────────────────────────────
+
+final collegeCodeProvider =
+    StateNotifierProvider<StringSettingNotifier, String?>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return StringSettingNotifier(prefs, kCollegeCode);
+});
+
+final departmentCodeProvider =
+    StateNotifierProvider<StringSettingNotifier, String?>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return StringSettingNotifier(prefs, kDepartmentCode);
+});
+
+// ─── 온보딩 완료 여부 ─────────────────────────────────────────────────────────
+
+final onboardingCompleteProvider =
+    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return BoolSettingNotifier(prefs, kOnboardingComplete);
+});
+
+// ─── 즐겨찾기 제휴 식당 ─────────────────────────────────────────────────────────
+
+final favPartnersProvider =
+    StateNotifierProvider<FavPartnersNotifier, Set<String>>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return FavPartnersNotifier(prefs);
+});
+
+class FavPartnersNotifier extends StateNotifier<Set<String>> {
+  FavPartnersNotifier(this._prefs) : super(_load(_prefs));
+  final SharedPreferences _prefs;
+
+  static Set<String> _load(SharedPreferences prefs) =>
+      (prefs.getStringList(kFavPartners) ?? []).toSet();
+
+  void toggle(String id) {
+    if (state.contains(id)) {
+      state = state.difference({id});
+    } else {
+      state = {...state, id};
+    }
+    _prefs.setStringList(kFavPartners, state.toList());
+  }
+}
+
 // ─── 즐겨찾기 장소 ────────────────────────────────────────────────────────────
 
 final favVenuesProvider =

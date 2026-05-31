@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:sensors_plus/sensors_plus.dart';
 import '../data/map_repository.dart';
+import '../../../features/partner/data/partner_repository.dart';
+import '../../../features/partner/domain/partner_restaurant.dart';
 import '../../../features/restaurant/data/venue_repository.dart';
 import '../../../features/restaurant/domain/venue.dart';
 import '../../../features/restaurant/presentation/venue_detail_screen.dart';
@@ -16,7 +19,8 @@ import 'widgets/route_panel.dart' show RouteOverlayPanel, resolveCurrentPosition
 // SNU 관악캠퍼스 중심 좌표
 const _snuCenter = NLatLng(37.4607, 126.9526);
 
-enum _SheetMode { none, placeDetail, routePanel, venueDetail }
+enum _SheetMode { none, placeDetail, routePanel, venueDetail, partnerDetail }
+enum _MarkerMode { none, venue, partner }
 
 /// 드래그 가능한 바텀시트 (NaverMap Stack 내에서 동작).
 /// minHeight ↔ maxHeight 사이를 수직 드래그로 조절.
@@ -149,6 +153,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   // 식당/카페/편의점 마커
   VenueCategory? _venueFilter;
   Venue? _selectedVenue;
+  PartnerRestaurant? _selectedPartner;
+  _MarkerMode _markerMode = _MarkerMode.none;
   int _markerGeneration = 0; // rapid-switching stale prevention
 
   @override
@@ -250,19 +256,117 @@ class _MapScreenState extends ConsumerState<MapScreen>
     await ctrl.addOverlayAll(markers);
   }
 
-  void _onVenueFilterTapped(VenueCategory cat, List<Venue> venues) {
-    // 경로 패널이나 장소 상세가 열려 있으면 먼저 닫기
-    if (_sheetMode == _SheetMode.routePanel ||
-        _sheetMode == _SheetMode.placeDetail) {
+  VenueCategory _venueIconCategory(String category) => switch (category) {
+    '카페' => VenueCategory.cafe,
+    '편의점' => VenueCategory.convenience,
+    _ => VenueCategory.restaurant,
+  };
+
+  Future<void> _applyPartnerMarkers(List<PartnerRestaurant> restaurants) async {
+    final ctrl = _mapCtrl;
+    if (ctrl == null) return;
+    final gen = ++_markerGeneration;
+    await ctrl.clearOverlays(type: NOverlayType.marker);
+    if (gen != _markerGeneration) return;
+    final markers = restaurants.map<NAddableOverlay>((r) {
+      final m = NMarker(
+        id: 'partner_${r.id}',
+        position: NLatLng(r.lat!, r.lng!),
+        icon: _markerIcon(_venueIconCategory(r.category)),
+        size: const Size(32, 32),
+        caption: NOverlayCaption(
+          text: r.name,
+          textSize: 10,
+          color: const Color(0xFFE65100),
+        ),
+      );
+      m.setOnTapListener((_) {
+        if (mounted) _showPartnerDetail(r);
+      });
+      return m;
+    }).toSet();
+    if (gen != _markerGeneration) return;
+    await ctrl.addOverlayAll(markers);
+  }
+
+  void _onPartnerChipTapped() {
+    if (_sheetMode == _SheetMode.routePanel || _sheetMode == _SheetMode.placeDetail) {
       if (_sheetMode == _SheetMode.routePanel) _closeRoutePanel();
       if (_sheetMode == _SheetMode.placeDetail) _closePlaceDetail();
-      return; // 닫고 나서 다음 탭에서 필터 적용
+      return;
     }
     if (_sheetMode == _SheetMode.venueDetail) {
       setState(() { _sheetMode = _SheetMode.none; _selectedVenue = null; });
     }
+    if (_sheetMode == _SheetMode.partnerDetail) {
+      setState(() { _sheetMode = _SheetMode.none; _selectedPartner = null; });
+    }
+    final turning = _markerMode != _MarkerMode.partner;
+    setState(() {
+      _markerMode = turning ? _MarkerMode.partner : _MarkerMode.none;
+      _venueFilter = null;
+    });
+    if (turning) {
+      final partners = ref.read(partnerMapProvider).valueOrNull ?? [];
+      _applyPartnerMarkers(partners);
+    } else {
+      _clearVenueMarkers();
+    }
+  }
+
+  void _showPartnerDetail(PartnerRestaurant r) {
+    setState(() {
+      _sheetMode = _SheetMode.partnerDetail;
+      _selectedPartner = r;
+      _selectedVenue = null;
+      _selectedPlace = null;
+    });
+    _mapCtrl?.updateCamera(NCameraUpdate.withParams(
+      target: NLatLng(r.lat!, r.lng!),
+      zoom: 16,
+    ));
+  }
+
+  void _closePartnerDetail() {
+    setState(() {
+      _sheetMode = _SheetMode.none;
+      _selectedPartner = null;
+    });
+  }
+
+  PlaceResult? _partnerToPlaceResult(PartnerRestaurant? r) {
+    if (r == null) return null;
+    return PlaceResult(name: r.name, address: r.address, lat: r.lat!, lng: r.lng!, category: r.category);
+  }
+
+  void _restoreMarkers() {
+    if (_markerMode == _MarkerMode.partner) {
+      final partners = ref.read(partnerMapProvider).valueOrNull ?? [];
+      _applyPartnerMarkers(partners);
+    } else if (_markerMode == _MarkerMode.venue && _venueFilter != null) {
+      final venues = ref.read(venuesProvider).valueOrNull ?? [];
+      _applyVenueMarkers(venues);
+    }
+  }
+
+  void _onVenueFilterTapped(VenueCategory cat, List<Venue> venues) {
+    if (_sheetMode == _SheetMode.routePanel ||
+        _sheetMode == _SheetMode.placeDetail) {
+      if (_sheetMode == _SheetMode.routePanel) _closeRoutePanel();
+      if (_sheetMode == _SheetMode.placeDetail) _closePlaceDetail();
+      return;
+    }
+    if (_sheetMode == _SheetMode.venueDetail) {
+      setState(() { _sheetMode = _SheetMode.none; _selectedVenue = null; });
+    }
+    if (_sheetMode == _SheetMode.partnerDetail) {
+      setState(() { _sheetMode = _SheetMode.none; _selectedPartner = null; });
+    }
     final newFilter = _venueFilter == cat ? null : cat;
-    setState(() => _venueFilter = newFilter);
+    setState(() {
+      _venueFilter = newFilter;
+      _markerMode = newFilter != null ? _MarkerMode.venue : _MarkerMode.none;
+    });
     if (newFilter != null) {
       _mapCtrl?.updateCamera(NCameraUpdate.withParams(target: _snuCenter, zoom: 15));
     }
@@ -307,7 +411,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _openAsDest() {
-    final place = _selectedPlace ?? _venueToPlaceResult(_selectedVenue);
+    final place = _selectedPlace ?? _venueToPlaceResult(_selectedVenue) ?? _partnerToPlaceResult(_selectedPartner);
     if (place == null) return;
     _clearVenueMarkers();
     _mapCtrl?.clearOverlays();
@@ -321,7 +425,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   Future<void> _openAsOrigin() async {
-    final origin = _selectedPlace ?? _venueToPlaceResult(_selectedVenue);
+    final origin = _selectedPlace ?? _venueToPlaceResult(_selectedVenue) ?? _partnerToPlaceResult(_selectedPartner);
     if (origin == null) return;
     final dest = await Navigator.push<PlaceResult>(
       context,
@@ -345,9 +449,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _sheetMode = _SheetMode.none;
       _selectedPlace = null;
     });
-    // 마커 복원
-    final venues = ref.read(venuesProvider).valueOrNull ?? [];
-    _applyVenueMarkers(venues);
+    _restoreMarkers();
   }
 
   void _closeVenueDetail() {
@@ -365,9 +467,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _routeDest = null;
       _routeOrigin = null;
     });
-    // 마커 복원
-    final venues = ref.read(venuesProvider).valueOrNull ?? [];
-    _applyVenueMarkers(venues);
+    _restoreMarkers();
   }
 
   PlaceResult? _venueToPlaceResult(Venue? v) {
@@ -438,24 +538,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final venuesAsync = ref.watch(venuesProvider);
     final venues = venuesAsync.valueOrNull ?? [];
 
-    // venues가 로드 완료되면 선택된 필터가 있을 경우 마커 자동 적용
     ref.listen<AsyncValue<List<Venue>>>(venuesProvider, (_, next) {
-      if (next.hasValue && _venueFilter != null) {
+      if (next.hasValue && _markerMode == _MarkerMode.venue) {
         _applyVenueMarkers(next.value!);
+      }
+    });
+    ref.listen<AsyncValue<List<PartnerRestaurant>>>(partnerMapProvider, (_, next) {
+      if (next.hasValue && _markerMode == _MarkerMode.partner) {
+        _applyPartnerMarkers(next.value!);
       }
     });
 
     final topPadding = MediaQuery.of(context).padding.top;
     final showSearchBar = _sheetMode == _SheetMode.none ||
-        _sheetMode == _SheetMode.venueDetail;
+        _sheetMode == _SheetMode.venueDetail ||
+        _sheetMode == _SheetMode.partnerDetail;
     final showButtons = _sheetMode != _SheetMode.routePanel;
     final showFilterChips = _sheetMode == _SheetMode.none ||
-        _sheetMode == _SheetMode.venueDetail;
+        _sheetMode == _SheetMode.venueDetail ||
+        _sheetMode == _SheetMode.partnerDetail;
     final bottomOffset = switch (_sheetMode) {
-      _SheetMode.routePanel   => MediaQuery.of(context).size.height * 0.5 + 16,
-      _SheetMode.placeDetail  => 200.0,
-      _SheetMode.venueDetail  => 240.0,
-      _SheetMode.none         => 100.0,
+      _SheetMode.routePanel    => MediaQuery.of(context).size.height * 0.5 + 16,
+      _SheetMode.placeDetail   => 200.0,
+      _SheetMode.venueDetail   => 240.0,
+      _SheetMode.partnerDetail => 260.0,
+      _SheetMode.none          => 100.0,
     };
 
     return Scaffold(
@@ -478,6 +585,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               if (_sheetMode == _SheetMode.placeDetail) _closePlaceDetail();
               if (_sheetMode == _SheetMode.routePanel) _closeRoutePanel();
               if (_sheetMode == _SheetMode.venueDetail) _closeVenueDetail();
+              if (_sheetMode == _SheetMode.partnerDetail) _closePartnerDetail();
             },
           ),
 
@@ -548,6 +656,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               minHeight: 260,
               maxHeight: 420,
               builder: (scroll) => _buildVenueDetailContent(_selectedVenue!, scroll),
+            ),
+
+          // 5b. 제휴 식당 상세 시트
+          if (_sheetMode == _SheetMode.partnerDetail && _selectedPartner != null)
+            _DraggableMapSheet(
+              minHeight: 260,
+              maxHeight: 420,
+              builder: (scroll) => _buildPartnerDetailContent(_selectedPartner!, scroll),
             ),
 
           // 6. 경로 패널
@@ -626,47 +742,105 @@ class _MapScreenState extends ConsumerState<MapScreen>
       (cat: VenueCategory.cafe,        label: '카페',    icon: Icons.local_cafe),
       (cat: VenueCategory.convenience, label: '편의점',  icon: Icons.store),
     ];
-    return Row(
-      children: chips.map((c) {
-        final selected = _venueFilter == c.cat;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: GestureDetector(
-            onTap: () => _onVenueFilterTapped(c.cat, venues),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: selected ? _MC.primary : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    color: _MC.shadow,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+    final partnerSelected = _markerMode == _MarkerMode.partner;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ...chips.map((c) {
+            final selected = _venueFilter == c.cat;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => _onVenueFilterTapped(c.cat, venues),
+                child: _FilterChip(
+                  label: c.label,
+                  icon: c.icon,
+                  selected: selected,
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(c.icon,
-                      size: 14,
-                      color: selected ? Colors.white : _MC.textSub),
-                  const SizedBox(width: 4),
-                  Text(
-                    c.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : _MC.textMain,
-                    ),
-                  ),
-                ],
-              ),
+            );
+          }),
+          GestureDetector(
+            onTap: _onPartnerChipTapped,
+            child: _FilterChip(
+              label: '제휴 할인',
+              icon: Icons.local_offer_outlined,
+              selected: partnerSelected,
+              selectedColor: const Color(0xFFE65100),
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ),
+    );
+  }
+
+  // ── 제휴 식당 상세 콘텐츠 ─────────────────────────────────────────
+
+  Widget _buildPartnerDetailContent(PartnerRestaurant r, ScrollController scroll) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return ListView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(r.name,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _MC.textMain)),
+            ),
+            GestureDetector(
+              onTap: _closePartnerDetail,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.close, size: 20, color: _MC.textSub),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, children: [
+          _Chip(label: r.category, color: const Color(0xFFE65100)),
+        ]),
+        if (r.address.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _AddressRow(address: r.address),
+        ],
+        if (r.phone != null) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.phone_outlined, size: 14, color: _MC.textHint),
+            const SizedBox(width: 4),
+            Text(r.phone!, style: const TextStyle(fontSize: 13, color: _MC.textSub)),
+          ]),
+        ],
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFFE082)),
+          ),
+          child: Row(children: [
+            const Text('🎁', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(r.benefit,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF5D4037))),
+            ),
+          ]),
+        ),
+        if (r.couponCode?.isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          _MapCouponRow(code: r.couponCode!),
+        ],
+        const SizedBox(height: 16),
+        _RouteButtons(onOrigin: _openAsOrigin, onDest: _openAsDest),
+        SizedBox(height: 16 + bottomInset),
+      ],
     );
   }
 
@@ -943,6 +1117,75 @@ class _RouteButtons extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── 필터 칩 (검색바 아래) ────────────────────────────────────────
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color? selectedColor;
+  const _FilterChip({required this.label, required this.icon, required this.selected, this.selectedColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selectedColor ?? const Color(0xFF1A73E8);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: selected ? color : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 6, offset: Offset(0, 2))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: selected ? Colors.white : const Color(0xFF767676)),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : const Color(0xFF191919))),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 제휴 쿠폰 코드 행 ────────────────────────────────────────────
+class _MapCouponRow extends StatelessWidget {
+  final String code;
+  const _MapCouponRow({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: code));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('쿠폰코드가 복사됐어요'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ));
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F5E9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF81C784)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.confirmation_num_outlined, size: 13, color: Color(0xFF388E3C)),
+            const SizedBox(width: 5),
+            Text('코드: $code', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF388E3C))),
+            const SizedBox(width: 8),
+            const Icon(Icons.copy, size: 12, color: Color(0xFF388E3C)),
+          ],
+        ),
+      ),
     );
   }
 }
