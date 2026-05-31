@@ -86,7 +86,9 @@ class ExtraProgram {
 }
 
 /// 현재 신청 중이거나 5일 이내 시작 여부 (날짜 기준 순수 함수).
+/// API의 applyChk가 마감이면 날짜와 무관하게 제외 (정원 마감 등).
 bool shouldShowProgram(ExtraProgram p, DateTime now) {
+  if (p.status == '마감') return false;
   if (p.aplFrom == null || p.aplTo == null) return false;
   final today = DateTime(now.year, now.month, now.day);
   final from =

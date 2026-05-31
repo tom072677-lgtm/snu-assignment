@@ -182,17 +182,17 @@ class NoticeRepository {
   // ─── SNU 비교과 ────────────────────────────────────────────────────────────
 
   Future<List<ExtraProgram>> getExtraPrograms({bool forceRefresh = false}) async {
+    // Use cache (even empty list) when fresh — empty result is valid data.
     if (!forceRefresh && !_isCacheStale(_kExtraFetchedAtKey, _kExtraCacheTtlSeconds)) {
-      final cached = _loadExtraCache();
-      if (cached.isNotEmpty) return cached;
+      if (_prefs.containsKey(_kExtraCacheKey)) return _loadExtraCache();
     }
     try {
       final fresh = await _fetchExtraPrograms();
       await _saveExtraCache(fresh);
       return fresh;
     } catch (_) {
-      final cached = _loadExtraCache();
-      if (cached.isNotEmpty) return cached;
+      // Fall back to cache (including empty) rather than surfacing an error.
+      if (_prefs.containsKey(_kExtraCacheKey)) return _loadExtraCache();
       rethrow;
     }
   }
