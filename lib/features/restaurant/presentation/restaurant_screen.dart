@@ -5,6 +5,8 @@ import '../../../shared/providers/settings_provider.dart';
 import '../data/venue_repository.dart';
 import '../domain/venue.dart';
 import 'venue_detail_screen.dart';
+import '../../partner/data/partner_repository.dart';
+import '../../partner/domain/partner_restaurant.dart';
 
 // ── 상황 태그 (필터용) ─────────────────────────────────────────────
 const _situationTags = ['가성비', '데이트', '혼밥', '술자리', '24시간', '학식'];
@@ -25,6 +27,7 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
   final Set<String> _selectedTags = {};
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
+  bool _isPartnerMode = false;
 
   static const _areas = ['전체', '교내', '서울대입구', '대학동'];
 
@@ -48,16 +51,14 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
 
   List<Venue> _filter(List<Venue> all) {
     return all.where((v) {
-      // 지역 필터
       if (_currentArea != null && v.area != _currentArea) return false;
-      // 카테고리 필터
       if (_selectedCategory != null &&
-          v.category.name != _selectedCategory) return false;
-      // 태그 필터 (AND)
+          v.category.name != _selectedCategory) {
+        return false;
+      }
       for (final t in _selectedTags) {
         if (!v.tags.contains(t)) return false;
       }
-      // 검색어 필터 (이름 + searchTokens 통합 검색)
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final nameMatch = v.name.toLowerCase().contains(q);
@@ -77,120 +78,195 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
 
   @override
   Widget build(BuildContext context) {
-    final venuesAsync = ref.watch(venuesProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('식당·카페', style: TextStyle(fontWeight: FontWeight.bold)),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: _areas.map((a) => Tab(text: a)).toList(),
-          onTap: (_) => setState(() {}),
-        ),
-      ),
-      body: venuesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              Text(e.toString(), style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => ref.invalidate(venuesProvider),
-                child: const Text('다시 시도'),
+        bottom: _isPartnerMode
+            ? null
+            : TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: _areas.map((a) => Tab(text: a)).toList(),
+                onTap: (_) => setState(() {}),
               ),
-            ],
+      ),
+      body: Column(
+        children: [
+          if (!_isPartnerMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: '식당·카페 검색',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          _FilterRow(
+            selectedCategory: _selectedCategory,
+            selectedTags: _selectedTags,
+            isPartnerMode: _isPartnerMode,
+            onPartnerModeToggled: () => setState(() {
+              _isPartnerMode = !_isPartnerMode;
+              _selectedCategory = null;
+            }),
+            onCategoryChanged: (c) => setState(() {
+              _selectedCategory = c;
+              _isPartnerMode = false;
+            }),
+            onTagToggled: (t) => setState(() {
+              _isPartnerMode = false;
+              if (_selectedTags.contains(t)) {
+                _selectedTags.remove(t);
+              } else {
+                _selectedTags.add(t);
+              }
+            }),
           ),
-        ),
-        data: (venues) {
-          final filtered = _filter(venues);
-          return Column(
-            children: [
-              // 검색창
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: InputDecoration(
-                    hintText: '식당·카페 검색',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-              // 필터 칩
-              _FilterRow(
-                selectedCategory: _selectedCategory,
-                selectedTags: _selectedTags,
-                onCategoryChanged: (c) => setState(() => _selectedCategory = c),
-                onTagToggled: (t) => setState(() {
-                  if (_selectedTags.contains(t)) {
-                    _selectedTags.remove(t);
-                  } else {
-                    _selectedTags.add(t);
-                  }
-                }),
-              ),
-              // 결과 수
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${filtered.length}곳',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ),
-              ),
-              // 목록
-              Expanded(
-                child: filtered.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.search_off, size: 48, color: Colors.grey[300]),
-                            const SizedBox(height: 12),
-                            Text(
-                              '검색 결과가 없어요',
-                              style: TextStyle(color: Colors.grey[500]),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, indent: 72),
-                        itemBuilder: (_, i) => _VenueRow(venue: filtered[i]),
-                      ),
-              ),
-            ],
-          );
-        },
+          Expanded(
+            child:
+                _isPartnerMode ? _buildPartnerContent() : _buildVenueContent(),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildVenueContent() {
+    final venuesAsync = ref.watch(venuesProvider);
+    return venuesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Text(e.toString(), style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => ref.invalidate(venuesProvider),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      ),
+      data: (venues) {
+        final filtered = _filter(venues);
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${filtered.length}곳',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_off,
+                              size: 48, color: Colors.grey[300]),
+                          const SizedBox(height: 12),
+                          Text(
+                            '검색 결과가 없어요',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, indent: 72),
+                      itemBuilder: (_, i) => _VenueRow(venue: filtered[i]),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPartnerContent() {
+    final async = ref.watch(partnerAllProvider);
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Text(
+          '불러오기 실패\n$e',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.grey),
+        ),
+      ),
+      data: (list) {
+        final active = list.where((r) => !r.isExpired).toList();
+        if (active.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.storefront_outlined,
+                    size: 56, color: Color(0xFFCCCCCC)),
+                SizedBox(height: 12),
+                Text('제휴 매장 정보가 없습니다.',
+                    style: TextStyle(color: Color(0xFF999999))),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${active.length}곳',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 20),
+                itemCount: active.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, indent: 72),
+                itemBuilder: (_, i) => _PartnerRow(restaurant: active[i]),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -200,14 +276,18 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
 class _FilterRow extends StatelessWidget {
   final String? selectedCategory;
   final Set<String> selectedTags;
+  final bool isPartnerMode;
   final ValueChanged<String?> onCategoryChanged;
   final ValueChanged<String> onTagToggled;
+  final VoidCallback onPartnerModeToggled;
 
   const _FilterRow({
     required this.selectedCategory,
     required this.selectedTags,
+    required this.isPartnerMode,
     required this.onCategoryChanged,
     required this.onTagToggled,
+    required this.onPartnerModeToggled,
   });
 
   @override
@@ -226,7 +306,7 @@ class _FilterRow extends StatelessWidget {
         children: [
           // 카테고리 칩
           ...categories.map((c) {
-            final sel = selectedCategory == c.key;
+            final sel = selectedCategory == c.key && !isPartnerMode;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
@@ -241,26 +321,119 @@ class _FilterRow extends StatelessWidget {
               ),
             );
           }),
-          // 구분선
+          // 제휴 매장 칩
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: VerticalDivider(width: 1, color: Colors.grey[300]),
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: const Text('제휴 매장'),
+              avatar: const Icon(Icons.storefront_outlined, size: 14),
+              selected: isPartnerMode,
+              onSelected: (_) => onPartnerModeToggled(),
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              labelStyle: const TextStyle(fontSize: 12),
+              selectedColor: Colors.orange.withValues(alpha: 0.2),
+            ),
           ),
-          // 상황 태그 칩
-          ..._situationTags.map((t) {
-            final sel = selectedTags.contains(t);
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(t),
-                selected: sel,
-                onSelected: (_) => onTagToggled(t),
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                labelStyle: const TextStyle(fontSize: 12),
+          // 상황 태그 칩 (제휴 매장 모드일 때 숨김)
+          if (!isPartnerMode) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: VerticalDivider(width: 1, color: Colors.grey[300]),
+            ),
+            ..._situationTags.map((t) {
+              final sel = selectedTags.contains(t);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(t),
+                  selected: sel,
+                  onSelected: (_) => onTagToggled(t),
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  labelStyle: const TextStyle(fontSize: 12),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── 제휴 식당 행 ────────────────────────────────────────────────────
+
+class _PartnerRow extends ConsumerWidget {
+  final PartnerRestaurant restaurant;
+  const _PartnerRow({required this.restaurant});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFav = ref.watch(favPartnersProvider).contains(restaurant.id);
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: CircleAvatar(
+        backgroundColor: Colors.orange.withValues(alpha: 0.12),
+        child:
+            const Icon(Icons.storefront_outlined, color: Colors.orange, size: 20),
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              restaurant.name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF3FF),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              restaurant.category,
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF1A73E8),
+                fontWeight: FontWeight.w600,
               ),
-            );
-          }),
+            ),
+          ),
+          GestureDetector(
+            onTap: () =>
+                ref.read(favPartnersProvider.notifier).toggle(restaurant.id),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Icon(
+                isFav ? Icons.favorite : Icons.favorite_border,
+                size: 20,
+                color: isFav ? Colors.red : Colors.grey[400],
+              ),
+            ),
+          ),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 2),
+          if (restaurant.address.isNotEmpty)
+            Text(
+              restaurant.address,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          const SizedBox(height: 2),
+          Text(
+            '🎁 ${restaurant.benefit}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
