@@ -8,6 +8,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xml/xml.dart';
 
+import '../../../core/constants.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../domain/department_notice_source.dart';
 import '../domain/extra_program.dart';
@@ -197,7 +198,9 @@ class NoticeRepository {
     if (deptCode == null || src == null) return [];
     final feedUrl = src.rssFeedUrl;
     final listUrl = src.noticeListUrl;
-    if (feedUrl == null && listUrl == null) return []; // 홈페이지 fallback은 UI에서
+    if (feedUrl == null && listUrl == null && !src.serverScrape) {
+      return []; // 홈페이지 fallback은 UI에서
+    }
 
     final cacheKey = 'notices_dept_${deptCode}_cache';
     final fetchedKey = 'notices_dept_${deptCode}_at';
@@ -208,7 +211,10 @@ class NoticeRepository {
     }
     try {
       final List<Notice> list;
-      if (feedUrl != null) {
+      if (src.serverScrape) {
+        // 서버 스크래퍼 경유 (기기에서 직접 못 긁는 학과)
+        list = await _fetchServerNotices(deptCode);
+      } else if (feedUrl != null) {
         // 1단계: RSS/Atom
         final res = await _sportsDio.get<String>(
           feedUrl,
@@ -244,6 +250,47 @@ class NoticeRepository {
       if (cached.isNotEmpty) return cached;
       rethrow;
     }
+  }
+
+  /// 서버 스크래퍼 엔드포인트(/api/dept-notices)에서 학과 공지 JSON을 가져온다.
+  /// 기기에서 직접 못 긁는 학과(JS 메뉴/구형 인코딩/TLS) 전용.
+  /// Render 콜드스타트(~30-60초) 대비 receiveTimeout을 길게 둔다.
+  Future<List<Notice>> _fetchServerNotices(String deptCode) async {
+    final res = await _sportsDio.get<String>(
+      '$serverUrl/api/dept-notices',
+      queryParameters: {'dept': deptCode},
+      options: Options(
+        responseType: ResponseType.plain,
+        receiveTimeout: const Duration(seconds: 45),
+      ),
+    );
+    if (res.statusCode != 200 || res.data == null || res.data!.isEmpty) {
+      throw Exception('HTTP ${res.statusCode}');
+    }
+    final body = jsonDecode(res.data!) as Map<String, dynamic>;
+    final rawItems = (body['items'] as List?) ?? const [];
+    final out = <Notice>[];
+    for (final raw in rawItems) {
+      if (raw is! Map) continue;
+      final title = (raw['title'] as String?)?.trim() ?? '';
+      final url = (raw['url'] as String?)?.trim() ?? '';
+      if (title.isEmpty || !url.startsWith('http')) continue; // 필드 검증
+      out.add(Notice(
+        id: 'dept_${deptCode}_${_stableHash(_normalizeLink(url))}',
+        title: title,
+        url: url,
+        source: NoticeSource.department,
+        category: _bracketCategory(title),
+        date: parseListDate((raw['date'] as String?) ?? ''),
+      ));
+    }
+    if (out.isEmpty) {
+      throw const ScrapingException('서버 공지 결과가 비어 있습니다.');
+    }
+    final dated = out.where((n) => n.date != null).toList()
+      ..sort((a, b) => b.date!.compareTo(a.date!));
+    final undated = out.where((n) => n.date == null).toList();
+    return [...dated, ...undated];
   }
 
   /// HTML 바이트를 charset 판별 후 디코딩. EUC-KR은 현재 미지원(utf8 시도).

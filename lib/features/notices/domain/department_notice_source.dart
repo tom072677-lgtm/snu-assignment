@@ -14,6 +14,7 @@ class DepartmentNoticeSource {
     this.noticeListUrl,
     this.containerSelector,
     this.excludeTextPatterns = const [],
+    this.serverScrape = false,
     required this.homepageUrl,
   });
 
@@ -31,6 +32,10 @@ class DepartmentNoticeSource {
 
   /// (선택) 비게시글 링크 제외 패턴(부분일치) — "더보기","목록" 등.
   final List<String> excludeTextPatterns;
+
+  /// true면 서버 스크래퍼 엔드포인트(/api/dept-notices?dept=deptCode)로 가져온다.
+  /// 기기에서 직접 못 긁는 학과(JS 메뉴/구형 인코딩/TLS). 서버 allowlist key==deptCode.
+  final bool serverScrape;
 
   /// 학과 홈페이지 (항상 존재) — "학과 홈페이지 열기"용
   final String homepageUrl;
@@ -63,6 +68,15 @@ DepartmentNoticeSource _board(String code, String host, String noticeUrl) =>
 /// "학과 홈페이지 열기" 버튼만 제공.
 DepartmentNoticeSource _home(String code, String host) =>
     DepartmentNoticeSource(deptCode: code, homepageUrl: 'https://$host/');
+
+/// 서버 스크래퍼(정적 fetch+cheerio) 경유 — 기기에서 직접 못 긁는 학과
+/// (JS 메뉴/구형 인코딩/TLS). 서버 DEPT_NOTICE_SOURCES key == code 여야 함.
+DepartmentNoticeSource _server(String code, String host) =>
+    DepartmentNoticeSource(
+      deptCode: code,
+      serverScrape: true,
+      homepageUrl: 'https://$host/',
+    );
 
 /// 검증 완료된 학과만 등록 (2026-06-02 피드 내용 직접 확인).
 /// 미등록 학과는 `noticeSourceFor`가 null 반환 → UI에서 "준비 중" 안내.
@@ -186,14 +200,14 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'political_science': _home('political_science', 'polisci.snu.ac.kr'),
   'social_welfare': _board('social_welfare', 'socialwelfare.snu.ac.kr',
       'https://socialwelfare.snu.ac.kr/notice'),
-  'mathematics': _home('mathematics', 'www.math.snu.ac.kr'),
+  'mathematics': _server('mathematics', 'www.math.snu.ac.kr'),
   'civil': _home('civil', 'cee.snu.ac.kr'),
   'english_edu': _home('english_edu', 'engedu.snu.ac.kr'),
   'german_edu': _home('german_edu', 'germanedu.snu.ac.kr'),
-  'medicine': _home('medicine', 'medicine.snu.ac.kr'),
+  'medicine': _server('medicine', 'medicine.snu.ac.kr'),
   'law': _board('law', 'law.snu.ac.kr',
       'https://law.snu.ac.kr/bbs/board.php?bo_table=promotion'),
-  'dentistry': _home('dentistry', 'dentistry.snu.ac.kr'),
+  'dentistry': _server('dentistry', 'dentistry.snu.ac.kr'),
   // 음악대학 5개 학과 공통 (div기반 ul 게시판)
   'composition':
       _board('composition', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
