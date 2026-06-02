@@ -11,14 +11,26 @@ class DepartmentNoticeSource {
   const DepartmentNoticeSource({
     required this.deptCode,
     this.rssFeedUrl,
+    this.noticeListUrl,
+    this.containerSelector,
+    this.excludeTextPatterns = const [],
     required this.homepageUrl,
   });
 
   /// snu_departments.dart의 학과 code
   final String deptCode;
 
-  /// RSS 피드 URL. null이면 RSS 미지원 → 홈페이지 fallback.
+  /// 1단계: RSS/Atom 피드 URL (우선). null이면 RSS 미지원.
   final String? rssFeedUrl;
+
+  /// 2단계: 서버 HTML 게시판 목록 URL. rssFeedUrl이 없을 때 사용.
+  final String? noticeListUrl;
+
+  /// (선택) 목록 컨테이너 강제 지정 — 범용 휴리스틱이 오탐할 때만.
+  final String? containerSelector;
+
+  /// (선택) 비게시글 링크 제외 패턴(부분일치) — "더보기","목록" 등.
+  final List<String> excludeTextPatterns;
 
   /// 학과 홈페이지 (항상 존재) — "학과 홈페이지 열기"용
   final String homepageUrl;
@@ -27,6 +39,14 @@ class DepartmentNoticeSource {
 DepartmentNoticeSource _wp(String code, String host) => DepartmentNoticeSource(
       deptCode: code,
       rssFeedUrl: 'https://$host/feed/',
+      homepageUrl: 'https://$host/',
+    );
+
+/// 서버 HTML 게시판(2단계). listPath는 공지 목록 페이지 경로.
+DepartmentNoticeSource _html(String code, String host, String listPath) =>
+    DepartmentNoticeSource(
+      deptCode: code,
+      noticeListUrl: 'https://$host$listPath',
       homepageUrl: 'https://$host/',
     );
 
@@ -70,6 +90,11 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'veterinary': _wp('veterinary', 'vet.snu.ac.kr'),
   // 약학대학
   'pharmacy': _wp('pharmacy', 'snupharm.snu.ac.kr'),
+
+  // ─── 2단계: 서버 HTML 게시판 (공통 _skin/kor CMS 계열) ───
+  'economics': _html('economics', 'econ.snu.ac.kr', '/announcement/notice'),
+  'nursing': _html('nursing', 'nursing.snu.ac.kr', '/board/notice'),
+  'chemistry': _html('chemistry', 'chem.snu.ac.kr', '/community/notice'),
 };
 
 /// deptCode로 공지 소스 조회. 없으면 null.

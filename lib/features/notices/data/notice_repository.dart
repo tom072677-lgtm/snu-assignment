@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xml/xml.dart';
@@ -192,8 +193,11 @@ class NoticeRepository {
   /// 소스 없음/RSS 없음이면 빈 리스트 반환(UI에서 분기). 1시간 캐시 + 오프라인 fallback.
   Future<List<Notice>> getDepartmentNotices(String? deptCode,
       {bool forceRefresh = false}) async {
-    final feedUrl = noticeSourceFor(deptCode)?.rssFeedUrl;
-    if (deptCode == null || feedUrl == null) return [];
+    final src = noticeSourceFor(deptCode);
+    if (deptCode == null || src == null) return [];
+    final feedUrl = src.rssFeedUrl;
+    final listUrl = src.noticeListUrl;
+    if (feedUrl == null && listUrl == null) return []; // 홈페이지 fallback은 UI에서
 
     final cacheKey = 'notices_dept_${deptCode}_cache';
     final fetchedKey = 'notices_dept_${deptCode}_at';
@@ -203,14 +207,35 @@ class NoticeRepository {
       if (cached.isNotEmpty) return cached;
     }
     try {
-      final res = await _sportsDio.get<String>(
-        feedUrl,
-        options: Options(responseType: ResponseType.plain),
-      );
-      if (res.statusCode != 200 || res.data == null || res.data!.isEmpty) {
-        throw Exception('HTTP ${res.statusCode}');
+      final List<Notice> list;
+      if (feedUrl != null) {
+        // 1단계: RSS/Atom
+        final res = await _sportsDio.get<String>(
+          feedUrl,
+          options: Options(responseType: ResponseType.plain),
+        );
+        if (res.statusCode != 200 || res.data == null || res.data!.isEmpty) {
+          throw Exception('HTTP ${res.statusCode}');
+        }
+        list = parseFeed(res.data!, deptCode: deptCode);
+      } else {
+        // 2단계: 서버 HTML 게시판 (bytes + charset 디코딩)
+        final res = await _sportsDio.get<List<int>>(
+          listUrl!,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (res.statusCode != 200 || res.data == null) {
+          throw Exception('HTTP ${res.statusCode}');
+        }
+        final html = _decodeHtml(res.data!, res.headers.value('content-type'));
+        list = parseHtmlNoticeList(
+          html,
+          deptCode: deptCode,
+          baseUrl: listUrl,
+          containerSelector: src.containerSelector,
+          exclude: src.excludeTextPatterns,
+        );
       }
-      final list = parseFeed(res.data!, deptCode: deptCode);
       await _saveDeptCache(cacheKey, fetchedKey, list);
       return list;
     } catch (e) {
@@ -219,6 +244,29 @@ class NoticeRepository {
       if (cached.isNotEmpty) return cached;
       rethrow;
     }
+  }
+
+  /// HTML 바이트를 charset 판별 후 디코딩. EUC-KR은 현재 미지원(utf8 시도).
+  static String _decodeHtml(List<int> bytes, String? contentType) {
+    String charset = '';
+    if (contentType != null) {
+      final m = RegExp(r'charset=([\w-]+)', caseSensitive: false)
+          .firstMatch(contentType);
+      if (m != null) charset = m.group(1)!.toLowerCase();
+    }
+    if (charset.isEmpty) {
+      final head = latin1.decode(
+          bytes.length > 2048 ? bytes.sublist(0, 2048) : bytes,
+          allowInvalid: true);
+      final m = RegExp('charset=["\']?([\\w-]+)', caseSensitive: false)
+          .firstMatch(head);
+      if (m != null) charset = m.group(1)!.toLowerCase();
+    }
+    if (charset.contains('euc') || charset.contains('ks_c') ||
+        charset.contains('949')) {
+      debugPrint('[NoticeRepository._decodeHtml] unsupported charset: $charset');
+    }
+    return utf8.decode(bytes, allowMalformed: true);
   }
 
   List<Notice> _loadDeptCache(String key) {
@@ -269,7 +317,7 @@ class NoticeRepository {
         id: 'dept_${deptCode}_${_stableHash(norm)}',
         title: title,
         url: link,
-        source: NoticeSource.sports,
+        source: NoticeSource.department,
         category: _bracketCategory(title),
         date: parseFeedDate(dateStr),
       ));
@@ -302,12 +350,14 @@ class NoticeRepository {
     return m?.group(1)?.trim();
   }
 
-  /// 중복 판정용 링크 정규화 (scheme/query/fragment 무시, host 소문자, trailing slash 제거).
+  /// 중복 판정용 링크 정규화 (scheme/fragment 무시, host 소문자, trailing slash 제거).
+  /// 쿼리는 유지 — 게시판은 `?bbsidx=N` 쿼리로 글을 구분하므로.
   static String _normalizeLink(String url) {
     try {
       final u = Uri.parse(url.trim());
       final path = u.path.replaceAll(RegExp(r'/+$'), '');
-      return '${u.host}$path'.toLowerCase();
+      final q = u.query.isEmpty ? '' : '?${u.query}';
+      return '${u.host}$path$q'.toLowerCase();
     } catch (_) {
       return url.trim().toLowerCase();
     }
@@ -338,6 +388,160 @@ class NoticeRepository {
       int.parse(m.group(5) ?? '0'),
       int.parse(m.group(6) ?? '0'),
     );
+  }
+
+  /// 서버 HTML 게시판 목록을 범용 추출 (순수 함수, package:html).
+  /// 행(tr/li) 중 "텍스트 있는 링크 + 가시 텍스트 날짜"를 가진 것들의
+  /// 가장 큰 공통 부모를 공지 목록으로 보고 추출. 컨테이너를 못 찾으면 throw.
+  static List<Notice> parseHtmlNoticeList(
+    String html, {
+    required String deptCode,
+    required String baseUrl,
+    String? containerSelector,
+    List<String> exclude = const [],
+    int limit = _kDeptFeedMaxItems,
+  }) {
+    final doc = html_parser.parse(html);
+    List<dom.Element> rows;
+    if (containerSelector != null) {
+      final c = doc.querySelector(containerSelector);
+      rows = c == null
+          ? <dom.Element>[]
+          : c.querySelectorAll('tr, li').where(_isNoticeRow).toList();
+    } else {
+      final candidates =
+          doc.querySelectorAll('tr, li').where(_isNoticeRow).toList();
+      if (candidates.isEmpty) {
+        throw const ScrapingException(
+            '공지 목록을 찾지 못했습니다 — 사이트 구조가 변경되었을 수 있습니다.');
+      }
+      // 후보 행이 가장 많은 공통 부모를 공지 목록으로 채택 (메뉴/푸터 배제)
+      final byParent = <dom.Element, List<dom.Element>>{};
+      for (final el in candidates) {
+        final p = el.parent;
+        if (p == null) continue;
+        (byParent[p] ??= <dom.Element>[]).add(el);
+      }
+      rows = byParent.entries
+          .reduce((a, b) => b.value.length >= a.value.length ? b : a)
+          .value;
+    }
+
+    final out = <Notice>[];
+    final seen = <String>{};
+    for (final row in rows) {
+      final a = _titleLink(row, exclude);
+      if (a == null) continue;
+      final title = a.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+      if (title.length < 2) continue;
+      final href = _resolveHref(a.attributes['href'], baseUrl);
+      if (href == null) continue;
+      final norm = _normalizeLink(href);
+      if (!seen.add(norm)) continue;
+      out.add(Notice(
+        id: 'dept_${deptCode}_${_stableHash(norm)}',
+        title: title,
+        url: href,
+        source: NoticeSource.department,
+        category: _bracketCategory(title),
+        date: parseListDate(row.text),
+      ));
+      if (out.length >= limit) break;
+    }
+    final dated = out.where((n) => n.date != null).toList()
+      ..sort((a, b) => b.date!.compareTo(a.date!));
+    final undated = out.where((n) => n.date == null).toList();
+    return [...dated, ...undated];
+  }
+
+  static const _navWords = {
+    '더보기', '목록', '검색', '로그인', '다음', '이전', '처음', '마지막', '글쓰기',
+    'first', 'last', 'prev', 'next', 'more', 'list', 'search', 'login',
+  };
+
+  static bool _hasRealHref(String? href) {
+    if (href == null) return false;
+    final h = href.trim();
+    if (h.isEmpty || h == '#') return false;
+    if (h.startsWith('javascript:')) return false;
+    return true;
+  }
+
+  /// 행이 공지 행 후보인지: 텍스트 있는 실제 링크 + 가시 텍스트 날짜.
+  static bool _isNoticeRow(dom.Element el) {
+    final hasLink = el.querySelectorAll('a').any(
+        (a) => a.text.trim().length >= 2 && _hasRealHref(a.attributes['href']));
+    if (!hasLink) return false;
+    return parseListDate(el.text) != null;
+  }
+
+  /// 행에서 제목 링크 선택 (네비/제외 단어 배제, 가장 긴 텍스트 우선).
+  static dom.Element? _titleLink(dom.Element row, List<String> exclude) {
+    dom.Element? best;
+    var bestLen = 0;
+    for (final a in row.querySelectorAll('a')) {
+      final t = a.text.trim();
+      if (t.length < 2 || !_hasRealHref(a.attributes['href'])) continue;
+      if (_navWords.contains(t.toLowerCase())) continue;
+      if (exclude.any((e) => t.contains(e))) continue;
+      if (t.length > bestLen) {
+        best = a;
+        bestLen = t.length;
+      }
+    }
+    return best;
+  }
+
+  static String? _resolveHref(String? href, String baseUrl) {
+    if (href == null) return null;
+    final h = href.trim();
+    if (h.isEmpty || h == '#' || h.startsWith('javascript:')) return null;
+    try {
+      return Uri.parse(baseUrl).resolve(h).toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 가시 텍스트에서 날짜 추출 (다양한 형식). MM.DD만 있으면 현재 연도 가정.
+  static DateTime? parseListDate(String text) {
+    final t = text.replaceAll(' ', ' ');
+    // YYYY[.-/ ]MM[.-/ ]DD
+    var m = RegExp(r'(20\d{2})\s*[.\-/]\s*([01]?\d)\s*[.\-/]\s*([0-3]?\d)')
+        .firstMatch(t);
+    if (m != null) {
+      final d = _ymd(int.parse(m.group(1)!), int.parse(m.group(2)!),
+          int.parse(m.group(3)!));
+      if (d != null) return d;
+    }
+    // YYYY년 M월 D일
+    m = RegExp(r'(20\d{2})\s*년\s*([01]?\d)\s*월\s*([0-3]?\d)\s*일').firstMatch(t);
+    if (m != null) {
+      final d = _ymd(int.parse(m.group(1)!), int.parse(m.group(2)!),
+          int.parse(m.group(3)!));
+      if (d != null) return d;
+    }
+    // YY.MM.DD (2자리 연도 → 20YY)
+    m = RegExp(r'(?<!\d)(\d{2})\s*[.\-/]\s*([01]?\d)\s*[.\-/]\s*([0-3]?\d)(?!\d)')
+        .firstMatch(t);
+    if (m != null) {
+      final d = _ymd(2000 + int.parse(m.group(1)!), int.parse(m.group(2)!),
+          int.parse(m.group(3)!));
+      if (d != null) return d;
+    }
+    // MM.DD (연도 없음) → 현재 연도
+    m = RegExp(r'(?<!\d)([01]?\d)\s*[.\-/]\s*([0-3]?\d)(?!\d)').firstMatch(t);
+    if (m != null) {
+      final d = _ymd(DateTime.now().year, int.parse(m.group(1)!),
+          int.parse(m.group(2)!));
+      if (d != null) return d;
+    }
+    return null;
+  }
+
+  static DateTime? _ymd(int y, int mo, int da) {
+    if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+    return DateTime(y, mo, da);
   }
 
   // ─── SNU 비교과 ────────────────────────────────────────────────────────────

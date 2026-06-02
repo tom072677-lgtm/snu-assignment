@@ -1,5 +1,8 @@
 /// 공지/기회 항목 출처
-enum NoticeSource { sports, extra }
+/// - department: 학과 공지 (RSS 피드 또는 서버 HTML 게시판)
+/// - sports: (레거시) 체육교육과 HTML 스크래퍼 — department로 대체됨
+/// - extra: SNU 비교과 프로그램
+enum NoticeSource { sports, extra, department }
 
 /// 공지 또는 비교과 프로그램 항목
 class Notice {

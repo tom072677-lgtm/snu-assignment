@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sharap/features/notices/data/notice_repository.dart';
 import 'package:sharap/features/notices/domain/department_notice_source.dart';
@@ -110,11 +112,92 @@ void main() {
     });
 
     test('returns null for unregistered department', () {
-      expect(noticeSourceFor('economics'), isNull);
+      expect(noticeSourceFor('cse'), isNull); // 컴퓨터공학부(SPA) 미등록
     });
 
     test('returns null for null deptCode', () {
       expect(noticeSourceFor(null), isNull);
+    });
+  });
+
+  // ── parseHtmlNoticeList (실제 fixture) ──────────────────────────────────────
+
+  group('NoticeRepository.parseHtmlNoticeList', () {
+    String fx(String name) => File('test/fixtures/$name').readAsStringSync();
+
+    test('econ: bbsidx 절대링크 + 날짜 추출', () {
+      final list = NoticeRepository.parseHtmlNoticeList(
+        fx('notice_econ.html'),
+        deptCode: 'economics',
+        baseUrl: 'https://econ.snu.ac.kr/announcement/notice',
+      );
+      expect(list.length, greaterThanOrEqualTo(10));
+      expect(list.length, lessThanOrEqualTo(50));
+      expect(list.first.url, startsWith('https://econ.snu.ac.kr/'));
+      expect(list.first.url, contains('bbsidx='));
+      expect(list.first.title.trim(), isNotEmpty);
+      expect(list.first.source, NoticeSource.department);
+      expect(list.where((n) => n.date != null).length,
+          greaterThanOrEqualTo((list.length * 0.7).floor()));
+      expect(list.any((n) => n.title == '공지사항' || n.title == '목록'), isFalse);
+    });
+
+    test('nursing: 추출 + 링크 dedup + 절대화', () {
+      final list = NoticeRepository.parseHtmlNoticeList(
+        fx('notice_nursing.html'),
+        deptCode: 'nursing',
+        baseUrl: 'https://nursing.snu.ac.kr/board/notice',
+      );
+      expect(list.length, greaterThanOrEqualTo(10));
+      expect(list.first.url, contains('bbsidx='));
+      expect(list.every((n) => n.url.startsWith('http')), isTrue);
+      expect(list.map((n) => n.url).toSet().length, list.length);
+    });
+
+    test('chem: 추출', () {
+      final list = NoticeRepository.parseHtmlNoticeList(
+        fx('notice_chem.html'),
+        deptCode: 'chemistry',
+        baseUrl: 'https://chem.snu.ac.kr/community/notice',
+      );
+      expect(list.length, greaterThanOrEqualTo(10));
+      expect(list.first.url, contains('bbsidx='));
+      expect(list.first.title.trim(), isNotEmpty);
+    });
+
+    test('공지 목록 컨테이너를 못 찾으면 throw', () {
+      expect(
+        () => NoticeRepository.parseHtmlNoticeList(
+          '<html><body><p>no rows</p></body></html>',
+          deptCode: 'x',
+          baseUrl: 'https://x.snu.ac.kr/',
+        ),
+        throwsA(isA<ScrapingException>()),
+      );
+    });
+  });
+
+  // ── parseListDate ────────────────────────────────────────────────────────────
+
+  group('NoticeRepository.parseListDate', () {
+    test('YYYY-MM-DD / YYYY.MM.DD / 공백 포함', () {
+      expect(NoticeRepository.parseListDate('2026-06-02'), DateTime(2026, 6, 2));
+      expect(NoticeRepository.parseListDate('2026.06.02'), DateTime(2026, 6, 2));
+      expect(NoticeRepository.parseListDate('2026. 6. 2'), DateTime(2026, 6, 2));
+    });
+    test('한글 년월일', () {
+      expect(
+          NoticeRepository.parseListDate('2026년 6월 2일'), DateTime(2026, 6, 2));
+    });
+    test('행 텍스트 안에 묻힌 날짜 추출', () {
+      expect(NoticeRepository.parseListDate('제목 2026-06-02 / 27'),
+          DateTime(2026, 6, 2));
+    });
+    test('YY.MM.DD는 20YY로', () {
+      expect(NoticeRepository.parseListDate('25.06.02'), DateTime(2025, 6, 2));
+    });
+    test('날짜 없으면 null', () {
+      expect(NoticeRepository.parseListDate('제목만 있음'), isNull);
     });
   });
 

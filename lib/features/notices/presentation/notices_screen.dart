@@ -113,12 +113,12 @@ class _SportsTabState extends ConsumerState<_SportsTab> {
     if (source == null) {
       return _DeptUnsupportedView(hasDept: deptCode != null);
     }
-    // 상태 2: 소스는 있으나 RSS 미지원 → 홈페이지 fallback
-    if (source.rssFeedUrl == null) {
+    // 상태 2: 피드/게시판 소스가 둘 다 없음 → 홈페이지 fallback
+    if (source.rssFeedUrl == null && source.noticeListUrl == null) {
       return _DeptHomepageFallback(homepageUrl: source.homepageUrl);
     }
 
-    // 상태 3: RSS 피드
+    // 상태 3: RSS 또는 서버 HTML 게시판
     final async = ref.watch(departmentNoticesProvider);
     final now = DateTime.now();
 
