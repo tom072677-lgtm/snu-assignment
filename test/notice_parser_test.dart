@@ -112,7 +112,7 @@ void main() {
     });
 
     test('returns null for unregistered department', () {
-      expect(noticeSourceFor('cse'), isNull); // 컴퓨터공학부(SPA) 미등록
+      expect(noticeSourceFor('law'), isNull); // 법학부 미등록
     });
 
     test('returns null for null deptCode', () {
