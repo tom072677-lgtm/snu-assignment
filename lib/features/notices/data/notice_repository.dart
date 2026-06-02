@@ -262,9 +262,13 @@ class NoticeRepository {
           .firstMatch(head);
       if (m != null) charset = m.group(1)!.toLowerCase();
     }
-    if (charset.contains('euc') || charset.contains('ks_c') ||
+    if (charset.contains('euc') ||
+        charset.contains('ks_c') ||
         charset.contains('949')) {
-      debugPrint('[NoticeRepository._decodeHtml] unsupported charset: $charset');
+      // EUC-KR/CP949: Dart 코어에 디코더 없음 → UTF-8로 디코딩하면 깨짐.
+      // mojibake를 보여주느니 명확히 실패시킨다(캐시 fallback/에러뷰로 유도).
+      // 현재 등록된 학과는 모두 UTF-8. 추후 EUC-KR 학과가 필요하면 디코더 패키지 추가.
+      throw ScrapingException('지원하지 않는 인코딩입니다($charset).');
     }
     return utf8.decode(bytes, allowMalformed: true);
   }
@@ -431,11 +435,14 @@ class NoticeRepository {
     final out = <Notice>[];
     final seen = <String>{};
     for (final row in rows) {
-      final a = _titleLink(row, exclude);
-      if (a == null) continue;
-      final title = a.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final titleA = _titleAnchor(row, exclude);
+      if (titleA == null) continue;
+      final title = titleA.text.trim().replaceAll(RegExp(r'\s+'), ' ');
       if (title.length < 2) continue;
-      final href = _resolveHref(a.attributes['href'], baseUrl);
+      // 제목 링크의 href를 우선 쓰되, javascript:/onclick 등으로 못 풀면
+      // 행 안의 다른 실제 링크(오버레이 등)로 fallback.
+      final href = _resolveHref(titleA.attributes['href'], baseUrl) ??
+          _firstRealHref(row, baseUrl);
       if (href == null) continue;
       final norm = _normalizeLink(href);
       if (!seen.add(norm)) continue;
@@ -468,21 +475,24 @@ class NoticeRepository {
     return true;
   }
 
-  /// 행이 공지 행 후보인지: 텍스트 있는 실제 링크 + 가시 텍스트 날짜.
+  /// 행이 공지 행 후보인지: (텍스트 있는 링크) + (실제 href 링크) + 가시 텍스트 날짜.
+  /// 제목 링크와 실제 href 링크가 다른 요소여도 됨(오버레이/ javascript 제목 패턴).
   static bool _isNoticeRow(dom.Element el) {
-    final hasLink = el.querySelectorAll('a').any(
-        (a) => a.text.trim().length >= 2 && _hasRealHref(a.attributes['href']));
-    if (!hasLink) return false;
+    final anchors = el.querySelectorAll('a');
+    final hasText = anchors.any((a) => a.text.trim().length >= 2);
+    final hasReal = anchors.any((a) => _hasRealHref(a.attributes['href']));
+    if (!hasText || !hasReal) return false;
     return parseListDate(el.text) != null;
   }
 
-  /// 행에서 제목 링크 선택 (네비/제외 단어 배제, 가장 긴 텍스트 우선).
-  static dom.Element? _titleLink(dom.Element row, List<String> exclude) {
+  /// 행에서 제목 텍스트 링크 선택 (네비/제외 단어 배제, 가장 긴 텍스트 우선).
+  /// href 유효성은 따지지 않음 — 링크는 _firstRealHref로 별도 확보.
+  static dom.Element? _titleAnchor(dom.Element row, List<String> exclude) {
     dom.Element? best;
     var bestLen = 0;
     for (final a in row.querySelectorAll('a')) {
       final t = a.text.trim();
-      if (t.length < 2 || !_hasRealHref(a.attributes['href'])) continue;
+      if (t.length < 2) continue;
       if (_navWords.contains(t.toLowerCase())) continue;
       if (exclude.any((e) => t.contains(e))) continue;
       if (t.length > bestLen) {
@@ -491,6 +501,15 @@ class NoticeRepository {
       }
     }
     return best;
+  }
+
+  /// 행 안의 첫 번째 실제 href(절대화). 제목 링크가 javascript:일 때 fallback.
+  static String? _firstRealHref(dom.Element row, String baseUrl) {
+    for (final a in row.querySelectorAll('a')) {
+      final h = _resolveHref(a.attributes['href'], baseUrl);
+      if (h != null) return h;
+    }
+    return null;
   }
 
   static String? _resolveHref(String? href, String baseUrl) {

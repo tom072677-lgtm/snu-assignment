@@ -127,6 +127,7 @@ class _SportsTabState extends ConsumerState<_SportsTab> {
       error: (e, _) => _ErrorView(
         message: '공지를 불러오지 못했어요.\n네트워크 상태를 확인해 주세요.',
         onRetry: () => ref.invalidate(departmentNoticesProvider),
+        homepageUrl: source.homepageUrl,
       ),
       data: (notices) {
         if (notices.isEmpty) {
@@ -812,10 +813,17 @@ class _DeptPickerSheetState extends ConsumerState<_DeptPickerSheet> {
 // ─── 공통 에러 뷰 ───────────────────────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    this.homepageUrl,
+  });
 
   final String message;
   final VoidCallback onRetry;
+
+  /// 있으면 "학과 홈페이지 열기" 버튼 추가 — SPA/파싱불가 학과의 graceful fallback.
+  final String? homepageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -833,6 +841,17 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+          if (homepageUrl != null)
+            TextButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('학과 홈페이지 열기'),
+              onPressed: () async {
+                final uri = Uri.parse(homepageUrl!);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
         ],
       ),
     );
