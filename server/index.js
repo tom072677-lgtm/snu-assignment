@@ -2039,6 +2039,39 @@ app.get('/api/route/shuttle', async (req, res) => {
   res.json({ routes: withBadges });
 });
 
+// ===== 학과 공지 스크래퍼 (정적 fetch + cheerio, 헤드리스 아님) =====
+// JS 메뉴/구형 인코딩/TLS 이슈로 Flutter 앱이 기기에서 직접 못 긁는 학과 공지를
+// 서버에서 파싱해 JSON으로 제공. 클라이언트는 dept 코드만 보냄(allowlist, SSRF 방지).
+const { DEPT_NOTICE_SOURCES, scrapeDept } = require("./deptNotices");
+const deptNoticeCache = new Map(); // dept → { at, items }
+const DEPT_NOTICE_TTL = 30 * 60 * 1000; // 30분
+
+app.get("/api/dept-notices", async (req, res) => {
+  const dept = String(req.query.dept || "").trim();
+  if (!DEPT_NOTICE_SOURCES[dept]) {
+    return res.status(404).json({ error: "unknown-dept", dept });
+  }
+  const cached = deptNoticeCache.get(dept);
+  if (cached && Date.now() - cached.at < DEPT_NOTICE_TTL) {
+    return res.json({ dept, source: "cache", items: cached.items });
+  }
+  try {
+    const { items, htmlHead } = await scrapeDept(dept);
+    if (!items.length) {
+      // 사이트 구조 변경 가능 — 진단용 HTML 앞부분은 서버 로그에만 남김.
+      console.error(`[dept-notices] ${dept}: 0건 파싱. HTML 앞부분:`, htmlHead);
+      if (cached) return res.json({ dept, source: "stale", items: cached.items });
+      return res.status(502).json({ error: "no-rows", dept });
+    }
+    deptNoticeCache.set(dept, { at: Date.now(), items });
+    res.json({ dept, source: "scrape", items });
+  } catch (e) {
+    console.error(`[dept-notices] ${dept} 실패:`, e.message);
+    if (cached) return res.json({ dept, source: "stale", items: cached.items }); // stale 우선
+    res.status(502).json({ error: "fetch-failed", dept });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });
