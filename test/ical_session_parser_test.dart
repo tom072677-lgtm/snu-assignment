@@ -166,8 +166,8 @@ END:VEVENT''');
         events.add('''BEGIN:VEVENT
 UID:weekend-$i
 SUMMARY:주말수업 [WE01]
-DTSTART;TZID=Asia/Seoul:${y}${mo}${d}T100000
-DTEND;TZID=Asia/Seoul:${y}${mo}${d}T113000
+DTSTART;TZID=Asia/Seoul:$y$mo${d}T100000
+DTEND;TZID=Asia/Seoul:$y$mo${d}T113000
 END:VEVENT''');
         date = date.add(const Duration(days: 7));
       }
@@ -185,7 +185,7 @@ END:VEVENT''');
 
     test('handles RFC 5545 line folding', () {
       // Long line folded with CRLF + SPACE
-      final ics = 'BEGIN:VCALENDAR\nBEGIN:VEVENT\n'
+      const ics = 'BEGIN:VCALENDAR\nBEGIN:VEVENT\n'
           'SUMMARY:긴이름수업\r\n  연속 [CS999]\n'
           'DTSTART;TZID=Asia/Seoul:20250303T090000\n'
           'DTEND;TZID=Asia/Seoul:20250303T103000\n'

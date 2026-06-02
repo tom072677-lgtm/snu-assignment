@@ -126,7 +126,7 @@ class _BombCountdownBannerState extends ConsumerState<BombCountdownBanner>
   Widget build(BuildContext context) {
     if (widget.urgentAssignments.isEmpty) return const SizedBox.shrink();
 
-    final totalSeconds = 24 * 3600;
+    const totalSeconds = 24 * 3600;
     final remainingSeconds = _mostUrgentRemaining.inSeconds.clamp(0, totalSeconds);
     // progress: 0.0 = 24시간 남음(왼쪽), 1.0 = 0시간(오른쪽)
     final progress = 1.0 - (remainingSeconds / totalSeconds);
@@ -285,11 +285,11 @@ class _BombCountdownBannerState extends ConsumerState<BombCountdownBanner>
               ),
               const SizedBox(height: 4),
               // 좌우 레이블
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('24h', style: TextStyle(color: Color(0xAAFFFFFF), fontSize: 10)),
-                  const Text('0h', style: TextStyle(color: Color(0xAAFFFFFF), fontSize: 10)),
+                  Text('24h', style: TextStyle(color: Color(0xAAFFFFFF), fontSize: 10)),
+                  Text('0h', style: TextStyle(color: Color(0xAAFFFFFF), fontSize: 10)),
                 ],
               ),
             ],

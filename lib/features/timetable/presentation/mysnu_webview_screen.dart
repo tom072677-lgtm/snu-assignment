@@ -22,7 +22,6 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
   String _statusMsg = '';
 
   static const _startUrl = 'https://my.snu.ac.kr/login.jsp';
-  static const _base = 'https://mo.snu.ac.kr';
 
   /// 모든 페이지에 주입하는 XHR + fetch 인터셉터.
   /// JSON 응답 중 과목명 필드가 있는 것을 수업 데이터로 판단해 Sharap으로 전송.

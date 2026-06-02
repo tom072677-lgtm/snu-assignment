@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
 import '../../../shared/providers/settings_provider.dart';
@@ -23,8 +24,8 @@ class RestaurantNotifier
     try {
       final fresh = await _fetch();
       state = AsyncData(fresh);
-    } catch (_) {
-      // 실패 시 캐시 유지
+    } catch (e) {
+      debugPrint('[RestaurantNotifier._backgroundRefresh] error: $e');
     }
   }
 

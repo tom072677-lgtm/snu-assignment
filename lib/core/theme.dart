@@ -18,7 +18,7 @@ ThemeData lightTheme() => ThemeData(
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
-        indicatorColor: _primary.withOpacity(0.15),
+        indicatorColor: _primary.withValues(alpha: 0.15),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),

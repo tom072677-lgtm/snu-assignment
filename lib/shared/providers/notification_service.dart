@@ -53,7 +53,7 @@ Future<void> handleBackgroundFcm(RemoteMessage message) async {
           'announcement:${announcementId.isNotEmpty ? announcementId : 'ann_${data['title']?.hashCode}'}'),
       data['title'] ?? '새 공지사항',
       data['body'] ?? '과제 탭을 확인해 주세요',
-      NotificationDetails(
+      const NotificationDetails(
         android: AndroidNotificationDetails(
           NotificationService.announcementChannelId,
           NotificationService.announcementChannelName,
@@ -70,7 +70,7 @@ Future<void> handleBackgroundFcm(RemoteMessage message) async {
       NotificationService._stableId('assignment:${etlId.isNotEmpty ? etlId : 'new_assign'}'),
       data['title'] ?? '새 과제',
       data['body'] ?? '과제 탭을 확인해 주세요',
-      NotificationDetails(
+      const NotificationDetails(
         android: AndroidNotificationDetails(
           NotificationService.alertChannelId,
           NotificationService.alertChannelName,

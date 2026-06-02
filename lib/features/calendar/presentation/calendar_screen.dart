@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../../features/assignments/data/assignment_repository.dart';
-import '../../../shared/widgets/error_view.dart';
 import '../data/calendar_repository.dart';
 import '../domain/calendar_event.dart';
 import 'news_section.dart';
@@ -97,7 +96,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.2),
+                color: Colors.blue.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               todayTextStyle: const TextStyle(

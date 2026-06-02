@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
 import '../../../core/widget_service.dart';
@@ -51,8 +52,8 @@ class AssignmentsNotifier
     try {
       final fresh = await _fetch(icalUrl, apiToken);
       state = AsyncData(fresh);
-    } catch (_) {
-      // 실패 시 캐시 데이터 유지
+    } catch (e) {
+      debugPrint('[AssignmentsNotifier._backgroundRefresh] error: $e');
     }
   }
 

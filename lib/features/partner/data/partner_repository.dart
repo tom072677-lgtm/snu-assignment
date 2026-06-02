@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +30,8 @@ class PartnerRepository {
       return list
           .map((e) => PartnerRestaurant.fromJson(e as Map<String, dynamic>))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PartnerRepository._loadCache] error: $e');
       return [];
     }
   }
@@ -72,7 +74,8 @@ class PartnerRepository {
       return list
           .map((e) => PartnerRestaurant.fromJson(e as Map<String, dynamic>))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PartnerRepository._fetchFromServer] error: $e');
       return [];
     }
   }
@@ -86,7 +89,8 @@ class PartnerRepository {
       return list
           .map((e) => PartnerRestaurant.fromJson(e as Map<String, dynamic>))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PartnerRepository._loadSeed] error: $e');
       return [];
     }
   }
