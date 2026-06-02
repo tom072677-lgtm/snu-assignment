@@ -407,10 +407,11 @@ class NoticeRepository {
       final c = doc.querySelector(containerSelector);
       rows = c == null
           ? <dom.Element>[]
-          : c.querySelectorAll('tr, li').where(_isNoticeRow).toList();
+          : c.querySelectorAll('tr, li, ul').where(_isNoticeRow).toList();
     } else {
+      // tr/li(표·리스트형) + ul(div기반 imweb형: 한 공지가 ul 단위) 모두 후보.
       final candidates =
-          doc.querySelectorAll('tr, li').where(_isNoticeRow).toList();
+          doc.querySelectorAll('tr, li, ul').where(_isNoticeRow).toList();
       if (candidates.isEmpty) {
         throw const ScrapingException(
             '공지 목록을 찾지 못했습니다 — 사이트 구조가 변경되었을 수 있습니다.');

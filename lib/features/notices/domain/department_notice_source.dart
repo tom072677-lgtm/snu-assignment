@@ -184,7 +184,8 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'anthropology': _home('anthropology', 'www.anthropology.or.kr'),
   'philosophy': _home('philosophy', 'philosophy.snu.ac.kr'),
   'political_science': _home('political_science', 'polisci.snu.ac.kr'),
-  'social_welfare': _home('social_welfare', 'socialwelfare.snu.ac.kr'),
+  'social_welfare': _board('social_welfare', 'socialwelfare.snu.ac.kr',
+      'https://socialwelfare.snu.ac.kr/notice'),
   'mathematics': _home('mathematics', 'www.math.snu.ac.kr'),
   'civil': _home('civil', 'cee.snu.ac.kr'),
   'english_edu': _home('english_edu', 'engedu.snu.ac.kr'),
@@ -192,12 +193,15 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'medicine': _home('medicine', 'medicine.snu.ac.kr'),
   'law': _home('law', 'law.snu.ac.kr'),
   'dentistry': _home('dentistry', 'dentistry.snu.ac.kr'),
-  // 음악대학 5개 학과 공통
-  'composition': _home('composition', 'music.snu.ac.kr'),
-  'piano': _home('piano', 'music.snu.ac.kr'),
-  'voice': _home('voice', 'music.snu.ac.kr'),
-  'orchestral': _home('orchestral', 'music.snu.ac.kr'),
-  'korean_music': _home('korean_music', 'music.snu.ac.kr'),
+  // 음악대학 5개 학과 공통 (div기반 ul 게시판)
+  'composition':
+      _board('composition', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
+  'piano': _board('piano', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
+  'voice': _board('voice', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
+  'orchestral':
+      _board('orchestral', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
+  'korean_music': _board(
+      'korean_music', 'music.snu.ac.kr', 'https://music.snu.ac.kr/notice'),
 };
 
 /// deptCode로 공지 소스 조회. 없으면 null.

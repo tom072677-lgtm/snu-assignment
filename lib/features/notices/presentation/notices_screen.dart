@@ -619,6 +619,19 @@ class _ProfileSheet extends ConsumerWidget {
       } catch (_) {}
     }
 
+    final deptCode = ref.watch(departmentCodeProvider);
+    String? deptName;
+    if (deptCode != null) {
+      for (final c in snuColleges) {
+        for (final d in c.departments) {
+          if (d.code == deptCode) {
+            deptName = d.name;
+            break;
+          }
+        }
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       child: Column(
@@ -628,11 +641,33 @@ class _ProfileSheet extends ConsumerWidget {
           const Text('내 정보',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 20),
-          const Text('단과대',
-              style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+          Row(
+            children: [
+              const Text('단과대 · 학과',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => const _DeptPickerSheet(),
+                ),
+                child: const Text('변경',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1A73E8),
+                        fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           Text(
-            collegeName ?? '미설정',
+            collegeName == null
+                ? '미설정'
+                : '$collegeName · ${deptName ?? "학과 미설정"}',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -663,6 +698,111 @@ class _ProfileSheet extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 단과대·학과 변경 시트 ──────────────────────────────────────────────────
+
+class _DeptPickerSheet extends ConsumerStatefulWidget {
+  const _DeptPickerSheet();
+
+  @override
+  ConsumerState<_DeptPickerSheet> createState() => _DeptPickerSheetState();
+}
+
+class _DeptPickerSheetState extends ConsumerState<_DeptPickerSheet> {
+  SnuCollege? _college;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.92,
+      builder: (_, scroll) => Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 4),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: Row(
+              children: [
+                if (_college != null)
+                  GestureDetector(
+                    onTap: () => setState(() => _college = null),
+                    child: const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Icon(Icons.arrow_back_ios, size: 16),
+                    ),
+                  ),
+                Text(
+                  _college == null ? '단과대학 선택' : '${_college!.name} 학과 선택',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _college == null
+                ? ListView.separated(
+                    controller: scroll,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: snuColleges.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 4),
+                    itemBuilder: (_, i) {
+                      final c = snuColleges[i];
+                      return ListTile(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        tileColor: const Color(0xFFF5F7FF),
+                        title: Text(c.name,
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600)),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: Color(0xFFAAAAAA)),
+                        onTap: () => setState(() => _college = c),
+                      );
+                    },
+                  )
+                : ListView.separated(
+                    controller: scroll,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _college!.departments.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 4),
+                    itemBuilder: (_, i) {
+                      final d = _college!.departments[i];
+                      return ListTile(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        tileColor: const Color(0xFFF5F7FF),
+                        title: Text(d.name,
+                            style: const TextStyle(fontSize: 15)),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: Color(0xFFAAAAAA)),
+                        onTap: () {
+                          ref
+                              .read(collegeCodeProvider.notifier)
+                              .set(_college!.code);
+                          ref
+                              .read(departmentCodeProvider.notifier)
+                              .set(d.code);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

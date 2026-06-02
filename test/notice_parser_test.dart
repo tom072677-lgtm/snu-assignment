@@ -166,6 +166,30 @@ void main() {
       expect(list.first.title.trim(), isNotEmpty);
     });
 
+    test('socialwelfare: div기반(imweb, ul 단위) 추출', () {
+      final list = NoticeRepository.parseHtmlNoticeList(
+        fx('notice_socialwelfare.html'),
+        deptCode: 'social_welfare',
+        baseUrl: 'https://socialwelfare.snu.ac.kr/notice',
+      );
+      expect(list.length, greaterThanOrEqualTo(5));
+      expect(list.first.url, contains('idx='));
+      expect(list.first.title.trim(), isNotEmpty);
+      expect(list.where((n) => n.date != null).length,
+          greaterThanOrEqualTo((list.length * 0.7).floor()));
+    });
+
+    test('music: div기반(ul 단위) 추출', () {
+      final list = NoticeRepository.parseHtmlNoticeList(
+        fx('notice_music.html'),
+        deptCode: 'composition',
+        baseUrl: 'https://music.snu.ac.kr/notice',
+      );
+      expect(list.length, greaterThanOrEqualTo(5));
+      expect(list.first.url, contains('/notice/'));
+      expect(list.first.title.trim(), isNotEmpty);
+    });
+
     test('공지 목록 컨테이너를 못 찾으면 throw', () {
       expect(
         () => NoticeRepository.parseHtmlNoticeList(
