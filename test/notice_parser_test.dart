@@ -112,7 +112,8 @@ void main() {
     });
 
     test('returns null for unregistered department', () {
-      expect(noticeSourceFor('law'), isNull); // 법학부 미등록
+      // 학제전공: 독립 사이트 없음 → 미등록
+      expect(noticeSourceFor('interdisciplinary_engineering'), isNull);
     });
 
     test('returns null for null deptCode', () {
