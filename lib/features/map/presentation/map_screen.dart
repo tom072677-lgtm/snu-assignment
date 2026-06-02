@@ -109,8 +109,6 @@ class _MC {
   static const textMain   = Color(0xFF191919);
   static const textSub    = Color(0xFF767676);
   static const textHint   = Color(0xFFAAAAAA);
-  static const chipBg     = Color(0xFFF0F4FF);
-  static const shadow     = Color(0x1F000000);
 }
 
 Color _routeColor(RouteMode mode) => switch (mode) {
@@ -691,28 +689,28 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget _buildSearchBar() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(28),
       elevation: 0,
       child: InkWell(
         onTap: () => _openSearch(),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(28),
         child: Container(
-          height: 52,
+          height: 56,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(28),
             boxShadow: const [
               BoxShadow(
-                color: _MC.shadow,
-                blurRadius: 12,
-                spreadRadius: 1,
-                offset: Offset(0, 3),
+                color: Color(0x28000000),
+                blurRadius: 16,
+                spreadRadius: 0,
+                offset: Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
-              const SizedBox(width: 14),
+              const SizedBox(width: 18),
               const Icon(Icons.search, color: _MC.primary, size: 22),
               const SizedBox(width: 10),
               const Expanded(
@@ -722,6 +720,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              Container(width: 1, height: 20, color: const Color(0xFFE0E0E0)),
               IconButton(
                 icon: const Icon(Icons.mic_none, color: _MC.textSub, size: 22),
                 tooltip: '음성 검색',
@@ -837,8 +836,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
           const SizedBox(height: 8),
           _MapCouponRow(code: r.couponCode!),
         ],
-        const SizedBox(height: 16),
-        _RouteButtons(onOrigin: _openAsOrigin, onDest: _openAsDest),
+        const Divider(height: 28, color: Color(0xFFF0F0F0)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ActionButton(
+              icon: Icons.my_location,
+              label: '출발',
+              onTap: _openAsOrigin,
+            ),
+            _ActionButton(
+              icon: Icons.directions,
+              label: '길찾기',
+              onTap: _openAsDest,
+            ),
+          ],
+        ),
         SizedBox(height: 16 + bottomInset),
       ],
     );
@@ -876,8 +889,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
           const SizedBox(height: 8),
           _AddressRow(address: place.address),
         ],
-        const SizedBox(height: 16),
-        _RouteButtons(onOrigin: _openAsOrigin, onDest: _openAsDest),
+        const Divider(height: 28, color: Color(0xFFF0F0F0)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ActionButton(
+              icon: Icons.my_location,
+              label: '출발',
+              onTap: _openAsOrigin,
+            ),
+            _ActionButton(
+              icon: Icons.location_on,
+              label: '도착',
+              onTap: _openAsDest,
+            ),
+          ],
+        ),
         SizedBox(height: 16 + bottomInset),
       ],
     );
@@ -983,51 +1010,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
             Text(venue.phone!, style: const TextStyle(fontSize: 13, color: _MC.textSub)),
           ]),
         ],
-        const SizedBox(height: 16),
-        // 버튼 행
-        Row(children: [
-          Expanded(
-            child: SizedBox(
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: _openAsOrigin,
-                icon: const Icon(Icons.my_location, size: 16),
-                label: const Text('출발'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _MC.primary, side: const BorderSide(color: _MC.primary),
-                ),
-              ),
+        const Divider(height: 28, color: Color(0xFFF0F0F0)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ActionButton(
+              icon: Icons.my_location,
+              label: '출발',
+              onTap: _openAsOrigin,
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 44,
-              child: FilledButton.icon(
-                onPressed: _openAsDest,
-                icon: const Icon(Icons.location_on, size: 16),
-                label: const Text('길찾기'),
-                style: FilledButton.styleFrom(backgroundColor: _MC.primary),
-              ),
+            _ActionButton(
+              icon: Icons.directions,
+              label: '길찾기',
+              onTap: _openAsDest,
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _MC.textMain, side: BorderSide(color: Colors.grey[300]!),
-                ),
-                child: const Text('상세보기'),
+            _ActionButton(
+              icon: Icons.article_outlined,
+              label: '상세보기',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => VenueDetailScreen(venue: venue)),
               ),
+              color: _MC.textSub,
             ),
-          ),
-        ]),
+          ],
+        ),
         SizedBox(height: 16 + bottomInset),
       ],
     );
@@ -1078,49 +1085,6 @@ class _AddressRow extends StatelessWidget {
   }
 }
 
-// ── 출발/도착 버튼 ─────────────────────────────────────────────────
-class _RouteButtons extends StatelessWidget {
-  final VoidCallback onOrigin;
-  final VoidCallback onDest;
-  const _RouteButtons({required this.onOrigin, required this.onDest});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: OutlinedButton.icon(
-              onPressed: onOrigin,
-              icon: const Icon(Icons.my_location, size: 16),
-              label: const Text('출발'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1A73E8),
-                side: const BorderSide(color: Color(0xFF1A73E8)),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: FilledButton.icon(
-              onPressed: onDest,
-              icon: const Icon(Icons.location_on, size: 16),
-              label: const Text('도착'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1A73E8),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ── 필터 칩 (검색바 아래) ────────────────────────────────────────
 class _FilterChip extends StatelessWidget {
   final String label;
@@ -1133,19 +1097,66 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = selectedColor ?? const Color(0xFF1A73E8);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: selected ? color : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 6, offset: Offset(0, 2))],
+        border: Border.all(
+          color: selected ? color : const Color(0xFFDDDDDD),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: selected
+                ? color.withValues(alpha: 0.25)
+                : const Color(0x14000000),
+            blurRadius: selected ? 8 : 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: selected ? Colors.white : const Color(0xFF767676)),
-          const SizedBox(width: 4),
+          Icon(icon, size: 14, color: selected ? Colors.white : const Color(0xFF555555)),
+          const SizedBox(width: 5),
           Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : const Color(0xFF191919))),
+              color: selected ? Colors.white : const Color(0xFF333333))),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Naver 스타일 액션 버튼 (아이콘 원 + 라벨) ─────────────────────
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+  const _ActionButton({required this.icon, required this.label, required this.onTap, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? const Color(0xFF1A73E8);
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: c, size: 24),
+          ),
+          const SizedBox(height: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12, color: c, fontWeight: FontWeight.w600)),
         ],
       ),
     );

@@ -811,7 +811,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 decoration: BoxDecoration(
                   color: _C.primaryBg,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _C.primary.withOpacity(0.3)),
+                  border: Border.all(color: _C.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(children: [
                   const Icon(Icons.directions_transit,
