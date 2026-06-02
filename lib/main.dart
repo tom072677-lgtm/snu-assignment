@@ -12,7 +12,7 @@ import 'app.dart';
 import 'core/analytics.dart';
 import 'core/constants.dart';
 import 'firebase_options.dart';
-import 'shared/providers/notification_service.dart' show NotificationService, handleBackgroundFcm, notificationServiceProvider;
+import 'shared/providers/notification_service.dart' show handleBackgroundFcm, notificationServiceProvider;
 import 'shared/providers/settings_provider.dart';
 
 /// 백그라운드 FCM 메시지 핸들러 (top-level 함수여야 함)
@@ -70,8 +70,7 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        canvasTokenProvider
-            .overrideWith((ref) => CanvasTokenNotifier(canvasToken)),
+        canvasTokenInitProvider.overrideWithValue(canvasToken),
       ],
       child: const _AppInit(),
     ),

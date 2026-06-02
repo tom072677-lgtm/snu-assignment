@@ -13,16 +13,14 @@ final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
 
 // ─── 과제 조회 기간 (7 / 14 / 30일) ─────────────────────────────────────────
 
-final assignmentDaysProvider =
-    StateNotifierProvider<AssignmentDaysNotifier, int>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return AssignmentDaysNotifier(prefs);
-});
+class AssignmentDaysNotifier extends Notifier<int> {
+  late SharedPreferences _prefs;
 
-class AssignmentDaysNotifier extends StateNotifier<int> {
-  AssignmentDaysNotifier(this._prefs)
-      : super(_prefs.getInt(kAssignmentDays) ?? 14);
-  final SharedPreferences _prefs;
+  @override
+  int build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getInt(kAssignmentDays) ?? 14;
+  }
 
   void set(int days) {
     state = days;
@@ -30,22 +28,42 @@ class AssignmentDaysNotifier extends StateNotifier<int> {
   }
 }
 
+final assignmentDaysProvider =
+    NotifierProvider<AssignmentDaysNotifier, int>(AssignmentDaysNotifier.new);
+
 // ─── eTL 설정 ─────────────────────────────────────────────────────────────────
 
-final icalUrlProvider = StateNotifierProvider<StringSettingNotifier, String?>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return StringSettingNotifier(prefs, kIcalUrl);
-});
+class IcalUrlNotifier extends Notifier<String?> {
+  late SharedPreferences _prefs;
 
-// Canvas API 토큰 — flutter_secure_storage 사용 (main.dart에서 override)
-final canvasTokenProvider =
-    StateNotifierProvider<CanvasTokenNotifier, String?>((ref) {
-  throw UnimplementedError('canvasTokenProvider must be overridden in main');
-});
+  @override
+  String? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getString(kIcalUrl);
+  }
 
-class CanvasTokenNotifier extends StateNotifier<String?> {
-  CanvasTokenNotifier(String? initial) : super(initial);
+  void set(String? value) {
+    state = value;
+    if (value == null) {
+      _prefs.remove(kIcalUrl);
+    } else {
+      _prefs.setString(kIcalUrl, value);
+    }
+  }
+}
+
+final icalUrlProvider =
+    NotifierProvider<IcalUrlNotifier, String?>(IcalUrlNotifier.new);
+
+// Canvas API 토큰 — flutter_secure_storage 사용.
+// canvasTokenInitProvider를 main.dart에서 override해서 초기값 주입.
+final canvasTokenInitProvider = Provider<String?>((ref) => null);
+
+class CanvasTokenNotifier extends Notifier<String?> {
   static const _storage = FlutterSecureStorage();
+
+  @override
+  String? build() => ref.watch(canvasTokenInitProvider);
 
   void set(String? value) {
     state = value;
@@ -57,50 +75,32 @@ class CanvasTokenNotifier extends StateNotifier<String?> {
   }
 }
 
-class StringSettingNotifier extends StateNotifier<String?> {
-  StringSettingNotifier(this._prefs, this._key) : super(_prefs.getString(_key));
-  final SharedPreferences _prefs;
-  final String _key;
-
-  void set(String? value) {
-    state = value;
-    if (value == null) {
-      _prefs.remove(_key);
-    } else {
-      _prefs.setString(_key, value);
-    }
-  }
-}
+final canvasTokenProvider =
+    NotifierProvider<CanvasTokenNotifier, String?>(CanvasTokenNotifier.new);
 
 // ─── 완료된 과제 ID 목록 (60일 이상 경과 시 자동 정리) ──────────────────────
 
-final completedTasksProvider =
-    StateNotifierProvider<CompletedTasksNotifier, Set<String>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return CompletedTasksNotifier(prefs);
-});
-
-class CompletedTasksNotifier extends StateNotifier<Set<String>> {
-  CompletedTasksNotifier(this._prefs)
-      : _timestamps = {},
-        super({}) {
-    _loadAndPurge();
-  }
-
-  final SharedPreferences _prefs;
-
-  // etlId → 완료 처리 시각 (60일 auto-purge용)
-  final Map<String, DateTime> _timestamps;
+class CompletedTasksNotifier extends Notifier<Set<String>> {
+  late SharedPreferences _prefs;
+  final Map<String, DateTime> _timestamps = {};
 
   static const _purgeDays = 60;
 
-  void _loadAndPurge() {
+  @override
+  Set<String> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    _timestamps.clear();
+    return _loadAndPurge();
+  }
+
+  Set<String> _loadAndPurge() {
     final raw = _prefs.getString(kCompletedTasks);
-    if (raw == null) return;
+    if (raw == null) return {};
 
     try {
       final decoded = jsonDecode(raw);
-      final cutoff = DateTime.now().subtract(const Duration(days: _purgeDays));
+      final cutoff =
+          DateTime.now().subtract(const Duration(days: _purgeDays));
       int beforeCount = 0;
 
       if (decoded is List) {
@@ -120,14 +120,15 @@ class CompletedTasksNotifier extends StateNotifier<Set<String>> {
         }
       }
 
-      state = _timestamps.keys.toSet();
-
-      // 오래된 항목이 정리된 경우 새 포맷으로 저장
       final purged = beforeCount != _timestamps.length;
       if (decoded is List || purged) {
         _save();
       }
-    } catch (_) {}
+
+      return _timestamps.keys.toSet();
+    } catch (_) {
+      return {};
+    }
   }
 
   void complete(String etlId) {
@@ -151,17 +152,21 @@ class CompletedTasksNotifier extends StateNotifier<Set<String>> {
   }
 }
 
+final completedTasksProvider =
+    NotifierProvider<CompletedTasksNotifier, Set<String>>(
+  CompletedTasksNotifier.new,
+);
+
 // ─── 개발자 모드 (Analytics 비활성화) ───────────────────────────────────────
 
-final devModeProvider =
-    StateNotifierProvider<DevModeNotifier, bool>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return DevModeNotifier(prefs);
-});
+class DevModeNotifier extends Notifier<bool> {
+  late SharedPreferences _prefs;
 
-class DevModeNotifier extends StateNotifier<bool> {
-  DevModeNotifier(this._prefs) : super(_prefs.getBool(kDevMode) ?? false);
-  final SharedPreferences _prefs;
+  @override
+  bool build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getBool(kDevMode) ?? false;
+  }
 
   void toggle() {
     state = !state;
@@ -169,81 +174,89 @@ class DevModeNotifier extends StateNotifier<bool> {
   }
 }
 
-// ─── 새 과제 알림 ON/OFF ─────────────────────────────────────────────────────
+final devModeProvider =
+    NotifierProvider<DevModeNotifier, bool>(DevModeNotifier.new);
 
-final newAssignmentNotifProvider =
-    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return BoolSettingNotifier(prefs, kNewAssignmentNotif, defaultValue: true);
-});
+// ─── 새 과제 알림 ON/OFF / 공지사항 알림 ON/OFF ───────────────────────────────
 
-// ─── 공지사항 알림 ON/OFF ──────────────────────────────────────────────────────
+class NewAssignmentNotifNotifier extends Notifier<bool> {
+  late SharedPreferences _prefs;
 
-final newAnnouncementNotifProvider =
-    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return BoolSettingNotifier(prefs, kNewAnnouncementNotif, defaultValue: true);
-});
-
-class BoolSettingNotifier extends StateNotifier<bool> {
-  BoolSettingNotifier(this._prefs, this._key, {bool defaultValue = false})
-      : super(_prefs.getBool(_key) ?? defaultValue);
-  final SharedPreferences _prefs;
-  final String _key;
+  @override
+  bool build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getBool(kNewAssignmentNotif) ?? true;
+  }
 
   void set(bool value) {
     state = value;
-    _prefs.setBool(_key, value);
+    _prefs.setBool(kNewAssignmentNotif, value);
   }
 }
 
+final newAssignmentNotifProvider =
+    NotifierProvider<NewAssignmentNotifNotifier, bool>(
+  NewAssignmentNotifNotifier.new,
+);
+
+class NewAnnouncementNotifNotifier extends Notifier<bool> {
+  late SharedPreferences _prefs;
+
+  @override
+  bool build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getBool(kNewAnnouncementNotif) ?? true;
+  }
+
+  void set(bool value) {
+    state = value;
+    _prefs.setBool(kNewAnnouncementNotif, value);
+  }
+}
+
+final newAnnouncementNotifProvider =
+    NotifierProvider<NewAnnouncementNotifNotifier, bool>(
+  NewAnnouncementNotifNotifier.new,
+);
+
 // ─── 커스텀 일정 (학원·과외 등) ───────────────────────────────────────────────
 
-final customEventsProvider =
-    StateNotifierProvider<CustomEventsNotifier, List<CustomEvent>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return CustomEventsNotifier(prefs);
-});
+class CustomEventsNotifier extends Notifier<List<CustomEvent>> {
+  late SharedPreferences _prefs;
 
-class CustomEventsNotifier extends StateNotifier<List<CustomEvent>> {
-  CustomEventsNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static List<CustomEvent> _load(SharedPreferences prefs) {
-    final raw = prefs.getString(kCustomEvents);
+  @override
+  List<CustomEvent> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    final raw = _prefs.getString(kCustomEvents);
     if (raw == null) return [];
-    return CustomEvent.decodeList(raw); // 파싱 실패 시 [] 반환
+    return CustomEvent.decodeList(raw);
   }
 
   void add(CustomEvent event) {
     state = [...state, event];
-    _save();
+    _prefs.setString(kCustomEvents, CustomEvent.encodeList(state));
   }
 
   void remove(String id) {
     state = state.where((e) => e.id != id).toList();
-    _save();
-  }
-
-  void _save() {
     _prefs.setString(kCustomEvents, CustomEvent.encodeList(state));
   }
 }
 
+final customEventsProvider =
+    NotifierProvider<CustomEventsNotifier, List<CustomEvent>>(
+  CustomEventsNotifier.new,
+);
+
 // ─── mySNU 시간표 세션 (WebView 로그인 후 추출) ──────────────────────────────
 
-final mySNUSessionsProvider =
-    StateNotifierProvider<MySNUSessionsNotifier, List<ClassSession>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return MySNUSessionsNotifier(prefs);
-});
+class MySNUSessionsNotifier extends Notifier<List<ClassSession>> {
+  late SharedPreferences _prefs;
 
-class MySNUSessionsNotifier extends StateNotifier<List<ClassSession>> {
-  MySNUSessionsNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static List<ClassSession> _load(SharedPreferences prefs) {
-    final raw = prefs.getString(kMySNUSessions);
+  @override
+  List<ClassSession> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    final raw = _prefs.getString(kMySNUSessions);
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List;
@@ -269,42 +282,113 @@ class MySNUSessionsNotifier extends StateNotifier<List<ClassSession>> {
   }
 }
 
+final mySNUSessionsProvider =
+    NotifierProvider<MySNUSessionsNotifier, List<ClassSession>>(
+  MySNUSessionsNotifier.new,
+);
+
 // ─── 단과대 / 학과 코드 ────────────────────────────────────────────────────────
 
+class CollegeCodeNotifier extends Notifier<String?> {
+  late SharedPreferences _prefs;
+
+  @override
+  String? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getString(kCollegeCode);
+  }
+
+  void set(String? value) {
+    state = value;
+    if (value == null) {
+      _prefs.remove(kCollegeCode);
+    } else {
+      _prefs.setString(kCollegeCode, value);
+    }
+  }
+}
+
 final collegeCodeProvider =
-    StateNotifierProvider<StringSettingNotifier, String?>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return StringSettingNotifier(prefs, kCollegeCode);
-});
+    NotifierProvider<CollegeCodeNotifier, String?>(CollegeCodeNotifier.new);
+
+class DepartmentCodeNotifier extends Notifier<String?> {
+  late SharedPreferences _prefs;
+
+  @override
+  String? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getString(kDepartmentCode);
+  }
+
+  void set(String? value) {
+    state = value;
+    if (value == null) {
+      _prefs.remove(kDepartmentCode);
+    } else {
+      _prefs.setString(kDepartmentCode, value);
+    }
+  }
+}
 
 final departmentCodeProvider =
-    StateNotifierProvider<StringSettingNotifier, String?>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return StringSettingNotifier(prefs, kDepartmentCode);
-});
+    NotifierProvider<DepartmentCodeNotifier, String?>(DepartmentCodeNotifier.new);
+
+// ─── 학적 (학사 / 석사 / 박사) ───────────────────────────────────────────────
+
+class AcademicStatusNotifier extends Notifier<String?> {
+  late SharedPreferences _prefs;
+
+  @override
+  String? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getString(kAcademicStatus);
+  }
+
+  void set(String? value) {
+    state = value;
+    if (value == null) {
+      _prefs.remove(kAcademicStatus);
+    } else {
+      _prefs.setString(kAcademicStatus, value);
+    }
+  }
+}
+
+final academicStatusProvider =
+    NotifierProvider<AcademicStatusNotifier, String?>(AcademicStatusNotifier.new);
 
 // ─── 온보딩 완료 여부 ─────────────────────────────────────────────────────────
 
+class OnboardingCompleteNotifier extends Notifier<bool> {
+  late SharedPreferences _prefs;
+
+  @override
+  bool build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getBool(kOnboardingComplete) ?? false;
+  }
+
+  void set(bool value) {
+    state = value;
+    _prefs.setBool(kOnboardingComplete, value);
+  }
+}
+
 final onboardingCompleteProvider =
-    StateNotifierProvider<BoolSettingNotifier, bool>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return BoolSettingNotifier(prefs, kOnboardingComplete);
-});
+    NotifierProvider<OnboardingCompleteNotifier, bool>(
+  OnboardingCompleteNotifier.new,
+);
 
 // ─── 즐겨찾기 제휴 식당 ─────────────────────────────────────────────────────────
 
-final favPartnersProvider =
-    StateNotifierProvider<FavPartnersNotifier, Set<String>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return FavPartnersNotifier(prefs);
-});
+class FavPartnersNotifier extends Notifier<Set<String>> {
+  late SharedPreferences _prefs;
 
-class FavPartnersNotifier extends StateNotifier<Set<String>> {
-  FavPartnersNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static Set<String> _load(SharedPreferences prefs) =>
-      (prefs.getStringList(kFavPartners) ?? []).toSet();
+  @override
+  Set<String> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return (_prefs.getStringList(kFavPartners) ?? []).toSet();
+  }
 
   void toggle(String id) {
     if (state.contains(id)) {
@@ -316,20 +400,19 @@ class FavPartnersNotifier extends StateNotifier<Set<String>> {
   }
 }
 
+final favPartnersProvider =
+    NotifierProvider<FavPartnersNotifier, Set<String>>(FavPartnersNotifier.new);
+
 // ─── 즐겨찾기 장소 ────────────────────────────────────────────────────────────
 
-final favVenuesProvider =
-    StateNotifierProvider<FavVenuesNotifier, Set<String>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return FavVenuesNotifier(prefs);
-});
+class FavVenuesNotifier extends Notifier<Set<String>> {
+  late SharedPreferences _prefs;
 
-class FavVenuesNotifier extends StateNotifier<Set<String>> {
-  FavVenuesNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static Set<String> _load(SharedPreferences prefs) =>
-      (prefs.getStringList(kFavVenues) ?? []).toSet();
+  @override
+  Set<String> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return (_prefs.getStringList(kFavVenues) ?? []).toSet();
+  }
 
   void toggle(String venueId) {
     if (state.contains(venueId)) {
@@ -341,20 +424,18 @@ class FavVenuesNotifier extends StateNotifier<Set<String>> {
   }
 }
 
+final favVenuesProvider =
+    NotifierProvider<FavVenuesNotifier, Set<String>>(FavVenuesNotifier.new);
+
 // ─── 과제별 메모 ──────────────────────────────────────────────────────────────
 
-final memosProvider =
-    StateNotifierProvider<MemosNotifier, Map<String, String>>((ref) {
-  final prefs = ref.watch(sharedPrefsProvider);
-  return MemosNotifier(prefs);
-});
+class MemosNotifier extends Notifier<Map<String, String>> {
+  late SharedPreferences _prefs;
 
-class MemosNotifier extends StateNotifier<Map<String, String>> {
-  MemosNotifier(this._prefs) : super(_load(_prefs));
-  final SharedPreferences _prefs;
-
-  static Map<String, String> _load(SharedPreferences prefs) {
-    final raw = prefs.getString(kMemos);
+  @override
+  Map<String, String> build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    final raw = _prefs.getString(kMemos);
     if (raw == null) return {};
     try {
       return Map<String, String>.from(jsonDecode(raw));
@@ -365,17 +446,16 @@ class MemosNotifier extends StateNotifier<Map<String, String>> {
 
   void set(String etlId, String memo) {
     state = {...state, etlId: memo};
-    _save();
+    _prefs.setString(kMemos, jsonEncode(state));
   }
 
   void remove(String etlId) {
     final next = Map<String, String>.from(state);
     next.remove(etlId);
     state = next;
-    _save();
-  }
-
-  void _save() {
     _prefs.setString(kMemos, jsonEncode(state));
   }
 }
+
+final memosProvider =
+    NotifierProvider<MemosNotifier, Map<String, String>>(MemosNotifier.new);

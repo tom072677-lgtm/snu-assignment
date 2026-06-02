@@ -11,6 +11,8 @@ class ExtraProgram {
     this.organizer,
     this.mode,
     this.dday,
+    this.targetOrg = '',
+    this.targetStatus = const [],
   });
 
   final String seq;
@@ -24,9 +26,37 @@ class ExtraProgram {
   final String? organizer;
   final String? mode;
   final int? dday;
+  final String targetOrg;       // 신청대상 (e.g. "서울대학교", "농업생명과학대학")
+  final List<String> targetStatus; // 신청신분 (e.g. ["학사", "석사"])
 
   String get detailUrl =>
       'https://extra.snu.ac.kr/ptfol/pgm/view.do?pgmSeq=$seq';
+
+  /// 사용자의 단과대 이름이 이 프로그램의 신청대상에 해당하는지 판단.
+  /// - targetOrg가 비어있거나 "서울대학교"를 포함하면 전체 대상 → true
+  /// - collegeName이 null/빈값이면 특정 대상 프로그램은 제외 → false
+  bool matchesCollege(String? collegeName) {
+    if (_isAllTarget(targetOrg)) return true;
+    if (collegeName == null || collegeName.trim().isEmpty) return false;
+    return _normalize(targetOrg).contains(_normalize(collegeName));
+  }
+
+  /// 사용자의 학적이 이 프로그램의 신청신분에 해당하는지 판단.
+  /// - targetStatus가 비어있으면 제한없음 → true
+  /// - userStatus가 null이면 미설정 → 필터 미적용 → true
+  bool matchesStatus(String? userStatus) {
+    if (targetStatus.isEmpty) return true;
+    if (userStatus == null || userStatus.isEmpty) return true;
+    return targetStatus.contains(userStatus);
+  }
+
+  static bool _isAllTarget(String org) {
+    final n = _normalize(org);
+    return n.isEmpty || n.contains('서울대학교');
+  }
+
+  static String _normalize(String s) =>
+      s.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   static DateTime? _parseApiDate(String? s) {
     if (s == null || s.isEmpty) return null;
@@ -60,6 +90,8 @@ class ExtraProgram {
         if (organizer != null) 'organizer': organizer,
         if (mode != null) 'mode': mode,
         if (dday != null) 'dday': dday,
+        if (targetOrg.isNotEmpty) 'targetOrg': targetOrg,
+        if (targetStatus.isNotEmpty) 'targetStatus': targetStatus,
       };
 
   static ExtraProgram fromCacheJson(Map<String, dynamic> j) => ExtraProgram(
@@ -82,6 +114,11 @@ class ExtraProgram {
         organizer: j['organizer'] as String?,
         mode: j['mode'] as String?,
         dday: j['dday'] as int?,
+        targetOrg: j['targetOrg'] as String? ?? '',
+        targetStatus: (j['targetStatus'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
       );
 }
 

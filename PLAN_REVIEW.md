@@ -1,44 +1,58 @@
-관련 파일 구조와 기존 패턴을 먼저 확인한 뒤, 계획 자체의 리스크 중심으로 피드백하겠습니다. 코드는 변경하지 않고 검토만 합니다.
-`rg`가 설치되어 있지 않아 PowerShell 검색으로 대체합니다. 현재 작업트리에는 이미 여러 변경 파일이 있으므로, 검토 과정에서는 건드리지 않겠습니다.
-기존 구조상 공지 저장소가 `SharedPreferences` 캐시와 Riverpod provider를 이미 갖고 있고, 비교과 탭은 현재 WebView 전용입니다. 이제 계획의 설계상 빠진 부분과 단순화 여지를 정리하겠습니다.
-## 1. 계획의 문제 / 리스크
+## 1. 계획의 문제/리스크
 System.Management.Automation.RemoteException
-- **계획 문서 인코딩이 깨져 있습니다.** 실제 구현 전에 `PLAN.md`, UI 문구, 주석의 한글 인코딩을 먼저 정상화해야 합니다. 지금 상태로는 버튼/빈 상태 메시지/카테고리 문구를 잘못 옮길 위험이 큽니다.
-- **체육교육과 공지 `id = hashCode`는 부적절합니다.** Dart `hashCode`는 영속 ID로 보장되지 않습니다. 캐시/리스트 안정성을 위해 `title + dateText + category`를 정규화한 문자열, 또는 `sha1` 같은 안정 해시를 쓰는 편이 낫습니다.
-- **체육교육과 URL을 전부 `_kSportsUrl`로 두면 상세 이동 품질이 떨어집니다.** 링크가 `#none`이라도 `onclick`, `data-*`, 숨은 input 등에 상세 식별자가 있는지 먼저 확인해야 합니다. 정말 없을 때만 목록 URL fallback으로 두는 것이 안전합니다.
-- **`ul.body li` selector가 넓습니다.** `ul.board_type_list > ul.body > li`처럼 더 좁혀야 다른 중첩 `li`가 섞일 가능성을 줄일 수 있습니다.
-- **비교과 조기 종료 조건이 위험합니다.** “페이지 내 `shouldShow`가 0개면 중단”은 정렬이 완전히 날짜/모집상태 기준이라는 보장이 있을 때만 안전합니다. 이후 페이지에 표시 대상이 있을 수 있습니다.
-- **`startsWithin5Days`의 `inDays <= 5`는 시간 단위 floor 때문에 애매합니다.** 5일 23시간 뒤도 `5`로 계산될 수 있습니다. “한국 날짜 기준 5일 이내”인지 “정확히 120시간 이내”인지 명확히 해야 합니다.
-- **성공 기준이 이미 `[x]`로 체크되어 있습니다.** 구현 전 계획이라면 `[ ]`가 맞습니다. 체크된 상태는 실제 검증 완료처럼 보입니다.
+- 계획서 텍스트 인코딩이 깨져 있어 리뷰와 구현 기준으로 쓰기 어렵습니다. 구현 전 `PLAN.md`를 정상 한글 UTF-8로 다시 저장하는 게 먼저입니다.
+- `unsupported` 상태 모델이 불명확합니다. `noticeSourceFor`가 `null`을 반환하는 경우와 `homepageUrl만 있고 rssFeedUrl이 null`인 경우를 명확히 분리해야 합니다.
+- “RSS 존재 + 최신 글 1건 확인”만으로 등록한다는 기준은 약합니다. RSS가 공지 전체가 아니라 블로그/뉴스/게시판 일부일 수 있으므로 최소 `title/link/date` 형태와 최근 공지 일치 여부를 확인해야 합니다.
+- `package:html unescape` 계획은 애매합니다. XML 파싱은 `xml` 패키지로 하고, HTML entity decode가 실제로 필요한 지점만 별도 처리하는 쪽이 안전합니다.
+- 기존 `sportsNoticesProvider`를 일반화할 때 기존 체육교육과 동작이 깨질 위험이 큽니다. 기존 provider/API를 유지하면서 새 provider를 추가하는 방식이 더 안전할 수 있습니다.
+- on-device fetch는 모바일에서는 괜찮아도 Flutter web 대상이면 CORS 문제가 생길 수 있습니다. 앱 타깃이 모바일 전용인지 명시해야 합니다.
 System.Management.Automation.RemoteException
 ## 2. 빠진 엣지 케이스
 System.Management.Automation.RemoteException
-- 체육교육과 공지에서 `strong` 없이 제목만 있는 경우, 공지 고정글의 번호가 `em`/텍스트 혼합인 경우.
-- 날짜가 `2026.03.04`, `2026-3-4`, 공백 포함, 또는 없는 경우.
-- 비교과 API 응답이 `Map`인지 `String`인지, 리스트 필드명이 무엇인지, `totalCnt`가 문자열인지 숫자인지.
-- `aplFrDd`, `aplToDd` 중 하나가 비어 있는 프로그램.
-- `aplToDd`가 오늘인 경우 end-of-day 포함 처리.
-- 모집 시작일이 오늘이지만 현재 시간이 시작 전/후인 경우.
-- API가 빈 리스트를 반환했지만 기존 캐시가 있는 경우 캐시 fallback 여부.
-- 상세 URL 열기 실패 시 사용자 피드백.
-- `autoDispose` provider가 탭 전환 시 다시 fetch하는 동작이 의도한 것인지.
+- RSS가 아니라 Atom feed인 경우.
+- WordPress feed가 `/feed/` 외에 `/category/notice/feed/`, `/notice/feed/`처럼 다른 경로를 쓰는 경우.
+- `pubDate` 대신 `dc:date`, `updated`, `published`가 있는 경우.
+- `link`가 상대경로인 경우.
+- 같은 공지가 http/https, trailing slash, query parameter 차이로 중복되는 경우.
+- feed item이 너무 많거나 너무 오래된 경우의 limit 기준.
+- 캐시된 데이터가 현재 선택한 학과와 다른 학과로 표시되는 race condition.
+- `deptCode`는 있는데 `snu_departments.dart`에서 이름 lookup이 실패하는 경우.
+- `homepageUrl` launch 실패 시 UI 처리.
+- 네트워크 실패와 RSS 파싱 실패를 같은 “지원 안 함”으로 보이면 사용자가 오해할 수 있음.
 System.Management.Automation.RemoteException
 ## 3. 더 단순한 대안
 System.Management.Automation.RemoteException
-- `ExtraProgram`에 `isCurrentlyOpen`, `startsWithin5Days` getter를 넣기보다, 처음에는 repository 안의 순수 함수로 필터링하는 편이 테스트하기 쉽습니다.
+- 1단계에서는 `sportsNoticesProvider`를 완전히 일반화하지 말고, `departmentNoticesProvider(deptCode)`를 별도로 추가하는 게 더 작고 안전합니다.
+- `DepartmentNoticeSource`에 별도 unsupported flag를 두기보다:
+  - source 없음: 학과 매핑 없음
+  - source 있음 + rss 없음: 홈페이지 fallback
+  - source 있음 + rss 있음: RSS 시도
+  정도로 단순화하면 충분합니다.
+- RSS 파서 테스트를 먼저 작게 만들고, 실제 학과 매핑은 검증된 소수 학과만 넣는 게 좋습니다. 1단계에서 80개 가까운 매핑을 한 번에 넣으면 유지보수와 검증 부담이 커집니다.
 System.Management.Automation.RemoteException
-```dart
-bool shouldShowProgram(ExtraProgram p, DateTime now)
-```
+## 4. 총평
 System.Management.Automation.RemoteException
-- 비교과 페이지 fetch는 조기 종료하지 말고 **최대 5페이지를 항상 fetch 후 filter**가 더 단순하고 안전합니다. 네트워크 비용도 제한되어 있습니다.
-- 체육교육과 parser는 기존 `Notice` 모델을 유지하되 selector만 바꾸는 것이 적절합니다. 별도 모델 추가는 비교과에만 한정하면 됩니다.
-- 비교과 cache TTL은 기존 sports TTL 상수를 공유하지 말고 `_kExtraCacheTtlSeconds`로 분리하는 편이 변경 범위가 명확합니다.
+**needs revision**
 System.Management.Automation.RemoteException
-## 4. 전체 판정
-System.Management.Automation.RemoteException
-**수정 필요.**
-System.Management.Automation.RemoteException
-방향은 좋지만, 구현 전에 최소한 다음은 고쳐야 합니다: 한글 인코딩 복구, 안정적인 ID 생성, 비교과 조기 종료 로직 제거 또는 근거 명시, 날짜 기준 명확화, API 응답 shape 방어, 성공 기준 체크박스 초기화. 이 수정 후에는 구현 가능한 계획입니다.
-SUCCESS: The process with PID 19076 (child process of PID 10724) has been terminated.
-SUCCESS: The process with PID 10724 (child process of PID 7460) has been terminated.
+방향은 좋습니다. 다만 구현 전에 정상 인코딩으로 계획서를 고치고, 상태 모델(`null`, fallback, fetch 실패, unsupported)을 명확히 해야 합니다. 특히 기존 sports 공지 흐름을 크게 건드리지 않는 더 작은 변경으로 시작하는 편이 안전합니다.
+SUCCESS: The process with PID 27152 (child process of PID 24136) has been terminated.
+SUCCESS: The process with PID 24136 (child process of PID 8480) has been terminated.
+## 1. 계획의 문제/리스크
+
+- 계획서 텍스트 인코딩이 깨져 있어 리뷰와 구현 기준으로 쓰기 어렵습니다. 구현 전 `PLAN.md`를 정상 한글 UTF-8로 다시 저장하는 게 먼저입니다.
+- `unsupported` 상태 모델이 불명확합니다. `noticeSourceFor`가 `null`을 반환하는 경우와 `homepageUrl만 있고 rssFeedUrl이 null`인 경우를 명확히 분리해야 합니다.
+- “RSS 존재 + 최신 글 1건 확인”만으로 등록한다는 기준은 약합니다. RSS가 공지 전체가 아니라 블로그/뉴스/게시판 일부일 수 있으므로 최소 `title/link/date` 형태와 최근 공지 일치 여부를 확인해야 합니다.
+- `package:html unescape` 계획은 애매합니다. XML 파싱은 `xml` 패키지로 하고, HTML entity decode가 실제로 필요한 지점만 별도 처리하는 쪽이 안전합니다.
+- 기존 `sportsNoticesProvider`를 일반화할 때 기존 체육교육과 동작이 깨질 위험이 큽니다. 기존 provider/API를 유지하면서 새 provider를 추가하는 방식이 더 안전할 수 있습니다.
+- on-device fetch는 모바일에서는 괜찮아도 Flutter web 대상이면 CORS 문제가 생길 수 있습니다. 앱 타깃이 모바일 전용인지 명시해야 합니다.
+
+## 2. 빠진 엣지 케이스
+
+- RSS가 아니라 Atom feed인 경우.
+- WordPress feed가 `/feed/` 외에 `/category/notice/feed/`, `/notice/feed/`처럼 다른 경로를 쓰는 경우.
+- `pubDate` 대신 `dc:date`, `updated`, `published`가 있는 경우.
+- `link`가 상대경로인 경우.
+- 같은 공지가 http/https, trailing slash, query parameter 차이로 중복되는 경우.
+- feed item이 너무 많거나 너무 오래된 경우의 limit 기준.
+- 캐시된 데이터가 현재 선택한 학과와 다른 학과로 표시되는 race condition.
+- `deptCode`는 있는데 `snu_departments.dart`에서 이름 lookup이 실패하는 경우.

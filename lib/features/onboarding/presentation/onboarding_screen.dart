@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/snu_departments.dart';
 import '../../../shared/providers/settings_provider.dart';
 
-/// 최초 실행 시 단과대 → 학과 2단계 온보딩.
-/// 완료 시 SharedPreferences에 college/department 코드 저장 후 팝.
+const _kStatusOptions = ['학사', '석사', '박사'];
+
+/// 최초 실행 시 단과대 → 학과 → 학적 3단계 온보딩.
+/// 완료 시 SharedPreferences에 college/department/academicStatus 코드 저장 후 팝.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -13,7 +15,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  int _step = 0; // 0: 단과대 선택, 1: 학과 선택
+  int _step = 0; // 0: 단과대, 1: 학과, 2: 학적
   SnuCollege? _selectedCollege;
 
   void _selectCollege(SnuCollege college) {
@@ -26,10 +28,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _selectDepartment(SnuDepartment dept) {
     ref.read(collegeCodeProvider.notifier).set(_selectedCollege!.code);
     ref.read(departmentCodeProvider.notifier).set(dept.code);
+    setState(() => _step = 2);
+  }
+
+  void _selectStatus(String? status) {
+    ref.read(academicStatusProvider.notifier).set(status);
     ref.read(onboardingCompleteProvider.notifier).set(true);
   }
 
-  void _goBack() => setState(() => _step = 0);
+  void _goBack() => setState(() => _step = _step - 1);
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +52,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_step == 1)
+                  if (_step > 0)
                     GestureDetector(
                       onTap: _goBack,
                       child: Row(
@@ -53,14 +60,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           const Icon(Icons.arrow_back_ios,
                               size: 16, color: Color(0xFF555555)),
                           Text(
-                            _selectedCollege!.name,
+                            _step == 1
+                                ? _selectedCollege!.name
+                                : '학과/학부',
                             style: const TextStyle(
                                 fontSize: 14, color: Color(0xFF555555)),
                           ),
                         ],
                       ),
                     ),
-                  if (_step == 1) const SizedBox(height: 12),
+                  if (_step > 0) const SizedBox(height: 12),
                   const Text(
                     '샤랍',
                     style: TextStyle(
@@ -71,9 +80,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _step == 0
-                        ? '소속 단과대학을 선택해주세요\n제휴 식당 및 복지 혜택을 확인할 수 있어요.'
-                        : '학과/학부를 선택해주세요',
+                    switch (_step) {
+                      0 => '소속 단과대학을 선택해주세요\n제휴 식당 및 복지 혜택을 확인할 수 있어요.',
+                      1 => '학과/학부를 선택해주세요',
+                      _ => '학적을 선택해주세요\n비교과 프로그램 필터링에 사용돼요.',
+                    },
                     style: const TextStyle(
                       fontSize: 16,
                       color: Color(0xFF444444),
@@ -89,15 +100,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: Row(
                 children: [
                   const _StepDot(active: true, label: '단과대'),
-                  _StepLine(active: _step == 1),
-                  _StepDot(active: _step == 1, label: '학과'),
+                  _StepLine(active: _step >= 1),
+                  _StepDot(active: _step >= 1, label: '학과'),
+                  _StepLine(active: _step >= 2),
+                  _StepDot(active: _step >= 2, label: '학적'),
                 ],
               ),
             ),
             const SizedBox(height: 8),
             // 목록
             Expanded(
-              child: _step == 0 ? _buildCollegeList() : _buildDeptList(),
+              child: switch (_step) {
+                0 => _buildCollegeList(),
+                1 => _buildDeptList(),
+                _ => _buildStatusList(),
+              },
             ),
           ],
         ),
@@ -150,6 +167,42 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           onTap: () => _selectDepartment(dept),
         );
       },
+    );
+  }
+
+  Widget _buildStatusList() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ..._kStatusOptions.map(
+            (status) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                tileColor: const Color(0xFFF5F7FF),
+                title: Text(status,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.chevron_right,
+                    color: Color(0xFFAAAAAA)),
+                onTap: () => _selectStatus(status),
+              ),
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => _selectStatus(null),
+            child: const Text(
+              '건너뛰기',
+              style: TextStyle(color: Color(0xFF888888), fontSize: 14),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

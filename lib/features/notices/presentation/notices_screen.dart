@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../features/onboarding/domain/snu_departments.dart';
+import '../../../shared/providers/settings_provider.dart';
 import '../data/notice_repository.dart';
+import '../domain/department_notice_source.dart';
 import '../domain/extra_program.dart';
 import '../domain/notice.dart';
 import 'notice_detail_screen.dart';
@@ -34,17 +37,47 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen>
     super.dispose();
   }
 
+  /// 사용자 학과명으로 첫 탭 라벨 구성 (미설정 시 '학과 공지').
+  String _deptTabLabel() {
+    final code = ref.watch(departmentCodeProvider);
+    if (code == null) return '학과 공지';
+    for (final c in snuColleges) {
+      for (final d in c.departments) {
+        if (d.code == code) return d.name;
+      }
+    }
+    return '학과 공지';
+  }
+
+  void _showProfileSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _ProfileSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('공지/기회', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.manage_accounts_outlined),
+            tooltip: '내 정보 설정',
+            onPressed: () => _showProfileSheet(context),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabCtrl,
-          tabs: const [
-            Tab(text: '체육교육과 공지'),
-            Tab(text: 'SNU 비교과'),
+          tabs: [
+            Tab(text: _deptTabLabel()),
+            const Tab(text: 'SNU 비교과'),
           ],
         ),
       ),
@@ -61,42 +94,177 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen>
 
 // ─── 체육교육과 공지 탭 ─────────────────────────────────────────────────────
 
-class _SportsTab extends ConsumerWidget {
+class _SportsTab extends ConsumerStatefulWidget {
   const _SportsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(sportsNoticesProvider);
+  ConsumerState<_SportsTab> createState() => _SportsTabState();
+}
+
+class _SportsTabState extends ConsumerState<_SportsTab> {
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final deptCode = ref.watch(departmentCodeProvider);
+    final source = noticeSourceFor(deptCode);
+
+    // 상태 1: 학과 매핑 없음 (미설정 또는 아직 미지원 학과)
+    if (source == null) {
+      return _DeptUnsupportedView(hasDept: deptCode != null);
+    }
+    // 상태 2: 소스는 있으나 RSS 미지원 → 홈페이지 fallback
+    if (source.rssFeedUrl == null) {
+      return _DeptHomepageFallback(homepageUrl: source.homepageUrl);
+    }
+
+    // 상태 3: RSS 피드
+    final async = ref.watch(departmentNoticesProvider);
+    final now = DateTime.now();
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => _ErrorView(
-        message: e is ScrapingException
-            ? '사이트 구조가 변경되어 공지를 불러오지 못했어요.\n개발자에게 문의해 주세요.'
-            : '공지를 불러오지 못했어요.\n네트워크 상태를 확인해 주세요.',
-        onRetry: () => ref.invalidate(sportsNoticesProvider),
+        message: '공지를 불러오지 못했어요.\n네트워크 상태를 확인해 주세요.',
+        onRetry: () => ref.invalidate(departmentNoticesProvider),
       ),
       data: (notices) {
         if (notices.isEmpty) {
           return _ErrorView(
             message: '공지 정보가 없어요.\n잠시 후 다시 시도해 주세요.',
-            onRetry: () => ref.invalidate(sportsNoticesProvider),
+            onRetry: () => ref.invalidate(departmentNoticesProvider),
           );
         }
+
+        final visible =
+            notices.where((n) => shouldShowSportsNotice(n, now)).toList();
+        final hiddenCount = notices.length - visible.length;
+
+        // 현재 공지가 하나도 없으면 안내 + 지난 공지 버튼
+        if (visible.isEmpty && !_showAll) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.event_busy_outlined,
+                    size: 48, color: Color(0xFFCCCCCC)),
+                const SizedBox(height: 12),
+                const Text(
+                  '현재 진행 중인 공지가 없어요.',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF999999)),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => setState(() => _showAll = true),
+                  child: Text('지난 공지 $hiddenCount건 보기'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final displayed = _showAll ? notices : visible;
+        final showMoreButton = hiddenCount > 0 && !_showAll;
+
         return RefreshIndicator(
           onRefresh: () async {
             final repo = ref.read(noticeRepositoryProvider);
-            await repo.getSportsNotices(forceRefresh: true);
-            ref.invalidate(sportsNoticesProvider);
+            await repo.getDepartmentNotices(deptCode, forceRefresh: true);
+            ref.invalidate(departmentNoticesProvider);
+            if (_showAll) setState(() => _showAll = false);
           },
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: notices.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 16),
-            itemBuilder: (_, i) => _SportsNoticeItem(notice: notices[i]),
+            itemCount: displayed.length + (showMoreButton ? 1 : 0),
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, indent: 16),
+            itemBuilder: (_, i) {
+              if (i == displayed.length) {
+                return TextButton.icon(
+                  onPressed: () => setState(() => _showAll = true),
+                  icon: const Icon(Icons.expand_more, size: 16),
+                  label: Text('지난 공지 $hiddenCount건 더 보기'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF888888)),
+                );
+              }
+              return _SportsNoticeItem(notice: displayed[i]);
+            },
           ),
         );
       },
+    );
+  }
+}
+
+/// 학과 매핑 없음(미설정/미지원) 안내.
+class _DeptUnsupportedView extends StatelessWidget {
+  const _DeptUnsupportedView({required this.hasDept});
+  final bool hasDept;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline, size: 48, color: Color(0xFFCCCCCC)),
+            const SizedBox(height: 12),
+            Text(
+              hasDept
+                  ? '이 학과의 공지는 아직 지원하지 않아요.\n곧 추가될 예정이에요.'
+                  : '학과를 먼저 설정해주세요.\n(우측 상단 내 정보 설정)',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// RSS 미지원 학과 → 홈페이지 열기 fallback.
+class _DeptHomepageFallback extends StatelessWidget {
+  const _DeptHomepageFallback({required this.homepageUrl});
+  final String homepageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.open_in_browser, size: 48, color: Color(0xFFCCCCCC)),
+            const SizedBox(height: 12),
+            const Text(
+              '이 학과 공지는 앱에서 아직 불러올 수 없어요.\n학과 홈페이지에서 확인해 주세요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Color(0xFF888888)),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('학과 홈페이지 열기'),
+              onPressed: () async {
+                final uri = Uri.parse(homepageUrl);
+                final ok = await canLaunchUrl(uri);
+                if (ok) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('홈페이지를 열 수 없어요.')),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -161,12 +329,32 @@ class _SportsNoticeItem extends StatelessWidget {
 
 // ─── 비교과 탭 ──────────────────────────────────────────────────────────────
 
-class _ExtraTab extends ConsumerWidget {
+class _ExtraTab extends ConsumerStatefulWidget {
   const _ExtraTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ExtraTab> createState() => _ExtraTabState();
+}
+
+class _ExtraTabState extends ConsumerState<_ExtraTab> {
+  bool _myCollegeOnly = false;
+
+  String? _userCollegeName() {
+    final code = ref.read(collegeCodeProvider);
+    if (code == null) return null;
+    try {
+      return snuColleges.firstWhere((c) => c.code == code).name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(extraProgramsProvider);
+    final collegeCode = ref.watch(collegeCodeProvider);
+    final hasCollege = collegeCode != null;
+    final userStatus = ref.watch(academicStatusProvider);
 
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -174,38 +362,111 @@ class _ExtraTab extends ConsumerWidget {
         message: '비교과 프로그램을 불러오지 못했어요.\n네트워크 상태를 확인해 주세요.',
         onRetry: () => ref.invalidate(extraProgramsProvider),
       ),
-      data: (programs) {
-        if (programs.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.event_busy_outlined,
-                    size: 56, color: Color(0xFFCCCCCC)),
-                SizedBox(height: 12),
-                Text(
-                  '현재 신청 중이거나 곧 시작하는\n프로그램이 없어요.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF999999), fontSize: 14),
+      data: (allPrograms) {
+        final programs = (_myCollegeOnly && hasCollege)
+            ? allPrograms
+                .where((p) =>
+                    p.matchesCollege(_userCollegeName()) &&
+                    p.matchesStatus(userStatus))
+                .toList()
+            : allPrograms;
+
+        return Column(
+          children: [
+            if (hasCollege)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: '전체',
+                      selected: !_myCollegeOnly,
+                      onTap: () => setState(() => _myCollegeOnly = false),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: '내 단과대만',
+                      selected: _myCollegeOnly,
+                      onTap: () => setState(() => _myCollegeOnly = true),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            Expanded(
+              child: programs.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.event_busy_outlined,
+                              size: 56, color: Color(0xFFCCCCCC)),
+                          SizedBox(height: 12),
+                          Text(
+                            '현재 신청 중이거나 곧 시작하는\n프로그램이 없어요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0xFF999999), fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        final repo = ref.read(noticeRepositoryProvider);
+                        await repo.getExtraPrograms(forceRefresh: true);
+                        ref.invalidate(extraProgramsProvider);
+                      },
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: programs.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, indent: 16),
+                        itemBuilder: (_, i) =>
+                            _ExtraProgramTile(program: programs[i]),
+                      ),
+                    ),
             ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: () async {
-            final repo = ref.read(noticeRepositoryProvider);
-            await repo.getExtraPrograms(forceRefresh: true);
-            ref.invalidate(extraProgramsProvider);
-          },
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: programs.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 16),
-            itemBuilder: (_, i) => _ExtraProgramTile(program: programs[i]),
-          ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const primary = Color(0xFF1A73E8);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? primary : Colors.transparent,
+          border: Border.all(
+            color: selected ? primary : const Color(0xFFCCCCCC),
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : const Color(0xFF555555),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -218,18 +479,24 @@ class _ExtraProgramTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final isOpen = program.aplFrom != null &&
-        program.aplTo != null &&
-        !today.isBefore(DateTime(
-            program.aplFrom!.year, program.aplFrom!.month, program.aplFrom!.day)) &&
-        !today.isAfter(DateTime(
-            program.aplTo!.year, program.aplTo!.month, program.aplTo!.day));
-    final daysToStart = program.aplFrom != null
+    final daysToStart = (program.aplFrom != null &&
+            today.isBefore(DateTime(program.aplFrom!.year,
+                program.aplFrom!.month, program.aplFrom!.day)))
         ? DateTime(program.aplFrom!.year, program.aplFrom!.month,
                 program.aplFrom!.day)
             .difference(today)
             .inDays
         : null;
+
+    // Use status text from HTML scraper; fall back to date-derived label.
+    final statusText = program.status.isNotEmpty
+        ? program.status
+        : (daysToStart != null ? 'D-$daysToStart일 후 시작' : '모집중');
+    final statusColor = switch (statusText) {
+      '마감임박' => Colors.red,
+      '모집대기' || _ when daysToStart != null => Colors.orange,
+      _ => Colors.green,
+    };
 
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -247,10 +514,7 @@ class _ExtraProgramTile extends StatelessWidget {
           spacing: 6,
           runSpacing: 4,
           children: [
-            _badge(
-              isOpen ? '모집중' : 'D-$daysToStart일 후 시작',
-              isOpen ? Colors.green : Colors.orange,
-            ),
+            _badge(statusText, statusColor),
             _badge(program.category, const Color(0xFF1A73E8)),
           ],
         ),
@@ -267,6 +531,15 @@ class _ExtraProgramTile extends StatelessWidget {
         if (program.mode?.isNotEmpty == true)
           _detailRow(
               Icons.computer_outlined, '운영방식', program.mode!),
+        if (program.targetOrg.isNotEmpty)
+          _detailRow(Icons.people_outline, '신청대상', program.targetOrg),
+        _detailRow(
+          Icons.badge_outlined,
+          '신청신분',
+          program.targetStatus.isNotEmpty
+              ? program.targetStatus.join(', ')
+              : '제한없음',
+        ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
@@ -324,6 +597,75 @@ class _ExtraProgramTile extends StatelessWidget {
     final fmt = DateFormat('MM.dd');
     if (to == null) return fmt.format(from);
     return '${fmt.format(from)} ~ ${fmt.format(to)}';
+  }
+}
+
+// ─── 내 정보 설정 시트 ──────────────────────────────────────────────────────
+
+class _ProfileSheet extends ConsumerWidget {
+  const _ProfileSheet();
+
+  static const _statusOptions = ['학사', '석사', '박사'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final collegeCode = ref.watch(collegeCodeProvider);
+    final currentStatus = ref.watch(academicStatusProvider);
+
+    String? collegeName;
+    if (collegeCode != null) {
+      try {
+        collegeName = snuColleges.firstWhere((c) => c.code == collegeCode).name;
+      } catch (_) {}
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('내 정보',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 20),
+          const Text('단과대',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+          const SizedBox(height: 6),
+          Text(
+            collegeName ?? '미설정',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: collegeName != null
+                  ? const Color(0xFF1A73E8)
+                  : const Color(0xFFAAAAAA),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text('학적',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888))),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            children: [
+              ..._statusOptions.map((s) => _FilterChip(
+                    label: s,
+                    selected: currentStatus == s,
+                    onTap: () =>
+                        ref.read(academicStatusProvider.notifier).set(s),
+                  )),
+              _FilterChip(
+                label: '미설정',
+                selected: currentStatus == null,
+                onTap: () =>
+                    ref.read(academicStatusProvider.notifier).set(null),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
   }
 }
 

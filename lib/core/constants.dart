@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 // 빌드 시 dart_defines.json 파일로 환경변수 주입:
 //   flutter run --dart-define-from-file=dart_defines.json
 //   flutter build apk --dart-define-from-file=dart_defines.json
@@ -32,6 +30,7 @@ const String kCustomEvents = 'custom_events'; // List<CustomEvent> JSON
 const String kMySNUSessions = 'mysnu_sessions'; // List<ClassSession> JSON (mySNU 시간표)
 const String kCollegeCode = 'college_code';
 const String kDepartmentCode = 'department_code';
+const String kAcademicStatus = 'academic_status'; // '학사' | '석사' | '박사'
 const String kOnboardingComplete = 'onboarding_complete';
 const String kPartnerRestaurantsCache = 'partner_restaurants_cache';
 const String kPartnerRestaurantsFetchedAt = 'partner_restaurants_fetched_at';
