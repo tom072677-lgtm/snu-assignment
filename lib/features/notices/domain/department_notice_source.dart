@@ -191,7 +191,8 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'english_edu': _home('english_edu', 'engedu.snu.ac.kr'),
   'german_edu': _home('german_edu', 'germanedu.snu.ac.kr'),
   'medicine': _home('medicine', 'medicine.snu.ac.kr'),
-  'law': _home('law', 'law.snu.ac.kr'),
+  'law': _board('law', 'law.snu.ac.kr',
+      'https://law.snu.ac.kr/bbs/board.php?bo_table=promotion'),
   'dentistry': _home('dentistry', 'dentistry.snu.ac.kr'),
   // 음악대학 5개 학과 공통 (div기반 ul 게시판)
   'composition':
