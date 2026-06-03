@@ -112,14 +112,14 @@ const DEPT_NOTICE_SOURCES = {
   english_edu: {
     url: "https://engedu.snu.ac.kr/05_sub/5c_sub01.php", // 학부 공지사항, EUC-KR
   },
-  // psir.snu.ac.kr은 공지 목록을 AJAX(POST→JSON)로 로드 → HTML 스크래핑 불가.
-  // /event/listProc POST API → list[]{id,pid,title,created,regDate} JSON 반환.
-  // 상세 URL: /event/notice?pid=${pid}
+  // psir.snu.ac.kr: 공지 목록은 AJAX(POST /event/listProc → JSON).
+  // gnbType=01&type=01 이 학부 공지 게시판의 필수 필터 (없으면 테스트 board 반환).
+  // 상세 URL: /event/${pid} (path 방식; ?pid= 방식은 다른 board로 이동됨).
   political_science: {
     jsonList: {
       url: "https://psir.snu.ac.kr/event/listProc",
-      params: "pnum=1&srch_type=&srch_filter=&srch_name=&category=&type=",
-      detail: (pid) => `https://psir.snu.ac.kr/event/notice?pid=${pid}`,
+      params: "pnum=1&gnbType=01&type=01&srch_type=&srch_filter=&srch_name=&category=",
+      detail: (pid) => `https://psir.snu.ac.kr/event/${pid}`,
     },
   },
 };
