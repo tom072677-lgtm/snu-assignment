@@ -34,4 +34,5 @@ Each department maps — in `domain/department_notice_source.dart` — to ONE so
 - **In-app via server scrape:** 수리과학부(`mathematics`), 의과대학(`medicine`), 치의학대학원(`dentistry`), 불어불문학과(`french_language`), 건설환경공학부(`civil`), 철학과(`philosophy`), 영어교육과(`english_edu`).
 - **인류학과(`anthropology`):** **client-side `_board` + a scoped Sectigo cert pin** in `notice_repository.dart` (Render can't reach `anthropology.or.kr`; a phone in Korea can; Dart's HTTP client rejects its cert chain, so the pin trusts that one host's genuine Sectigo cert).
 - **Homepage fallback, can't fix:** 독어교육과(`german_edu`, JS-rendered article pages), 정치외교학부(`political_science`, resolves to an internal 10.x IP), 고고미술사학과(`archaeology`, dead host/bad cert).
-- **No source registered yet:** 시스템생명공학부(`systems_biomedical`), 학제전공(`interdisciplinary_engineering`).
+- **건축학과(`architecture`):** `_wp` /feed/ → notice 커스텀 포스트 미포함 문제로 `_html` `/notice/`로 전환. 사이트 접근 자체가 PC에서 안 되는 이슈 있음(한국 IP only 추정); 기기에서 검증 필요.
+- **시스템생명공학부(`systems_biomedical`), 학제전공(`interdisciplinary_engineering`):** 독립 사이트 없음 → 공과대학 공지 게시판(`eng.snu.ac.kr/communication/notice/notice`) 공유 등록.

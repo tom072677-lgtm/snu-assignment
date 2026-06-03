@@ -98,8 +98,16 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
       'https://physics.snu.ac.kr/boards/notice'),
   // 공과대학
   'material_science': _wp('material_science', 'mse.snu.ac.kr'),
-  'architecture': _wp('architecture', 'architecture.snu.ac.kr'),
+  // 건축학과: WordPress 기본 /feed/는 notice 커스텀 포스트타입을 포함하지 않음.
+  // /notice/ 아카이브 HTML로 전환.
+  'architecture': _html('architecture', 'architecture.snu.ac.kr', '/notice/'),
   'industrial': _wp('industrial', 'ie.snu.ac.kr'),
+  // 시스템생명공학부·학제전공: 독립 사이트 없음 → 공과대학 공지 게시판 공유.
+  'systems_biomedical': _board('systems_biomedical', 'eng.snu.ac.kr',
+      'https://eng.snu.ac.kr/communication/notice/notice'),
+  'interdisciplinary_engineering': _board(
+      'interdisciplinary_engineering', 'eng.snu.ac.kr',
+      'https://eng.snu.ac.kr/communication/notice/notice'),
   // 사범대학
   'edu_admin': _wp('edu_admin', 'learning.snu.ac.kr'),
   'korean_edu': _wp('korean_edu', 'koredu.snu.ac.kr'),
