@@ -193,9 +193,9 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
       'https://art.snu.ac.kr/notice/?catemenu=Notice&type=Events'),
 
   // ─── 홈페이지 fallback (인앱 추출 미지원 — SPA/div기반/eGov-js) ───
-  'french_language': _home('french_language', 'www.snufrance.com'),
+  'french_language': _server('french_language', 'www.snufrance.com'),
   'archaeology': _home('archaeology', 'www.archaeology-arthistory.or.kr'),
-  'anthropology': _home('anthropology', 'www.anthropology.or.kr'),
+  'anthropology': _server('anthropology', 'www.anthropology.or.kr'),
   'philosophy': _home('philosophy', 'philosophy.snu.ac.kr'),
   'political_science': _home('political_science', 'polisci.snu.ac.kr'),
   'social_welfare': _board('social_welfare', 'socialwelfare.snu.ac.kr',
@@ -203,7 +203,7 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'mathematics': _server('mathematics', 'www.math.snu.ac.kr'),
   'civil': _home('civil', 'cee.snu.ac.kr'),
   'english_edu': _home('english_edu', 'engedu.snu.ac.kr'),
-  'german_edu': _home('german_edu', 'germanedu.snu.ac.kr'),
+  'german_edu': _server('german_edu', 'germanedu.snu.ac.kr'),
   'medicine': _server('medicine', 'medicine.snu.ac.kr'),
   'law': _board('law', 'law.snu.ac.kr',
       'https://law.snu.ac.kr/bbs/board.php?bo_table=promotion'),

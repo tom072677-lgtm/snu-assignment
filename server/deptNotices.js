@@ -35,6 +35,18 @@ const DEPT_NOTICE_SOURCES = {
     detail: (id) =>
       `https://medicine.snu.ac.kr/fnt/nac/selectNoticeDetail.do?nttId=${id}&bbsId=BBSMSTR_000000000001`,
   },
+  anthropology: {
+    url: "https://www.anthropology.or.kr/04_notice/notice01.htm",
+  },
+  french_language: {
+    url: "https://www.snufrance.com/home/opsquare/notice.asp?gubun=SNUFR&board_cd=NOTICE",
+    detail: (id) =>
+      `https://www.snufrance.com/home/opsquare/notice.asp?gubun=SNUFR&board_cd=NOTICE&mode=VIEW&idx=${id}`,
+  },
+  german_edu: {
+    url: "https://germanedu.snu.ac.kr/notice01/list.asp",
+    base: "https://germanedu.snu.ac.kr/", // hrefs are root-relative without <base>
+  },
 };
 
 // ---- SSRF guard: reject any address in private / loopback / link-local ranges.
@@ -198,12 +210,12 @@ function extractNotices($, cfg) {
     const onclick = $a.attr("onclick") || "";
     let url = null;
 
-    if (cfg.detail && /goToDetail|goView/i.test(onclick)) {
+    if (cfg.detail && /goToDetail|goView|fnItemRead/i.test(onclick)) {
       const id = (onclick.match(/\d{2,}/) || [])[0];
       if (id) url = cfg.detail(id);
     } else if (href && !/^#|^javascript:/i.test(href) && ART_HREF.test(href)) {
       try {
-        url = new URL(href, cfg.url).href;
+        url = new URL(href, cfg.base || cfg.url).href;
       } catch {
         return;
       }
