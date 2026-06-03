@@ -35,17 +35,34 @@ const DEPT_NOTICE_SOURCES = {
     detail: (id) =>
       `https://medicine.snu.ac.kr/fnt/nac/selectNoticeDetail.do?nttId=${id}&bbsId=BBSMSTR_000000000001`,
   },
-  anthropology: {
-    url: "https://www.anthropology.or.kr/04_notice/notice01.htm",
-  },
   french_language: {
     url: "https://www.snufrance.com/home/opsquare/notice.asp?gubun=SNUFR&board_cd=NOTICE",
     detail: (id) =>
       `https://www.snufrance.com/home/opsquare/notice.asp?gubun=SNUFR&board_cd=NOTICE&mode=VIEW&idx=${id}`,
   },
-  german_edu: {
-    url: "https://germanedu.snu.ac.kr/notice01/list.asp",
-    base: "https://germanedu.snu.ac.kr/", // hrefs are root-relative without <base>
+  civil: {
+    // gnuboard 공지사항; list truncates subjects, so pull full titles from each
+    // article's detail-page <title> ("게시판 > 공지사항 > [full subject]").
+    url: "https://cee.snu.ac.kr/bbs/board.php?bo_table=sub6_1",
+    fullTitle: (html) => {
+      const m = html.match(/<title>([^<]*)<\/title>/i);
+      if (!m) return "";
+      return (
+        m[1]
+          .split(/\s*>\s*/)
+          .map((s) => s.trim())
+          .filter((s) => s && s !== "게시판" && s !== "공지사항")
+          .sort((a, b) => b.length - a.length)[0] || ""
+      );
+    },
+  },
+  philosophy: {
+    // Dedicated list is a JS shell; the board index renders recent notices
+    // (menu6/sub06_view.html?wr_id=) inline. EUC-KR.
+    url: "https://philosophy.snu.ac.kr/board/html/main/index.php",
+  },
+  english_edu: {
+    url: "https://engedu.snu.ac.kr/05_sub/5c_sub01.php", // 학부 공지사항, EUC-KR
   },
 };
 
@@ -222,24 +239,55 @@ function extractNotices($, cfg) {
     }
     if (!url || seen.has(url)) return;
 
-    // Date: prefer an explicit date cell near the anchor; climb a few levels
-    // (capped at 3 so it cannot reach shared list containers).
+    // Date: prefer an explicit date cell in the nearest row (tr/li); else climb
+    // a few levels (capped so it cannot reach shared list containers).
     let date = "";
-    let node = $a;
-    for (let i = 0; i < 3 && node.length; i++) {
-      const $d = node.find('[class*="date"]').first();
-      const d = findDate($d.length ? $d.text() : node.text());
-      if (d) {
-        date = d;
-        break;
+    const $row = $a.closest("tr, li");
+    if ($row.length) {
+      const $d = $row.find('[class*="date"]').first();
+      date = findDate($d.length ? $d.text() : $row.text());
+    }
+    if (!date) {
+      let node = $a;
+      for (let i = 0; i < 3 && node.length; i++) {
+        const $d = node.find('[class*="date"]').first();
+        const d = findDate($d.length ? $d.text() : node.text());
+        if (d) {
+          date = d;
+          break;
+        }
+        node = node.parent();
       }
-      node = node.parent();
     }
 
     seen.add(url);
     items.push({ title, url, date });
   });
   return items.slice(0, 30);
+}
+
+// Replace each item's (truncated) list title with the full title from its
+// detail page. For boards that truncate subjects in the list view (e.g. some
+// gnuboard skins) but render the full title server-side on the article page.
+async function enrichFullTitles(items, cfg) {
+  const BATCH = 6;
+  for (let i = 0; i < items.length; i += BATCH) {
+    await Promise.all(
+      items.slice(i, i + BATCH).map(async (it) => {
+        try {
+          const { buf, contentType } = await httpGet(it.url, {
+            insecureTLS: !!cfg.insecureTLS,
+          });
+          const full = cfg.fullTitle(decodeBody(buf, contentType));
+          const stem = it.title.replace(/[….]+$/, "").trim();
+          if (full && full.length >= stem.length) it.title = full;
+        } catch {
+          /* keep the truncated title on failure */
+        }
+      })
+    );
+  }
+  return items;
 }
 
 async function scrapeDept(dept) {
@@ -258,7 +306,9 @@ async function scrapeDept(dept) {
       });
       const html = decodeBody(buf, contentType);
       const $ = cheerio.load(html);
-      return { items: extractNotices($, cfg), htmlHead: html.slice(0, 500) };
+      let items = extractNotices($, cfg);
+      if (cfg.fullTitle && items.length) items = await enrichFullTitles(items, cfg);
+      return { items, htmlHead: html.slice(0, 500) };
     } catch (e) {
       lastErr = e;
     }

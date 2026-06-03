@@ -195,15 +195,19 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   // ─── 홈페이지 fallback (인앱 추출 미지원 — SPA/div기반/eGov-js) ───
   'french_language': _server('french_language', 'www.snufrance.com'),
   'archaeology': _home('archaeology', 'www.archaeology-arthistory.or.kr'),
-  'anthropology': _server('anthropology', 'www.anthropology.or.kr'),
-  'philosophy': _home('philosophy', 'philosophy.snu.ac.kr'),
+  // 인류학과: anthropology.or.kr은 한국에서만 도달 가능(Render 불가) → 기기에서
+  // 직접 긁는다(client-side). UTF-8이라 앱이 디코딩 가능.
+  'anthropology': _board('anthropology', 'www.anthropology.or.kr',
+      'https://www.anthropology.or.kr/04_notice/notice01.htm'),
+  'philosophy': _server('philosophy', 'philosophy.snu.ac.kr'),
   'political_science': _home('political_science', 'polisci.snu.ac.kr'),
   'social_welfare': _board('social_welfare', 'socialwelfare.snu.ac.kr',
       'https://socialwelfare.snu.ac.kr/notice'),
   'mathematics': _server('mathematics', 'www.math.snu.ac.kr'),
-  'civil': _home('civil', 'cee.snu.ac.kr'),
-  'english_edu': _home('english_edu', 'engedu.snu.ac.kr'),
-  'german_edu': _server('german_edu', 'germanedu.snu.ac.kr'),
+  'civil': _server('civil', 'cee.snu.ac.kr'),
+  'english_edu': _server('english_edu', 'engedu.snu.ac.kr'),
+  // 독어교육과: 글 페이지가 JS 렌더링이라 제목 잘림 해결 불가 → 홈페이지 fallback.
+  'german_edu': _home('german_edu', 'germanedu.snu.ac.kr'),
   'medicine': _server('medicine', 'medicine.snu.ac.kr'),
   'law': _board('law', 'law.snu.ac.kr',
       'https://law.snu.ac.kr/bbs/board.php?bo_table=promotion'),
