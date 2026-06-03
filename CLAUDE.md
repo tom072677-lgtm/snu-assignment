@@ -33,6 +33,7 @@ Each department maps — in `domain/department_notice_source.dart` — to ONE so
 ## Current notices status / quirks
 - **In-app via server scrape:** 수리과학부(`mathematics`), 의과대학(`medicine`), 치의학대학원(`dentistry`), 불어불문학과(`french_language`), 건설환경공학부(`civil`), 철학과(`philosophy`), 영어교육과(`english_edu`).
 - **인류학과(`anthropology`):** **client-side `_board` + a scoped Sectigo cert pin** in `notice_repository.dart` (Render can't reach `anthropology.or.kr`; a phone in Korea can; Dart's HTTP client rejects its cert chain, so the pin trusts that one host's genuine Sectigo cert).
-- **Homepage fallback, can't fix:** 독어교육과(`german_edu`, JS-rendered article pages), 정치외교학부(`political_science`, resolves to an internal 10.x IP), 고고미술사학과(`archaeology`, dead host/bad cert).
+- **Homepage fallback, can't fix:** 독어교육과(`german_edu`, JS-rendered article pages), 고고미술사학과(`archaeology`, 2026-06-03 현재 모든 경로 404 — IIS/5.0 서버 완전 고장).
 - **건축학과(`architecture`):** 2026-06-03 현재 `architecture.snu.ac.kr` HTTPS 다운(TCP RST on 443). 임시 fallback → `_board`로 `eng.snu.ac.kr/communication/notice/notice` 공과대학 공지 사용(기기 검증 완료, 10건). 사이트 복구 시 `_html('architecture', 'architecture.snu.ac.kr', '/notice/')`로 되돌릴 것.
+- **정치외교학부(`political_science`):** 구 도메인 `polisci.snu.ac.kr` NXDOMAIN. 신 도메인 `psir.snu.ac.kr`는 AJAX 게시판(POST `/event/listProc` → JSON). `_server` + `httpPost`/`jsonList` 방식으로 수정(기기 검증 완료, 5건). 서버: `deptNotices.js`.
 - **시스템생명공학부(`systems_biomedical`), 학제전공(`interdisciplinary_engineering`):** 독립 사이트 없음 → 공과대학 공지 게시판(`eng.snu.ac.kr/communication/notice/notice`) 공유 등록.
