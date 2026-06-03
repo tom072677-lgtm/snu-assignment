@@ -112,6 +112,17 @@ const DEPT_NOTICE_SOURCES = {
   english_edu: {
     url: "https://engedu.snu.ac.kr/05_sub/5c_sub01.php", // 학부 공지사항, EUC-KR
   },
+  // 사회교육과·윤리교육과: *.snu.ac.kr 와일드카드 인증서이나 서버가 중간 인증서를
+  // 전송하지 않아 Android BoringSSL·Node.js 기본 검증 실패 → insecureTLS 우회.
+  // (GlobalSign RSA OV SSL CA 2018 중간 인증서 누락. Windows는 AIA로 자동 보완.)
+  social_edu: {
+    url: "https://socialedu.snu.ac.kr/sub_notice/notice.php",
+    insecureTLS: true,
+  },
+  ethics_edu: {
+    url: "https://ethics.snu.ac.kr/sub_notice/board02.php",
+    insecureTLS: true,
+  },
   // psir.snu.ac.kr: 공지 목록은 AJAX(POST /event/listProc → JSON).
   // gnbType=01&type=01 이 학부 공지 게시판의 필수 필터 (없으면 테스트 board 반환).
   // 상세 URL: /event/${pid} (path 방식; ?pid= 방식은 다른 board로 이동됨).

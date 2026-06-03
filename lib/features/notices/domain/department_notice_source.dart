@@ -162,11 +162,9 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'korean_history': _html('korean_history', 'history.snu.ac.kr', '/notice/'),
   'eastern_history': _html('eastern_history', 'history.snu.ac.kr', '/notice/'),
   'western_history': _html('western_history', 'history.snu.ac.kr', '/notice/'),
-  // 사범대학
-  'social_edu':
-      _html('social_edu', 'socialedu.snu.ac.kr', '/sub_notice/notice.php'),
-  'ethics_edu':
-      _html('ethics_edu', 'ethics.snu.ac.kr', '/sub_notice/board02.php'),
+  // 사범대학 — 중간 인증서 누락으로 Flutter TLS 실패 → 서버 스크래핑(insecureTLS)
+  'social_edu': _server('social_edu', 'socialedu.snu.ac.kr'),
+  'ethics_edu': _server('ethics_edu', 'ethics.snu.ac.kr'),
   'mechanical': _board('mechanical', 'me.snu.ac.kr',
       'https://me.snu.ac.kr/%EA%B3%B5%ED%86%B5-%EA%B3%B5%EC%A7%80%EC%82%AC%ED%95%AD/'),
   // 생활과학대학
