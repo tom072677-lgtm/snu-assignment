@@ -360,16 +360,26 @@ async function scrapeDept(dept) {
     const { url, params, detail } = cfg.jsonList;
     const raw = await httpPost(url, params);
     const data = JSON.parse(raw);
-    const items = (data.list || [])
-      .filter((it) => it.title && it.title.trim().length >= 4 && it.title.trim().length <= 140)
-      .map((it) => ({
-        title: it.title.trim(),
-        url: detail(it.pid),
-        date: it.regDate
-          ? it.regDate.replace(/-/g, ".")
-          : (it.created || "").slice(0, 10).replace(/-/g, "."),
-      }))
-      .slice(0, 30);
+    // headerlist(공지/고정) + list(일반) 합산. headerlist를 앞에 두어 중요 공지 우선.
+    const all = [...(data.headerlist || []), ...(data.list || [])];
+    const seenUrl = new Set();
+    const seenTitleDate = new Set();
+    const items = [];
+    for (const it of all) {
+      const title = (it.title || "").trim();
+      if (title.length < 4 || title.length > 140) continue;
+      const itemUrl = detail(it.pid);
+      if (seenUrl.has(itemUrl)) continue;
+      seenUrl.add(itemUrl);
+      const date = it.regDate
+        ? it.regDate.replace(/-/g, ".")
+        : (it.created || "").slice(0, 10).replace(/-/g, ".");
+      const titleDateKey = title + "|" + date;
+      if (seenTitleDate.has(titleDateKey)) continue;
+      seenTitleDate.add(titleDateKey);
+      items.push({ title, url: itemUrl, date });
+      if (items.length >= 30) break;
+    }
     return { items, htmlHead: "" };
   }
 

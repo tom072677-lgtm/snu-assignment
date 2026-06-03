@@ -369,6 +369,7 @@ class NoticeRepository {
 
     final out = <Notice>[];
     final seen = <String>{};
+    final seenTitleDate = <String>{};
     for (final n in nodes) {
       final title = _feedText(n, 'title');
       final link = isAtom ? _atomLink(n) : _feedText(n, 'link');
@@ -382,6 +383,11 @@ class NoticeRepository {
         _feedText(n, 'updated'),
         _feedText(n, 'published'),
       ]);
+      final date = parseFeedDate(dateStr);
+      final dateKey = date != null
+          ? '${date.year}-${date.month}-${date.day}'
+          : '';
+      if (!seenTitleDate.add('$title|$dateKey')) continue;
 
       out.add(Notice(
         id: 'dept_${deptCode}_${_stableHash(norm)}',
@@ -389,7 +395,7 @@ class NoticeRepository {
         url: link,
         source: NoticeSource.department,
         category: _bracketCategory(title),
-        date: parseFeedDate(dateStr),
+        date: date,
       ));
       if (out.length >= limit) break;
     }
@@ -500,6 +506,7 @@ class NoticeRepository {
 
     final out = <Notice>[];
     final seen = <String>{};
+    final seenTitleDate = <String>{};
     for (final row in rows) {
       final titleA = _titleAnchor(row, exclude);
       if (titleA == null) continue;
@@ -512,13 +519,18 @@ class NoticeRepository {
       if (href == null) continue;
       final norm = _normalizeLink(href);
       if (!seen.add(norm)) continue;
+      final date = parseListDate(row.text);
+      final dateKey = date != null
+          ? '${date.year}-${date.month}-${date.day}'
+          : '';
+      if (!seenTitleDate.add('$title|$dateKey')) continue;
       out.add(Notice(
         id: 'dept_${deptCode}_${_stableHash(norm)}',
         title: title,
         url: href,
         source: NoticeSource.department,
         category: _bracketCategory(title),
-        date: parseListDate(row.text),
+        date: date,
       ));
       if (out.length >= limit) break;
     }
