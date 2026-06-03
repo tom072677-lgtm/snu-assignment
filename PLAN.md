@@ -53,12 +53,12 @@ class DepartmentNoticeSource {
 - 검증 실패/SPA(cse) → 홈페이지 fallback.
 
 ## 성공 기준 (fixture 기반 — Codex)
-- [ ] **실제 HTML fixture 저장**(econ/nursing/chem 3~5개를 `test/fixtures/`에) 후 그에 대한 단위 테스트.
-- [ ] `parseHtmlNoticeList` 테스트: 표/리스트 픽스처, head·버전쿼리 날짜 false positive 무시, 상대·onclick 링크 처리, "더보기/목록" 제외, dedupe, limit, 컨테이너 못 찾으면 throw.
-- [ ] `parseListDate` 다양한 형식 + MM.DD 현재연도 가정 테스트.
+- [x] **실제 HTML fixture 저장**(econ/nursing/chem 3~5개를 `test/fixtures/`에) 후 그에 대한 단위 테스트.
+- [x] `parseHtmlNoticeList` 테스트: 표/리스트 픽스처, head·버전쿼리 날짜 false positive 무시, 상대·onclick 링크 처리, "더보기/목록" 제외, dedupe, limit, 컨테이너 못 찾으면 throw.
+- [x] `parseListDate` 다양한 형식 + MM.DD 현재연도 가정 테스트.
 - [ ] (수동/통합, CI 제외) 라이브 페이지 추출이 실제 공지와 일치 확인.
-- [ ] EUC-KR fixture 한글 정상 디코딩.
-- [ ] `flutter analyze` 무경고 / `flutter test` 전체 통과.
+- [n/a] EUC-KR fixture 한글 정상 디코딩 — 현재 등록 학과 모두 UTF-8; EUC-KR 시도 시 ScrapingException throw로 처리.
+- [x] `flutter analyze` 무경고 / `flutter test` 전체 통과. (117/117 — 2026-06-03)
 - [ ] 기기에서 1개 이상 커스텀 학과 공지 표시 확인.
 
 ## 범위 (점진)
