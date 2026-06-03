@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/dom.dart' as dom;
@@ -37,7 +39,24 @@ class ScrapingException implements Exception {
 }
 
 class NoticeRepository {
-  NoticeRepository(this._prefs);
+  NoticeRepository(this._prefs) {
+    // 인류학과(anthropology.or.kr)는 Sectigo 인증서 체인을 Dart HTTP 클라이언트가
+    // 완성하지 못해 핸드셰이크가 실패한다(브라우저는 정상). 그 호스트에 한해, 정품
+    // 인증서(Sectigo가 해당 도메인에 발급한 것)일 때만 수락한다 — 도메인+발급자 핀.
+    // MITM 차단(공격자는 그 도메인의 Sectigo 인증서를 못 얻음), 인증서 갱신엔 견딤.
+    // 그 외 모든 호스트는 기본 엄격 검증 유지.
+    final adapter = _sportsDio.httpClientAdapter;
+    if (adapter is IOHttpClientAdapter) {
+      adapter.createHttpClient = () {
+        final client = HttpClient();
+        client.badCertificateCallback = (cert, host, port) =>
+            host == 'www.anthropology.or.kr' &&
+            cert.subject.contains('anthropology.or.kr') &&
+            cert.issuer.contains('Sectigo');
+        return client;
+      };
+    }
+  }
 
   final SharedPreferences _prefs;
 
