@@ -209,7 +209,8 @@ final Map<String, DepartmentNoticeSource> departmentNoticeSources = {
   'anthropology': _board('anthropology', 'www.anthropology.or.kr',
       'https://www.anthropology.or.kr/04_notice/notice01.htm'),
   'philosophy': _server('philosophy', 'philosophy.snu.ac.kr'),
-  'political_science': _home('political_science', 'polisci.snu.ac.kr'),
+  // 구 도메인 polisci.snu.ac.kr NXDOMAIN. 신 도메인 psir.snu.ac.kr, AJAX 게시판 → 서버 스크래핑.
+  'political_science': _server('political_science', 'psir.snu.ac.kr'),
   'social_welfare': _board('social_welfare', 'socialwelfare.snu.ac.kr',
       'https://socialwelfare.snu.ac.kr/notice'),
   'mathematics': _server('mathematics', 'www.math.snu.ac.kr'),

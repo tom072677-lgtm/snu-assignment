@@ -19,6 +19,54 @@ const MAX_BODY = 3 * 1024 * 1024; // 3 MB
 const TIMEOUT_MS = 15000;
 const MAX_REDIRECTS = 3;
 
+// ---- POST request (for JSON API endpoints). Returns decoded string.
+function httpPost(targetUrl, bodyStr, { insecureTLS = false } = {}) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL(targetUrl); } catch { return reject(new Error("bad url")); }
+    if (u.protocol !== "http:" && u.protocol !== "https:")
+      return reject(new Error("bad protocol: " + u.protocol));
+    if (isPrivateAddr(u.hostname)) return reject(new Error("blocked private host"));
+
+    const mod = u.protocol === "https:" ? https : http;
+    const bodyBuf = Buffer.from(bodyStr, "utf-8");
+    const opts = {
+      method: "POST",
+      headers: {
+        "User-Agent": BROWSER_UA,
+        Accept: "application/json, */*",
+        "Accept-Language": "ko,en;q=0.8",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": bodyBuf.length,
+      },
+      timeout: TIMEOUT_MS,
+      lookup: safeLookup,
+    };
+    if (u.protocol === "https:" && insecureTLS) {
+      opts.rejectUnauthorized = false;
+      opts.maxVersion = "TLSv1.2";
+    }
+    const req = mod.request(targetUrl, opts, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error("HTTP " + res.statusCode));
+      }
+      const chunks = [];
+      let len = 0;
+      res.on("data", (c) => {
+        len += c.length;
+        if (len > MAX_BODY) { req.destroy(); reject(new Error("body too large")); return; }
+        chunks.push(c);
+      });
+      res.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    req.write(bodyBuf);
+    req.end();
+  });
+}
+
 // Phase 1: fully verified boards (gnuboard + eGov skin). Add more in Phase 2.
 const DEPT_NOTICE_SOURCES = {
   mathematics: {
@@ -63,6 +111,16 @@ const DEPT_NOTICE_SOURCES = {
   },
   english_edu: {
     url: "https://engedu.snu.ac.kr/05_sub/5c_sub01.php", // 학부 공지사항, EUC-KR
+  },
+  // psir.snu.ac.kr은 공지 목록을 AJAX(POST→JSON)로 로드 → HTML 스크래핑 불가.
+  // /event/listProc POST API → list[]{id,pid,title,created,regDate} JSON 반환.
+  // 상세 URL: /event/notice?pid=${pid}
+  political_science: {
+    jsonList: {
+      url: "https://psir.snu.ac.kr/event/listProc",
+      params: "pnum=1&srch_type=&srch_filter=&srch_name=&category=&type=",
+      detail: (pid) => `https://psir.snu.ac.kr/event/notice?pid=${pid}`,
+    },
   },
 };
 
@@ -297,6 +355,24 @@ async function scrapeDept(dept) {
     e.code = "UNKNOWN_DEPT";
     throw e;
   }
+  // JSON API 방식 (psir 등 AJAX 기반 공지 게시판)
+  if (cfg.jsonList) {
+    const { url, params, detail } = cfg.jsonList;
+    const raw = await httpPost(url, params);
+    const data = JSON.parse(raw);
+    const items = (data.list || [])
+      .filter((it) => it.title && it.title.trim().length >= 4 && it.title.trim().length <= 140)
+      .map((it) => ({
+        title: it.title.trim(),
+        url: detail(it.pid),
+        date: it.regDate
+          ? it.regDate.replace(/-/g, ".")
+          : (it.created || "").slice(0, 10).replace(/-/g, "."),
+      }))
+      .slice(0, 30);
+    return { items, htmlHead: "" };
+  }
+
   // 일부 학과 서버(math)는 간헐적으로 TLS 연결을 리셋함 → 1회 재시도.
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
