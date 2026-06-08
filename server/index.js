@@ -1860,8 +1860,10 @@ app.get('/api/shuttle/arrival', async (req, res) => {
 // ── 셔틀 경로 탐색 (동기 헬퍼) ────────────────────────────────────────────────
 const SHUTTLE_BOARD_RADIUS  = 700;
 const SHUTTLE_ALIGHT_RADIUS = 700;
-const SHUTTLE_STOP_SEC      = 120;  // 정류장 간 평균 소요시간(초)
+const SHUTTLE_STOP_SEC      = 120;  // 정류장 간 평균 소요시간(초) — 좌표 누락 시 폴백용
 const SHUTTLE_WAIT_SEC      = 120;  // 평균 대기시간(초)
+const SHUTTLE_MPS           = 18000 / 3600; // 셔틀 평균 주행속도 ≈ 18 km/h (교내)
+const SHUTTLE_DWELL_SEC     = 15;   // 중간 정류장당 정차 시간(초)
 const WALK_MPS              = 4000 / 3600; // 4 km/h
 
 function computeShuttleRoutes(olat, olng, dlat, dlng) {
@@ -1881,8 +1883,20 @@ function computeShuttleRoutes(olat, olng, dlat, dlng) {
     for (const board of boardCandidates) {
       for (const alight of alightCandidates) {
         if (board.idx >= alight.idx) continue; // 순서 검증
-        const numStops      = alight.idx - board.idx;
-        const shuttleSec    = numStops * SHUTTLE_STOP_SEC + SHUTTLE_WAIT_SEC;
+        const numStops      = alight.idx - board.idx; // 구간(hop) 수
+        // #6: 정류장 간 실제 직선거리 기반 주행시간. 한 구간이라도 좌표가 없으면
+        //     해당 셔틀 leg 전체를 옛 고정 추정(정류장당 120초)으로 폴백(부분 오차 방지).
+        let rideMeters = 0;
+        let segOk = true;
+        for (let i = board.idx; i < alight.idx; i++) {
+          const a = STATION_COORDS[route.stations[i].code];
+          const b = STATION_COORDS[route.stations[i + 1].code];
+          if (!a || !b) { segOk = false; break; }
+          rideMeters += haversineMeters(a[0], a[1], b[0], b[1]);
+        }
+        const shuttleSec = segOk
+          ? Math.round(rideMeters / SHUTTLE_MPS + (numStops - 1) * SHUTTLE_DWELL_SEC + SHUTTLE_WAIT_SEC)
+          : numStops * SHUTTLE_STOP_SEC + SHUTTLE_WAIT_SEC;
         const walkBoardSec  = Math.round(board.dWalk  / WALK_MPS);
         const walkAlightSec = Math.round(alight.dWalk / WALK_MPS);
         const path = [[olat, olng]];
