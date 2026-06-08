@@ -1974,7 +1974,7 @@ app.get('/api/route/shuttle', async (req, res) => {
   //    도착지가 SNU 중심에서 1.5km 이상 떨어진 경우에만 시도
   const combinedRoutes = [];
   const destFromSnu = haversineMeters(dlat, dlng, SNU_CENTER[0], SNU_CENTER[1]);
-  const TRANSFER_SEC = 120; // 환승 대기·이동 고정값 (TODO: 실거리 기반으로 개선)
+  const TRANSFER_SEC = 120; // 환승 폴백값(초) — ODSay 접근점 좌표가 비정상일 때만 사용
 
   if (destFromSnu > 1500) {
     // 도착지와 충분히 떨어진 허브만 탐색 대상 (허브가 도착지 근처면 직행 셔틀과 중복)
@@ -2006,20 +2006,33 @@ app.get('/api/route/shuttle', async (req, res) => {
         const { hub, shuttle } = hubShuttles[i];
         const odsay = r.value[0]; // 허브→도착지 중 가장 빠른 경로
 
+        // #3: 환승 도보시간 = 허브→ODSay 첫 접근점 직선거리 / 도보속도 + 30초 버퍼.
+        //     첫 좌표가 서울 범위를 벗어나면(좌표 꼬임 등) 고정 120초로 폴백. clamp [60,600].
+        const acc = odsay.path?.[0]; // buildOdsayRoute가 [lat,lng]로 저장
+        const accOk = Array.isArray(acc)
+          && acc[0] >= 37.0 && acc[0] <= 37.8 && acc[1] >= 126.6 && acc[1] <= 127.3;
+        let transferSec = TRANSFER_SEC;
+        let transferDist = 80;
+        if (accOk) {
+          const m = haversineMeters(hub.coords[0], hub.coords[1], acc[0], acc[1]);
+          transferSec  = Math.min(600, Math.max(60, Math.round(m / WALK_MPS + 30)));
+          transferDist = Math.round(m);
+        }
+
         // 셔틀 path의 마지막 점(도착지 좌표)을 제거하고 ODSay path를 이어붙임
         const combinedPath = [...shuttle.path.slice(0, -1), ...odsay.path];
         const combinedLegs = [
           ...shuttle.legs,
           // 환승 구간 도보 leg
           { type: 'walk', name: '환승', color: '#9E9E9E',
-            duration: TRANSFER_SEC, distance: 80,
+            duration: transferSec, distance: transferDist,
             startStation: hub.name, stations: [] },
           ...odsay.legs,
         ];
 
         combinedRoutes.push({
-          duration: shuttle.duration + TRANSFER_SEC + odsay.duration,
-          distance: shuttle.distance + odsay.distance,
+          duration: shuttle.duration + transferSec + odsay.duration,
+          distance: shuttle.distance + transferDist + odsay.distance,
           fare: odsay.fare,
           path: combinedPath,
           legs: combinedLegs,
