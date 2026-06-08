@@ -1959,6 +1959,31 @@ const TRANSIT_HUBS = [
 
 const SNU_CENTER = [37.4607, 126.9526];
 
+// #4: 경로의 leg 시그니처 — 같은 노선 구성이면 같은 문자열.
+//     노선 id가 null이면 type+구간명으로 폴백(서로 다른 null-id 경로가 충돌하지 않게).
+//     도보 leg는 노선 구분 의미가 없어 'W'로 합침.
+function routeSignature(route) {
+  return route.legs.map(l => {
+    if (l.type === 'shuttle') return `S:${l.shuttleRouteId ?? `${l.startStation}>${l.endStation}`}`;
+    if (l.type === 'subway')  return `M:${l.subwayCode    ?? `${l.startStation}>${l.endStation}`}`;
+    if (l.type === 'bus')     return `B:${l.busRouteId    ?? `${l.startStation}>${l.endStation}`}`;
+    return 'W';
+  }).join('|');
+}
+
+// 시그니처가 같은 경로 중 (입력이 빠른 순으로 정렬됐다는 전제 하에) 첫 번째만 남김.
+function dedupBySignature(routes) {
+  const seen = new Set();
+  const out = [];
+  for (const r of routes) {
+    const sig = routeSignature(r);
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    out.push(r);
+  }
+  return out;
+}
+
 app.get('/api/route/shuttle', async (req, res) => {
   const olat = parseFloat(req.query.olat);
   const olng = parseFloat(req.query.olng);
@@ -2041,18 +2066,21 @@ app.get('/api/route/shuttle', async (req, res) => {
     }
   }
 
-  // 3. 전체 병합 → duration 정렬 → 중복 제거(90초 이내 동일 duration) → top 4
+  // 3. 후보 풀: 전체 병합 → duration 정렬 → 상위 POOL_SIZE개만 정밀화 대상으로.
+  //    (#2 TMAP 도보·#1 실시간 운행 반영이 순위를 바꿀 수 있으므로, top 4로 자르기 전에
+  //     넉넉한 풀을 만든 뒤 정밀화→재정렬→중복제거 순으로 처리한다.)
+  const POOL_SIZE = 10;
   const all = [...directRoutes, ...combinedRoutes];
   all.sort((a, b) => a.duration - b.duration);
+  const pool = all.slice(0, POOL_SIZE);
 
-  const deduped = [];
-  for (const r of all) {
-    const isDup = deduped.some(d => Math.abs(d.duration - r.duration) < 90);
-    if (!isDup) deduped.push(r);
-  }
-  const top = deduped.slice(0, 4);
+  // (정밀화 단계가 이후 커밋에서 이 위치에 삽입됨: #2 TMAP 도보, #1 실시간 운행)
 
-  // 4. 서버에서 badges 부여 (Flutter가 추론하지 않도록)
+  // 4. 최종 정렬 → leg 시그니처 기반 중복 제거 → top 4
+  pool.sort((a, b) => a.duration - b.duration);
+  const top = dedupBySignature(pool).slice(0, 4);
+
+  // 5. 서버에서 badges 부여 (Flutter가 추론하지 않도록)
   //    fastest: 전체 중 가장 빠름 (index 0)
   //    free:    셔틀 구간 포함 (leg type == 'shuttle')
   const withBadges = top.map((r, i) => ({
