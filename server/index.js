@@ -1910,7 +1910,8 @@ function computeShuttleRoutes(olat, olng, dlat, dlng) {
         if (board.dWalk > 30)
           legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
             duration: walkBoardSec, distance: Math.round(board.dWalk),
-            endStation: board.st.name, stations: [] });
+            endStation: board.st.name, stations: [],
+            from: [olat, olng], to: board.coords });
         legs.push({ type: 'shuttle', name: route.name, color: '#1A73E8',
           duration: shuttleSec, distance: 0,
           startStation: board.st.name, endStation: alight.st.name,
@@ -1920,7 +1921,8 @@ function computeShuttleRoutes(olat, olng, dlat, dlng) {
         if (alight.dWalk > 30)
           legs.push({ type: 'walk', name: '도보', color: '#9E9E9E',
             duration: walkAlightSec, distance: Math.round(alight.dWalk),
-            startStation: alight.st.name, stations: [] });
+            startStation: alight.st.name, stations: [],
+            from: alight.coords, to: [dlat, dlng] });
         results.push({
           duration: walkBoardSec + shuttleSec + walkAlightSec,
           distance: Math.round(board.dWalk + alight.dWalk),
@@ -2051,7 +2053,8 @@ app.get('/api/route/shuttle', async (req, res) => {
           // 환승 구간 도보 leg
           { type: 'walk', name: '환승', color: '#9E9E9E',
             duration: transferSec, distance: transferDist,
-            startStation: hub.name, stations: [] },
+            startStation: hub.name, stations: [],
+            ...(accOk ? { from: hub.coords, to: acc } : {}) },
           ...odsay.legs,
         ];
 
@@ -2074,7 +2077,44 @@ app.get('/api/route/shuttle', async (req, res) => {
   all.sort((a, b) => a.duration - b.duration);
   const pool = all.slice(0, POOL_SIZE);
 
-  // (정밀화 단계가 이후 커밋에서 이 위치에 삽입됨: #2 TMAP 도보, #1 실시간 운행)
+  // #2: 도보 leg를 TMAP 보행자 경로로 정밀화. 동일 구간(출발지→정류장 등 여러 경로가 공유)은
+  //     1회만 호출해 호출량을 줄이고, 실패 시 직선거리 추정을 유지(fail-open). route.duration은
+  //     leg 변화량(delta)으로 보정해 legs 합과 일관성을 유지.
+  if (process.env.TMAP_API_KEY) {
+    const segKey = (a, b) =>
+      `${a[0].toFixed(4)},${a[1].toFixed(4)}>${b[0].toFixed(4)},${b[1].toFixed(4)}`;
+    const walkLegs = [];
+    for (const r of pool)
+      for (const l of r.legs)
+        if (l.type === 'walk' && Array.isArray(l.from) && Array.isArray(l.to))
+          walkLegs.push({ r, l });
+    const uniqueSegs = new Map(); // key → {from,to}
+    for (const { l } of walkLegs) {
+      const k = segKey(l.from, l.to);
+      if (!uniqueSegs.has(k)) uniqueSegs.set(k, { from: l.from, to: l.to });
+    }
+    const segEntries = [...uniqueSegs.entries()];
+    const segResults = await Promise.allSettled(segEntries.map(([, s]) =>
+      fetchTmapRoute('https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1', {
+        startX: String(s.from[1]), startY: String(s.from[0]),
+        endX: String(s.to[1]), endY: String(s.to[0]),
+        reqCoordType: 'WGS84GEO', resCoordType: 'WGS84GEO', startName: 'start', endName: 'end',
+      })));
+    const segMap = new Map(); // key → {duration,distance}
+    segEntries.forEach(([k], i) => {
+      const res = segResults[i];
+      if (res.status === 'fulfilled' && res.value?.duration > 0)
+        segMap.set(k, { duration: res.value.duration, distance: res.value.distance });
+    });
+    for (const { r, l } of walkLegs) {
+      const refined = segMap.get(segKey(l.from, l.to));
+      if (!refined) continue; // fail-open: 추정 유지
+      r.duration += refined.duration - l.duration;        // delta 보정
+      r.distance += (refined.distance || 0) - (l.distance || 0);
+      l.duration  = refined.duration;
+      l.distance  = refined.distance;
+    }
+  }
 
   // 4. 최종 정렬 → leg 시그니처 기반 중복 제거 → top 4
   pool.sort((a, b) => a.duration - b.duration);
