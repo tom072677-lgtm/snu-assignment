@@ -722,6 +722,9 @@ class _DeptPickerSheetState extends ConsumerState<_DeptPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // 시스템 네비게이션 바(홈 버튼/제스처) 높이만큼 리스트 하단을 띄워
+    // 마지막 항목(사범대학·체육교육과 등)이 가려지지 않게 한다.
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.7,
@@ -761,7 +764,7 @@ class _DeptPickerSheetState extends ConsumerState<_DeptPickerSheet> {
             child: _college == null
                 ? ListView.separated(
                     controller: scroll,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 16),
                     itemCount: snuColleges.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 4),
                     itemBuilder: (_, i) {
@@ -781,7 +784,7 @@ class _DeptPickerSheetState extends ConsumerState<_DeptPickerSheet> {
                   )
                 : ListView.separated(
                     controller: scroll,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 16),
                     itemCount: _college!.departments.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 4),
                     itemBuilder: (_, i) {
