@@ -1818,40 +1818,40 @@ app.get('/api/shuttle/routes', (req, res) => {
   res.json(SHUTTLE_ROUTES);
 });
 
-app.get('/api/shuttle/arrival', async (req, res) => {
-  const routeId = req.query.route_id;
-  const stationCode = req.query.station_code;
-  if (!routeId || !stationCode) {
-    return res.status(400).json({ error: 'route_id and station_code are required' });
-  }
-
+// 셔틀 실시간 도착 조회(스크래핑 + 15초 캐시). 엔드포인트와 경로탐색(#1)이 공유.
+async function fetchShuttleArrival(routeId, stationCode) {
   const cacheKey = `${routeId}_${stationCode}`;
   const cached = shuttleArrivalCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < SHUTTLE_CACHE_TTL_MS) {
-    return res.json(cached.data);
-  }
+  if (cached && Date.now() - cached.ts < SHUTTLE_CACHE_TTL_MS) return cached.data;
 
   const url = `http://shuttlebus.snu.ac.kr/mobile/station/stationBusDetail.action`
     + `?bus_route_id=${encodeURIComponent(routeId)}`
     + `&bus_station_code=${encodeURIComponent(stationCode)}`
     + `&type=SHUTTLE`;
 
+  const html = await fetchText(url);
+  const $ = cheerio.load(html);
+  const arrivals = [];
+  $('ul.busSch li .pos').each((_, el) => {
+    const raw = $(el).find('.time strong').text().trim();
+    arrivals.push(raw || '운행정보없음');
+  });
+  const data = {
+    first: arrivals[0] ?? '운행정보없음',
+    second: arrivals[1] ?? null,
+  };
+  shuttleArrivalCache.set(cacheKey, { data, ts: Date.now() });
+  return data;
+}
+
+app.get('/api/shuttle/arrival', async (req, res) => {
+  const routeId = req.query.route_id;
+  const stationCode = req.query.station_code;
+  if (!routeId || !stationCode) {
+    return res.status(400).json({ error: 'route_id and station_code are required' });
+  }
   try {
-    const html = await fetchText(url);
-    const $ = cheerio.load(html);
-
-    const arrivals = [];
-    $('ul.busSch li .pos').each((_, el) => {
-      const raw = $(el).find('.time strong').text().trim();
-      arrivals.push(raw || '운행정보없음');
-    });
-
-    const data = {
-      first: arrivals[0] ?? '운행정보없음',
-      second: arrivals[1] ?? null,
-    };
-    shuttleArrivalCache.set(cacheKey, { data, ts: Date.now() });
-    res.json(data);
+    res.json(await fetchShuttleArrival(routeId, stationCode));
   } catch (err) {
     res.status(502).json({ first: null, second: null, error: err.message });
   }
@@ -2116,8 +2116,39 @@ app.get('/api/route/shuttle', async (req, res) => {
     }
   }
 
-  // 4. 최종 정렬 → leg 시그니처 기반 중복 제거 → top 4
-  pool.sort((a, b) => a.duration - b.duration);
+  // #1: 풀 경로의 셔틀 구간 실시간 운행 여부 확인. 같은 (노선,정류장)은 1회만 조회(15초 캐시 공유).
+  //     운행정보가 없으면 notRunning 표시 후 후순위로. 조회 실패/정보 모호 시 운행 중으로 간주(fail-open).
+  {
+    const arrLegs = []; // {r, l}
+    for (const r of pool)
+      for (const l of r.legs)
+        if (l.type === 'shuttle' && l.shuttleRouteId && l.shuttleStationCode)
+          arrLegs.push({ r, l });
+    const uniqKeys = new Map(); // key → {routeId, stationCode}
+    for (const { l } of arrLegs) {
+      const k = `${l.shuttleRouteId}_${l.shuttleStationCode}`;
+      if (!uniqKeys.has(k)) uniqKeys.set(k, { routeId: l.shuttleRouteId, stationCode: l.shuttleStationCode });
+    }
+    const keyEntries = [...uniqKeys.entries()];
+    const arrResults = await Promise.allSettled(
+      keyEntries.map(([, v]) => fetchShuttleArrival(v.routeId, v.stationCode)));
+    const arrMap = new Map();
+    keyEntries.forEach(([k], i) => {
+      const res = arrResults[i];
+      if (res.status === 'fulfilled') arrMap.set(k, res.value);
+    });
+    for (const { r, l } of arrLegs) {
+      const data = arrMap.get(`${l.shuttleRouteId}_${l.shuttleStationCode}`);
+      if (!data) continue; // 조회 실패 → 운행 중으로 간주(fail-open)
+      l.live = { first: data.first, second: data.second };
+      const noService = (!data.first || data.first === '운행정보없음') && !data.second;
+      if (noService) { l.notRunning = true; r.notRunning = true; }
+    }
+  }
+
+  // 4. 최종 정렬(운행 중 우선 → duration) → leg 시그니처 기반 중복 제거 → top 4
+  pool.sort((a, b) =>
+    (a.notRunning ? 1 : 0) - (b.notRunning ? 1 : 0) || a.duration - b.duration);
   const top = dedupBySignature(pool).slice(0, 4);
 
   // 5. 서버에서 badges 부여 (Flutter가 추론하지 않도록)
