@@ -72,8 +72,14 @@ class _BombCountdownBannerState extends ConsumerState<BombCountdownBanner>
     await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
 
+    // 가장 임박한 과제는 FGS 폭탄 알림이 담당하므로 제외 (중복 알림 방지)
+    final sorted = [...assignments]
+      ..sort((a, b) => a.remaining.compareTo(b.remaining));
+    final mostUrgentId = sorted.isEmpty ? null : sorted.first.etlId;
+
     final notifService = ref.read(notificationServiceProvider);
     for (final a in assignments) {
+      if (a.etlId == mostUrgentId) continue; // FGS가 담당
       if (a.remaining.inSeconds <= 0) continue;
       // 취소 후 재발송 → Android/Samsung이 신규 알림으로 인식 → heads-up 팝업
       await NotificationService.cancelOngoingNotification(a.etlId);
