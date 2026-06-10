@@ -208,7 +208,6 @@ class BombService : Service() {
             .setContentIntent(contentPi)
             .setDeleteIntent(reassertPi)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(rv)
             .setCustomBigContentView(rv)
             .build()
