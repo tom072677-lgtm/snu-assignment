@@ -1,38 +1,38 @@
-계획 의도는 이해되지만, 원문이 인코딩 깨짐 상태라 세부 문구 검토에는 한계가 있습니다. 결론은 **needs revision**입니다.
+인코딩이 깨져 있지만 구조상 한국어 계획으로 보입니다. 같은 언어로 피드백하되, 깨진 원문에서 추정 가능한 범위와 불확실한 부분을 분리해서 보겠습니다.
+web search: 
+web search: flutter_local_notifications 17.2.2 AndroidNotificationDetails usesChronometer chronometerCountDown when timeoutAfter
+계획은 방향은 맞지만 **needs revision**입니다. 특히 “앱 완전 종료/강제 종료 후에도 24시간 카운트다운 알림 보장”처럼 보이는 성공 기준은 Android에서 그대로 보장하기 어렵습니다.
 System.Management.Automation.RemoteException
-**1. Problems or Risks**
+**1. 문제 / 리스크**
 System.Management.Automation.RemoteException
-- `selector 없이 범용 추출기` 목표가 너무 공격적입니다. 학과별 HTML 구조가 다르면 공통 휴리스틱만으로는 오탐/누락이 계속 생깁니다.
-- `tr/li + 링크 + 날짜` 조건은 공지 목록에 날짜가 없거나, 날짜가 별도 컬럼/숨김 텍스트/스크립트 데이터에 있는 경우 누락됩니다.
-- `MM.DD` 날짜 정렬 기준이 불명확합니다. 연도 추론 규칙이 없으면 12.31 / 01.01 근처에서 정렬이 틀어집니다.
-- EUC-KR 처리는 Dio가 이미 문자열로 디코딩한 뒤에는 복구가 어렵습니다. HTML fetch는 `bytes`로 받고 charset 판별 후 직접 디코딩하는 방식이 명시되어야 합니다.
-- `Notice(source=sports ...)`는 오타 또는 잘못된 source 값으로 보입니다. 도메인 모델 의미와 맞는 값인지 확인 필요합니다.
-- 실제 페이지 검증을 성공 기준에 넣은 것은 좋지만, 네트워크 의존 테스트가 되면 CI/로컬 테스트가 불안정해집니다. fixture 기반 테스트가 필요합니다.
-- SPA/cse fallback 기준이 모호합니다. “파싱 실패”와 “공지 없음”을 어떻게 구분할지 정해야 합니다.
+- 원문 인코딩이 깨져 있어 일부 요구사항이 모호합니다. 구현 전에 `PLAN.md`를 UTF-8로 복구해서 정확한 문장으로 다시 리뷰받는 게 좋습니다.
+- Android의 “강제 종료” 정의가 불명확합니다. 최근 앱에서 스와이프 제거와 설정 화면의 “강제 중지”는 다릅니다. 사용자가 앱을 강제 중지하면 FCM/background handler/local alarm 모두 신뢰할 수 없습니다. 성공 기준에서 이 차이를 명시해야 합니다.
+- `zonedSchedule(... exactAllowWhileIdle)`는 Android 12+ exact alarm 권한 상태에 크게 의존합니다. 권한이 없을 때 fallback 정책, 사용자 안내, 실패 로깅이 계획에 더 구체적으로 필요합니다.
+- `timeoutAfter`는 알림이 표시된 시점 기준 duration 성격이므로, 알림이 늦게 뜨거나 이미 마감이 지난 상태에서 생성될 때 계산을 조심해야 합니다.
+- background FCM에서 `deadline`을 처리하려면 background isolate에서 Firebase, local notification plugin, timezone 초기화가 모두 독립적으로 가능해야 합니다. UI/provider/repository 의존성이 섞이면 실패하기 쉽습니다.
+- 알림 채널은 한 번 생성되면 importance/sound/vibration 같은 속성이 사실상 변경되지 않습니다. countdown 전용 channel을 새로 둘지, 기존 channel을 쓸지 명확히 해야 합니다.
+- `flutter_local_notifications`의 `AndroidNotificationDetails`에는 `when`, `usesChronometer`, `chronometerCountDown`, `timeoutAfter` 필드가 존재합니다. 다만 버전 고정이 중요하므로 실제 프로젝트의 `17.2.2` API로 컴파일 확인해야 합니다. 참고: [pub.dev AndroidNotificationDetails](https://pub.dev/documentation/flutter_local_notifications/latest/flutter_local_notifications/AndroidNotificationDetails-class.html), [flutter_local_notifications setup notes](https://pub.dev/packages/flutter_local_notifications).
 System.Management.Automation.RemoteException
-**2. Missing Edge Cases**
+**2. 빠진 엣지 케이스**
 System.Management.Automation.RemoteException
-- 고정 공지/상단 공지처럼 날짜가 없거나 오래된 날짜를 가진 항목.
-- `javascript:goView('123')`, `onclick`, 상대경로, protocol-relative URL, query-only 링크.
-- 제목 링크가 아니라 행 전체 클릭으로 상세 페이지가 열리는 구조.
-- 날짜 형식: `2026. 06. 03`, `2026년 6월 3일`, `25.06.03`, `2026/06/03`, `작성일 2026-06-03`.
-- 게시판 pagination 첫 페이지에 공지가 충분하지 않은 경우.
-- 첨부파일/검색/로그인/메뉴 링크가 공지로 오인되는 경우.
-- “공지사항”, “Notice”, “더보기”, “목록” 같은 비게시글 링크 필터링.
-- HTML 안의 hidden mobile/desktop 중복 목록으로 인한 중복 추출.
-- Flutter Web에서 직접 외부 학과 사이트를 fetch할 경우 CORS 문제.
+- 과제가 이미 24시간 이내일 때 즉시 표시는 적혀 있지만, 이미 마감 지난 과제는 반드시 cancel/skip 해야 합니다.
+- 마감 시간이 변경된 경우 기존 예약 ID cancel 후 재예약해야 합니다.
+- 완료/삭제가 다른 기기나 서버에서 발생했는데 현재 앱이 죽어 있는 경우 알림이 남을 수 있습니다. 이를 해결할 FCM 이벤트나 다음 앱 실행 시 정리 로직이 필요합니다.
+- 여러 과제가 동시에 24시간 이내일 때 알림을 모두 ongoing으로 띄울지, 가장 가까운 하나만 띄울지, 그룹화할지 정책이 없습니다.
+- 기기 재부팅, timezone 변경, DST 변경, 수동 시간 변경 후 재예약 전략이 필요합니다.
+- POST_NOTIFICATIONS 거부 상태에서의 UX/로그/무시 정책이 빠져 있습니다.
+- FCM notification payload와 local notification이 중복 표시될 가능성을 차단해야 합니다. deadline은 data-only로 받을지 명시하는 편이 안전합니다.
 System.Management.Automation.RemoteException
-**3. Simpler Alternatives**
+**3. 더 단순한 대안**
 System.Management.Automation.RemoteException
-- 완전 범용 파서 하나보다, **범용 파서 + 최소한의 per-department config**가 더 현실적입니다. 예: `noticeListUrl`, optional `containerSelector`, optional `excludeTextPatterns`.
-- 실제 HTML fixture를 3~5개 저장해서 먼저 parser를 안정화하고, 라이브 검증은 별도 수동/통합 검증으로 분리하는 편이 안전합니다.
-- 클라이언트에서 직접 scraping하기보다, 가능하다면 서버/백엔드에서 HTML을 수집·정규화하고 Flutter는 정규화된 API만 읽는 방식이 유지보수에 더 좋습니다.
-- 1차 PR 범위는 econ/nursing/chem 정도로 제한하고, parser 규칙이 충분히 맞는지 본 뒤 학과를 늘리는 것이 적절합니다.
+- “초 단위 실시간 알림”이 필수라면 Android chronometer 사용은 가장 단순한 접근입니다. 1분마다 직접 갱신하는 방식보다 낫습니다.
+- exact alarm까지 쓰지 않고, 앱 실행/동기화 시점에 24시간 이내 과제만 즉시 ongoing 알림으로 띄우는 방식이 훨씬 단순하지만, 앱을 열지 않은 사용자에게 24시간 시점에 자동 노출하는 요구는 만족하지 못합니다.
+- 백엔드가 deadline 24시간 전 push를 보낼 수 있다면 local scheduling보다 구조는 단순해질 수 있습니다. 다만 오프라인/FCM 지연/OS 제한 문제는 여전히 남습니다.
 System.Management.Automation.RemoteException
-**4. Overall Verdict**
+**4. 최종 판정**
 System.Management.Automation.RemoteException
-**Needs revision.**
+**needs revision**
 System.Management.Automation.RemoteException
-방향은 괜찮지만, 범용 HTML 추출기의 실패 조건, charset 처리 방식, 날짜 정규화/정렬 규칙, fixture 기반 테스트 전략이 더 구체화되어야 합니다. 특히 “selector 없이 전부 커버”는 리스크가 크므로 “기본 범용 파서 + 필요 시 얕은 설정”으로 목표를 낮추는 것을 권장합니다.
-SUCCESS: The process with PID 34752 (child process of PID 8828) has been terminated.
-SUCCESS: The process with PID 8828 (child process of PID 27816) has been terminated.
+수정 후 다시 진행하는 것을 권장합니다. 최소 수정 항목은 다음입니다: 강제 종료 보장 범위 재정의, exact alarm 권한/fallback 명시, background isolate 초기화 설계, stable notification ID/cancel 정책, 여러 과제 처리 정책, 재부팅/timezone/마감 변경 엣지 케이스, 그리고 `flutter analyze`/단위 테스트/기기 테스트 기준 추가.
+SUCCESS: The process with PID 2500 (child process of PID 22072) has been terminated.
+SUCCESS: The process with PID 22072 (child process of PID 18932) has been terminated.

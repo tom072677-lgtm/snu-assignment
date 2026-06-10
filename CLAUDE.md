@@ -2,6 +2,8 @@
 
 Project-specific context. **Complements** the global rules in `~/.claude/CLAUDE.md` (don't duplicate them; this file adds project facts).
 
+> 📚 **Knowledge base:** richer, linked notes live in `docs/` (open that folder as an **Obsidian vault**; start at `docs/Home.md`). This file = quick machine-readable facts; `docs/` = the narrative (architecture, decisions, debugging war-stories). After solving something non-obvious, write it up there.
+
 ## What this repo is
 **sharap** — an SNU student app. This is a **monorepo**:
 - **Flutter app** (`lib/`) — runs on Android, package `com.tom07.sharap`. Reaches users via an **APK install**, not a server deploy.
@@ -16,6 +18,7 @@ Live server = `sharap-flutter/server/index.js` (+ `server/deptNotices.js`). **`g
 - **Deploy the server:** `git push origin main` → Render rebuilds `server/`. The app itself is **not** deployed via push.
 - After `adb install -r`, **force-stop** so the new build loads: `adb shell am force-stop com.tom07.sharap` (install -r doesn't restart a running app).
 - `serverUrl` lives in `lib/core/constants.dart` (default the Render URL).
+- **Keep-alive (cold start 방지):** Render 무료 플랜은 15분 무요청 시 잠듦(spin down) → cold start + 그동안 서버의 `setInterval` 백그라운드 작업(5분 마감 푸시 / 15분 새 과제 감지)도 멈춤. **이를 막으려고 외부 cron job이 14분마다 `GET /health`를 핑하도록 설정해둠**(사용자 설정). 서버 자체엔 self-ping 코드 없음 — 외부 cron에 의존하므로 그 cron이 죽으면 알림이 불안정해짐.
 
 ## Department notices system (`lib/features/notices/`)
 Each department maps — in `domain/department_notice_source.dart` — to ONE source type:
