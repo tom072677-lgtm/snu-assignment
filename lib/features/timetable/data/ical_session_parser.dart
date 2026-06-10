@@ -232,6 +232,12 @@ class IcalSessionParser {
     final s = int.parse(m.group(6)!);
     final isUtc = m.group(7) == 'Z';
 
+    // Dart는 범위 초과 값을 조용히 정규화하므로(월 99 → 다른 날짜) 직접 검증
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 ||
+        h < 0 || h > 23 || mi < 0 || mi > 59 || s < 0 || s > 59) {
+      return null;
+    }
+
     if (isUtc) {
       // UTC → KST (+9h)
       return DateTime.utc(y, mo, d, h, mi, s).add(const Duration(hours: 9));

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
 import 'snu_places.dart';
@@ -136,7 +137,14 @@ class MapRepository {
     }
     final response =
         await DioClient.instance.get('/api/search-place', queryParameters: params);
-    final server = (response.data as List)
+    final raw = response.data;
+    if (raw is! List) {
+      final head = raw.toString();
+      debugPrint('[map] searchPlace unexpected response: '
+          '${head.length > 200 ? head.substring(0, 200) : head}');
+      throw Exception('장소 검색 응답 형식이 올바르지 않습니다');
+    }
+    final server = raw
         .map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
         .toList();
 
@@ -172,7 +180,13 @@ class MapRepository {
       endpoint,
       data: {'olat': olat, 'olng': olng, 'dlat': dlat, 'dlng': dlng},
     );
-    final data = response.data as Map<String, dynamic>;
+    final data = response.data;
+    if (data is! Map<String, dynamic> || data['path'] is! List) {
+      final head = data.toString();
+      debugPrint('[map] getRoute unexpected response: '
+          '${head.length > 200 ? head.substring(0, 200) : head}');
+      throw Exception('경로 응답 형식이 올바르지 않습니다');
+    }
     final path = _parsePath(data['path'] as List);
     final steps = (data['steps'] as List? ?? [])
         .map((e) => RouteStep.fromJson(e as Map<String, dynamic>))
@@ -294,10 +308,19 @@ class MapRepository {
     );
   }
 
-  List<(double, double)> _parsePath(List raw) => raw.map((p) {
+  List<(double, double)> _parsePath(List raw) {
+    // 좌표 한 점이 깨져도 경로 전체가 죽지 않도록 항목별로 건너뜀
+    final out = <(double, double)>[];
+    for (final p in raw) {
+      try {
         final pair = p as List;
-        return ((pair[0] as num).toDouble(), (pair[1] as num).toDouble());
-      }).toList();
+        out.add(((pair[0] as num).toDouble(), (pair[1] as num).toDouble()));
+      } catch (e) {
+        debugPrint('[map] path point skip: $e');
+      }
+    }
+    return out;
+  }
 }
 
 final mapRepositoryProvider = Provider<MapRepository>((_) => MapRepository());

@@ -3,8 +3,10 @@ class ShuttleStation {
   final int code;
   final String name;
 
-  factory ShuttleStation.fromJson(Map<String, dynamic> j) =>
-      ShuttleStation(code: j['code'] as int, name: j['name'] as String);
+  factory ShuttleStation.fromJson(Map<String, dynamic> j) => ShuttleStation(
+        code: (j['code'] as num?)?.toInt() ?? 0,
+        name: j['name'] as String? ?? '',
+      );
 }
 
 class ShuttleRoute {
@@ -20,10 +22,10 @@ class ShuttleRoute {
   final List<ShuttleStation> stations;
 
   factory ShuttleRoute.fromJson(Map<String, dynamic> j) => ShuttleRoute(
-        id: j['id'] as int,
-        name: j['name'] as String,
-        type: j['type'] as String,
-        stations: (j['stations'] as List)
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        name: j['name'] as String? ?? '',
+        type: j['type'] as String? ?? '',
+        stations: (j['stations'] as List? ?? const [])
             .map((s) => ShuttleStation.fromJson(s as Map<String, dynamic>))
             .toList(),
       );

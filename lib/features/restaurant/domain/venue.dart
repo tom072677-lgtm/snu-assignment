@@ -99,15 +99,22 @@ class Venue {
     this.instagramPosts,
   });
 
+  // 알 수 없는/오타 enum 문자열에도 크래시하지 않도록 기본값으로 폴백
+  static VenueCategory _categoryFrom(String? s) =>
+      VenueCategory.values.firstWhere((e) => e.name == s,
+          orElse: () => VenueCategory.restaurant);
+  static VenueType _typeFrom(String? s) => VenueType.values
+      .firstWhere((e) => e.name == s, orElse: () => VenueType.static);
+
   factory Venue.fromJson(Map<String, dynamic> j) => Venue(
         id: j['id'] as String,
         name: j['name'] as String,
-        category: VenueCategory.values.byName(j['category'] as String),
-        type: VenueType.values.byName(j['type'] as String),
+        category: _categoryFrom(j['category'] as String?),
+        type: _typeFrom(j['type'] as String?),
         building: j['building'] as String,
         address: j['address'] as String,
-        lat: (j['lat'] as num).toDouble(),
-        lng: (j['lng'] as num).toDouble(),
+        lat: (j['lat'] as num?)?.toDouble() ?? 0,
+        lng: (j['lng'] as num?)?.toDouble() ?? 0,
         phone: j['phone'] as String?,
         tags: (j['tags'] as List).map((e) => e as String).toList(),
         hours: VenueHours.fromJson(j['hours'] as Map<String, dynamic>),
@@ -135,6 +142,7 @@ class Venue {
     for (final r in day.ranges) {
       final open = _toMinutes(r.open);
       var close = _toMinutes(r.close);
+      if (open < 0 || close < 0) continue; // 형식 불량 → 알 수 없음 처리
       if (close < open) close += 24 * 60; // overnight
       if (now >= open && now < close) return true;
     }
@@ -153,7 +161,11 @@ class Venue {
 
   static int _toMinutes(String hhmm) {
     final parts = hhmm.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    if (parts.length < 2) return -1; // 형식 불량 → 알 수 없음 sentinel
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return -1;
+    return h * 60 + m;
   }
 
   /// Today's lunch 1-line preview (SNUCO only)

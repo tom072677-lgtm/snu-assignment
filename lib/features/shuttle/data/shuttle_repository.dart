@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
 import '../domain/shuttle_models.dart';
@@ -34,9 +35,15 @@ class ShuttleRepository {
 
   Future<List<ShuttleRoute>> _doFetchRoutes() async {
     final res = await _dio.get<List<dynamic>>('/api/shuttle/routes');
-    final routes = (res.data ?? [])
-        .map((e) => ShuttleRoute.fromJson(e as Map<String, dynamic>))
-        .toList();
+    // 한 노선이라도 형식이 깨지면 셔틀 탭 전체가 죽지 않도록 항목별로 건너뜀
+    final routes = <ShuttleRoute>[];
+    for (final e in res.data ?? const []) {
+      try {
+        routes.add(ShuttleRoute.fromJson(e as Map<String, dynamic>));
+      } catch (e) {
+        debugPrint('[shuttle] route parse skip: $e');
+      }
+    }
     _routesCache = routes;
     _routesCachedAt = DateTime.now();
     return routes;

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dio_client.dart';
@@ -52,7 +53,16 @@ class VenueRepository {
   Future<List<Venue>> _loadJson() async {
     final raw = await rootBundle.loadString('assets/data/venues.json');
     final list = jsonDecode(raw) as List;
-    return list.map((e) => Venue.fromJson(e as Map<String, dynamic>)).toList();
+    // 한 항목이라도 형식이 깨지면 음식점·지도 전체가 죽지 않도록 건너뜀
+    final venues = <Venue>[];
+    for (final e in list) {
+      try {
+        venues.add(Venue.fromJson(e as Map<String, dynamic>));
+      } catch (e) {
+        debugPrint('[venue] parse skip: $e');
+      }
+    }
+    return venues;
   }
 
   Future<Map<String, dynamic>> _fetchSnuco() async {
