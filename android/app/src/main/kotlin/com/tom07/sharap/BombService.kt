@@ -8,6 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -190,7 +193,7 @@ class BombService : Service() {
             R.id.bomb_chrono, SystemClock.elapsedRealtime() + remaining, null, true,
         )
         rv.setChronometerCountDown(R.id.bomb_chrono, true)
-        rv.setProgressBar(R.id.bomb_progress, PROGRESS_MAX, progress, false)
+        rv.setImageViewBitmap(R.id.bomb_fuse, buildFuseBitmap(progress))
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bomb)
@@ -205,5 +208,44 @@ class BombService : Service() {
             .setCustomContentView(rv)
             .setCustomBigContentView(rv)
             .build()
+    }
+
+    /** 도화선 줄을 비트맵으로 그린다: 🔥 ─ 타버린 재 ─ 💥(불꽃) ─ 남은 도화선 ─ 💣 */
+    private fun buildFuseBitmap(progress: Int): Bitmap {
+        val w = 1200
+        val h = 84
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val cy = h / 2f
+
+        val emoji = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 56f
+            textAlign = Paint.Align.CENTER
+        }
+        val baseline = cy - (emoji.descent() + emoji.ascent()) / 2f
+
+        val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            strokeWidth = 11f
+            strokeCap = Paint.Cap.ROUND
+        }
+
+        val flameX = 38f
+        val bombX = w - 40f
+        val fuseStart = flameX + 34f
+        val fuseEnd = bombX - 42f
+        val boundary = fuseStart + (fuseEnd - fuseStart) * (progress.toFloat() / PROGRESS_MAX)
+
+        // 타버린 부분 (회색 재)
+        line.color = 0xFF5A5A5A.toInt()
+        canvas.drawLine(fuseStart, cy, boundary, cy, line)
+        // 남은 도화선 (밝은 주황)
+        line.color = 0xFFFFA726.toInt()
+        canvas.drawLine(boundary, cy, fuseEnd, cy, line)
+
+        canvas.drawText("🔥", flameX, baseline, emoji)
+        canvas.drawText("💥", boundary, baseline, emoji)
+        canvas.drawText("💣", bombX, baseline, emoji)
+
+        return bmp
     }
 }

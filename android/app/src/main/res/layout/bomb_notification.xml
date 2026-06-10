@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 마감 임박 폭탄 알림 — 검은 배경에 🔥(점화)→도화선→💣(폭탄) 연출 -->
+<!-- 마감 임박 폭탄 알림 — 검은 배경. 도화선 줄은 매분 새 비트맵으로 그린다
+     (🔥 점화 ─ 타버린 재 ─ 💥 불꽃 ─ 남은 도화선 ─ 💣 폭탄) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/bomb_root"
     android:layout_width="match_parent"
@@ -38,35 +39,12 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 🔥 점화 ── 도화선 ── 폭탄 💣 -->
-    <LinearLayout
+    <ImageView
+        android:id="@+id/bomb_fuse"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="8dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🔥"
-            android:textSize="15sp" />
-
-        <ProgressBar
-            android:id="@+id/bomb_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="0dp"
-            android:layout_height="7dp"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:max="1000"
-            android:progressDrawable="@drawable/bomb_progress" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="💣"
-            android:textSize="17sp" />
-    </LinearLayout>
+        android:layout_marginTop="6dp"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:contentDescription="fuse" />
 </LinearLayout>
