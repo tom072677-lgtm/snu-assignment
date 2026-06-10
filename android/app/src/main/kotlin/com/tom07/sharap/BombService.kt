@@ -219,20 +219,19 @@ class BombService : Service() {
         val cy = h / 2f
 
         val emoji = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 56f
+            textSize = 68f
             textAlign = Paint.Align.CENTER
         }
         val baseline = cy - (emoji.descent() + emoji.ascent()) / 2f
 
         val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            strokeWidth = 11f
+            strokeWidth = 24f
             strokeCap = Paint.Cap.ROUND
         }
 
-        val flameX = 38f
-        val bombX = w - 40f
-        val fuseStart = flameX + 34f
-        val fuseEnd = bombX - 42f
+        val bombX = w - 48f
+        val fuseStart = 45f
+        val fuseEnd = bombX - 52f
         val boundary = fuseStart + (fuseEnd - fuseStart) * (progress.toFloat() / PROGRESS_MAX)
 
         // 타버린 부분 (회색 재)
@@ -242,7 +241,6 @@ class BombService : Service() {
         line.color = 0xFFFFA726.toInt()
         canvas.drawLine(boundary, cy, fuseEnd, cy, line)
 
-        canvas.drawText("🔥", flameX, baseline, emoji)
         canvas.drawText("💥", boundary, baseline, emoji)
         canvas.drawText("💣", bombX, baseline, emoji)
 
