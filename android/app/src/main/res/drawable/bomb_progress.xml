@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 진행바: 어두운 트랙 + 빨강 채움 (검은 배경 위에서 빨강이 왼→오로 채워짐) -->
+<!-- 도화선: 오른쪽(남은 도화선)은 밝은 주황, 왼쪽(타버린 부분)은 회색 재.
+     progress=경과% 이므로 왼쪽부터 타들어가고 밝은 도화선이 폭탄(오른쪽) 쪽으로 짧아진다. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape>
-            <corners android:radius="3dp" />
-            <solid android:color="#33FFFFFF" />
+            <corners android:radius="4dp" />
+            <solid android:color="#FFFFA726" />
         </shape>
     </item>
     <item android:id="@android:id/progress">
         <clip>
             <shape>
-                <corners android:radius="3dp" />
-                <solid android:color="#FFFF1744" />
+                <corners android:radius="4dp" />
+                <solid android:color="#FF5A5A5A" />
             </shape>
         </clip>
     </item>

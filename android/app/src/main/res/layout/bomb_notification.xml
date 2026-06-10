@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 마감 임박 폭탄 알림 — 접힌 상태에서도 진행바가 보이도록 컴팩트하게 (그라데이션 배경) -->
+<!-- 마감 임박 폭탄 알림 — 검은 배경에 🔥(점화)→도화선→💣(폭탄) 연출 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/bomb_root"
     android:layout_width="match_parent"
@@ -22,7 +22,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="#FFFFFF"
+            android:textColor="#FFFFFFFF"
             android:textSize="13sp"
             android:textStyle="bold"
             android:maxLines="1"
@@ -33,17 +33,40 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:textColor="#FFFFFF"
+            android:textColor="#FFFFFFFF"
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <ProgressBar
-        android:id="@+id/bomb_progress"
-        style="?android:attr/progressBarStyleHorizontal"
+    <!-- 🔥 점화 ── 도화선 ── 폭탄 💣 -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="8dp"
-        android:max="1000"
-        android:progressDrawable="@drawable/bomb_progress" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔥"
+            android:textSize="15sp" />
+
+        <ProgressBar
+            android:id="@+id/bomb_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="7dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:max="1000"
+            android:progressDrawable="@drawable/bomb_progress" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💣"
+            android:textSize="17sp" />
+    </LinearLayout>
 </LinearLayout>

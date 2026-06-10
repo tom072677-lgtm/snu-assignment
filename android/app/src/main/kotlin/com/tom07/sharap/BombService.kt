@@ -162,7 +162,7 @@ class BombService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val label = if (courseName.isNotEmpty()) "💣 $courseName  ·  $title" else "💣 $title"
+        val label = if (courseName.isNotEmpty()) "$courseName  ·  $title" else title
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
         val contentPi = PendingIntent.getActivity(
             this, 0, launch,
