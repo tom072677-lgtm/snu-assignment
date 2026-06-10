@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
@@ -135,36 +137,45 @@ class BombService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val displayTitle = "💣 " + if (courseName.isNotEmpty()) courseName else title
+        val course = if (courseName.isNotEmpty()) courseName else title
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
         val contentPi = PendingIntent.getActivity(
             this, 0, launch,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        // 진행바: 24시간 남으면 0%(왼쪽), 마감이면 100%(오른쪽) — 앱 내 폭탄 배너와 동일 방향
+        // 진행: 24시간 남으면 0%(왼쪽), 마감이면 100%(오른쪽)
         val remaining = (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0L)
         val elapsed = (WINDOW_MS - remaining).coerceIn(0L, WINDOW_MS)
         val progress = (elapsed * PROGRESS_MAX / WINDOW_MS).toInt()
-        // 앱 내 폭탄 배너와 동일: 평소 주황(E65100), 마감 1시간 이내면 빨강(D32F2F)
-        val bgColor = if (remaining < 3_600_000L) 0xFFD32F2F.toInt() else 0xFFE65100.toInt()
+        // 평소 주황 그라데이션, 마감 1시간 이내면 빨강 그라데이션 (왼쪽 어둡고 오른쪽 밝음)
+        val gradientRes = if (remaining < 3_600_000L) {
+            R.drawable.bomb_gradient_red
+        } else {
+            R.drawable.bomb_gradient
+        }
+
+        // 커스텀 레이아웃 — 그라데이션 배경 + 카운트다운 + 진행바 (앱 내 배너와 동일한 느낌)
+        val rv = RemoteViews(packageName, R.layout.bomb_notification)
+        rv.setInt(R.id.bomb_root, "setBackgroundResource", gradientRes)
+        rv.setTextViewText(R.id.bomb_title, "💣 $course")
+        rv.setTextViewText(R.id.bomb_text, title)
+        rv.setChronometer(
+            R.id.bomb_chrono, SystemClock.elapsedRealtime() + remaining, null, true,
+        )
+        rv.setChronometerCountDown(R.id.bomb_chrono, true)
+        rv.setProgressBar(R.id.bomb_progress, PROGRESS_MAX, progress, false)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bomb)
-            .setColor(bgColor)
-            .setColorized(true)
-            .setContentTitle(displayTitle)
-            .setContentText(title)
-            .setProgress(PROGRESS_MAX, progress, false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
-            .setShowWhen(true)
-            .setWhen(deadlineMillis)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
             .setContentIntent(contentPi)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(rv)
+            .setCustomBigContentView(rv)
             .build()
     }
 }
