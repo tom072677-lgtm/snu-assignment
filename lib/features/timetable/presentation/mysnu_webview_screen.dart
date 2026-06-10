@@ -22,6 +22,8 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
   bool _captured   = false;
   bool _gaveUp     = false;
   Timer? _giveUpTimer;
+  Timer? _pollTimer;        // 표가 나타날 때까지 주기적으로 DOM 추출 시도
+  int _pollCount = 0;
   String _statusMsg = '';
 
   static const _startUrl = 'https://my.snu.ac.kr/login.jsp';
@@ -122,6 +124,7 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
   @override
   void dispose() {
     _giveUpTimer?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
@@ -142,12 +145,27 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
       // 인터셉터 주입 (모든 페이지에서 AJAX 캡처)
       _ctrl.runJavaScript(_interceptorJs);
 
+      // 표가 이미 있으면 즉시 시도.
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_captured) _extractTimetable();
+      });
+
       if (!_loggedIn) {
         _loggedIn = true;
-        setState(() => _statusMsg = '로그인 완료 — 수업 메뉴를 찾는 중...');
+        setState(() =>
+            _statusMsg = '로그인 완료 — 수업/시간표 메뉴로 들어가면 자동으로 가져와요');
         // DOM에서 시간표 링크 자동 탐색 시도
         Future.delayed(const Duration(milliseconds: 800), _tryDomSearch);
-        // 30초 안에 캡처 못 하면 무한 대기 방지를 위해 수동 안내 표시
+        // SPA 이동은 페이지 로드 이벤트가 없으므로, 표가 나타날 때까지 주기적으로
+        // DOM을 직접 확인 → 발견 즉시 캡처되어 시간표 탭으로 자동 복귀(pop).
+        _pollTimer = Timer.periodic(const Duration(seconds: 2), (t) {
+          if (!mounted || _captured || _pollCount++ > 45) {
+            t.cancel();
+            return;
+          }
+          _extractTimetable();
+        });
+        // 폴링이 한참 못 잡으면(메뉴를 못 찾는 등) 수동 안내 표시
         _giveUpTimer = Timer(const Duration(seconds: 30), () {
           if (!mounted || _captured) return;
           setState(() => _gaveUp = true);
@@ -187,12 +205,62 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
     }
   }
 
+  /// 강의시간표 표(table.timetable)를 DOM에서 직접 읽어 Sharap으로 전송.
+  /// 각 수업 = <a href="javascript:...confirmTime('과목명<br></a>(강의실)','시작','종료')">,
+  /// 요일 = 해당 <td>의 칸 위치(월~토).
+  void _extractTimetable() {
+    const js = r'''
+(function(){
+  var dayMap = ['','MO','TU','WE','TH','FR','SA'];
+  var out = [];
+  var anchors = document.querySelectorAll('table.timetable a[href*="confirmTime"]');
+  for (var i=0;i<anchors.length;i++){
+    var a = anchors[i];
+    var href = a.getAttribute('href') || '';
+    var times = href.match(/'(\d{1,2}:\d{2})'/g);   // '09:00' 형태 시각들
+    if (!times || times.length < 2) continue;
+    var start = times[0].replace(/'/g,'');
+    var end   = times[times.length-1].replace(/'/g,'');
+    var strong = a.querySelector('strong');
+    var html = strong ? strong.innerHTML : (a.textContent || '');
+    var parts = html.split(/<br\s*\/?>/i);
+    var name = (parts[0]||'').replace(/<[^>]+>/g,'').trim();
+    var room = (parts[1]||'').replace(/<[^>]+>/g,'').replace(/^\(|\)$/g,'').trim();
+    if (room === '-') room = '';
+    var td = a.closest ? a.closest('td') : null;
+    var day = td ? (dayMap[td.cellIndex] || '') : '';
+    if (!name || !day) continue;
+    out.push({summary:name, location:room, day:day, start:start, end:end});
+  }
+  window.Sharap.postMessage(JSON.stringify({t:'domtable', items: out}));
+})();
+''';
+    _ctrl.runJavaScript(js);
+  }
+
   void _onMsg(JavaScriptMessage msg) {
     if (!mounted || _captured) return;
     Map<String, dynamic> data;
     try {
       data = jsonDecode(msg.message) as Map<String, dynamic>;
     } catch (_) {
+      return;
+    }
+
+    // 강의시간표 표를 DOM에서 직접 읽어온 결과
+    if (data['t'] == 'domtable') {
+      final items = data['items'] as List? ?? [];
+      final sessions = _domItemsToSessions(items);
+      debugPrint('[mySNU] domtable items=${items.length} sessions=${sessions.length}');
+      if (sessions.isNotEmpty) {
+        _captured = true;
+        _giveUpTimer?.cancel();
+        _pollTimer?.cancel();
+        Navigator.pop(context, sessions);
+      } else if (_gaveUp) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('시간표 표를 찾지 못했어요. 강의시간표 화면에서 다시 눌러 주세요.')));
+      }
       return;
     }
 
@@ -216,6 +284,40 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
   }
 
   // ── 파싱 ──────────────────────────────────────────────────────────
+
+  /// DOM 추출 결과(과목·요일·시작·종료) → ClassSession 목록.
+  /// 같은 과목·시간이 여러 요일에 있으면 weekdays로 병합.
+  List<ClassSession> _domItemsToSessions(List items) {
+    final days = <String, List<String>>{};
+    final info = <String, Map<String, String>>{};
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final name = (raw['summary'] as String? ?? '').trim();
+      final start = (raw['start'] as String? ?? '').trim();
+      final end = (raw['end'] as String? ?? '').trim();
+      final day = (raw['day'] as String? ?? '').trim();
+      if (name.isEmpty || start.isEmpty || day.isEmpty) continue;
+      final key = '$name|$start|$end';
+      (days[key] ??= []).add(day);
+      info[key] = {
+        'name': name,
+        'room': (raw['location'] as String? ?? '').trim(),
+        'start': start,
+        'end': end,
+      };
+    }
+    return info.entries.map((e) {
+      final v = e.value;
+      return ClassSession(
+        uid: e.key,
+        summary: v['name']!,
+        location: v['room']!,
+        startTime: v['start']!,
+        endTime: v['end']!,
+        weekdays: days[e.key]!.toSet().toList(),
+      );
+    }).toList();
+  }
 
   List<ClassSession> _parseSlim(List slim) {
     final sessions = <ClassSession>[];
@@ -380,16 +482,26 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
                     ),
                     const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         TextButton(
-                          onPressed: () => setState(() => _gaveUp = false),
-                          child: const Text('닫기'),
+                          onPressed: _extractTimetable,
+                          child: const Text('시간표 가져오기',
+                              style: TextStyle(fontSize: 12)),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('뒤로 가기'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () => setState(() => _gaveUp = false),
+                              child: const Text('닫기'),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('뒤로 가기'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
