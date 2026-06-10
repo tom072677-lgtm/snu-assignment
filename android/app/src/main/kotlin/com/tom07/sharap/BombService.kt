@@ -137,7 +137,7 @@ class BombService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val course = if (courseName.isNotEmpty()) courseName else title
+        val label = if (courseName.isNotEmpty()) "💣 $courseName  ·  $title" else "💣 $title"
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
         val contentPi = PendingIntent.getActivity(
             this, 0, launch,
@@ -158,8 +158,7 @@ class BombService : Service() {
         // 커스텀 레이아웃 — 그라데이션 배경 + 카운트다운 + 진행바 (앱 내 배너와 동일한 느낌)
         val rv = RemoteViews(packageName, R.layout.bomb_notification)
         rv.setInt(R.id.bomb_root, "setBackgroundResource", gradientRes)
-        rv.setTextViewText(R.id.bomb_title, "💣 $course")
-        rv.setTextViewText(R.id.bomb_text, title)
+        rv.setTextViewText(R.id.bomb_title, label)
         rv.setChronometer(
             R.id.bomb_chrono, SystemClock.elapsedRealtime() + remaining, null, true,
         )

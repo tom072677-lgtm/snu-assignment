@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 마감 임박 폭탄 알림 커스텀 레이아웃 (그라데이션 배경, 앱 내 배너와 동일한 느낌) -->
+<!-- 마감 임박 폭탄 알림 — 접힌 상태에서도 진행바가 보이도록 컴팩트하게 (그라데이션 배경) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/bomb_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/bomb_gradient"
-    android:padding="14dp">
+    android:paddingLeft="12dp"
+    android:paddingRight="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,31 +17,16 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/bomb_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/bomb_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/bomb_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#CCFFFFFF"
-                android:textSize="12sp"
-                android:maxLines="1"
-                android:ellipsize="end" />
-        </LinearLayout>
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <Chronometer
             android:id="@+id/bomb_chrono"
@@ -46,7 +34,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -54,8 +42,8 @@
         android:id="@+id/bomb_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="7dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="6dp"
+        android:layout_marginTop="6dp"
         android:max="1000"
         android:progressDrawable="@drawable/bomb_progress" />
 </LinearLayout>
