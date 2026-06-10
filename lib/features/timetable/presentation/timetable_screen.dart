@@ -253,12 +253,7 @@ Widget _buildNoSessionBanner(BuildContext context, WidgetRef ref) {
             label: const Text('마이스누 로그인하고 불러오기'),
           ),
         ),
-        const SizedBox(height: 2),
-        TextButton(
-          onPressed: () => _importIcs(context, ref),
-          child: const Text('에브리타임 ICS로 가져오기',
-              style: TextStyle(fontSize: 12)),
-        ),
+        const SizedBox(height: 10),
         const Text(
           '또는 우하단 +로 직접 추가',
           style: TextStyle(fontSize: 11, color: Color(0xFF9AA7BF)),
