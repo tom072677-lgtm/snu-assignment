@@ -97,6 +97,11 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+        <!-- 전화 걸기 (Android 11+ canLaunchUrl 패키지 가시성) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
         <!-- 음성 인식 (Android 11+) -->
         <intent>
             <action android:name="android.speech.RecognitionService"/>

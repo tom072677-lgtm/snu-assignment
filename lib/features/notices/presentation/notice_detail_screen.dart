@@ -40,11 +40,15 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         }),
         onPageFinished: (_) => setState(() => _isLoading = false),
         onWebResourceError: (e) {
-          debugPrint('[notice] resourceErr: ${e.description}');
-          setState(() {
-            _error = true;
-            _isLoading = false;
-          });
+          debugPrint('[notice] resourceErr: ${e.description} (mainFrame=${e.isForMainFrame})');
+          // 메인 프레임 로드 실패만 에러 화면으로 처리 — 이미지·favicon 등
+          // 하위 리소스 실패가 정상적으로 열린 페이지를 덮지 않도록 한다.
+          if (e.isForMainFrame ?? false) {
+            setState(() {
+              _error = true;
+              _isLoading = false;
+            });
+          }
         },
       ))
       ..loadRequest(Uri.parse(widget.notice.url));
