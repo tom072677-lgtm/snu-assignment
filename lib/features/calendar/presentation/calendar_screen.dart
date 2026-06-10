@@ -188,7 +188,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     TimeOfDay time = TimeOfDay.now();
     final titleCtrl = TextEditingController();
 
-    await showDialog(
+    try {
+      await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
@@ -242,5 +243,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
       ),
     );
+    } finally {
+      titleCtrl.dispose();
+    }
   }
 }

@@ -146,8 +146,8 @@ class TimetableRepository {
       }
       debugPrint('[Timetable] 과목별 ICS URL 수: ${courseIcsUrls.length}');
 
-      // 2) 각 ICS 다운로드 및 파싱
-      for (final icsUrl in courseIcsUrls) {
+      // 2) 각 ICS 병렬 다운로드 및 파싱 (직렬 시 round-trip 합산 → 느림)
+      await Future.wait(courseIcsUrls.map((icsUrl) async {
         try {
           final httpsUrl = icsUrl.replaceFirst(
               RegExp(r'^webcal://', caseSensitive: false), 'https://');
@@ -159,7 +159,7 @@ class TimetableRepository {
             ),
           );
           final text = res.data;
-          if (text == null || text.isEmpty) continue;
+          if (text == null || text.isEmpty) return;
 
           final parsed = IcalSessionParser.parse(text);
           for (final s in parsed) {
@@ -172,7 +172,7 @@ class TimetableRepository {
         } catch (e) {
           debugPrint('[Timetable] 과목별 ICS 오류: $e');
         }
-      }
+      }));
     } catch (e) {
       debugPrint('[Timetable] 과목별 ICS 전체 오류: $e');
     }
@@ -417,7 +417,8 @@ class TimetableRepository {
       String token, List<TimetableCourse> courses) async {
     final sessions = <ClassSession>[];
 
-    for (final course in courses.take(15)) {
+    // 과목별 요청을 병렬 처리 (직렬 시 최대 15회 round-trip → 수십 초 소요)
+    await Future.wait(courses.take(15).map((course) async {
       try {
         final res = await _externalDio.get<dynamic>(
           '$_etlBase/api/v1/courses/${course.id}/sections',
@@ -439,7 +440,7 @@ class TimetableRepository {
       } catch (e) {
         debugPrint('[Timetable] sections 오류 (${course.id}): $e');
       }
-    }
+    }));
 
     return sessions;
   }
