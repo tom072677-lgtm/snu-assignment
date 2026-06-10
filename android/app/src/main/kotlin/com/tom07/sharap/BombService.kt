@@ -20,15 +20,17 @@ import androidx.core.app.ServiceCompat
 
 /**
  * 마감 임박 과제를 위한 포그라운드 서비스.
- * Android 14+에서 일반 ongoing 알림은 스와이프로 지워지므로, 포그라운드 서비스 알림으로
- * 띄워 못 지우게 한다. 진행바(setProgress)를 1분마다 갱신해 앱 내 폭탄 배너처럼
- * 24시간(왼쪽)→0시간(오른쪽)으로 채워지게 한다. (설정>강제 종료로는 종료 가능 — OS 정책)
+ * Android 13+에서는 OS 정책상 FGS 알림도 사용자가 스와이프로 지울 수 있으므로,
+ * 지워지면(deleteIntent) 즉시 다시 띄워 사실상 못 지우게 한다.
+ * 진행바를 1분마다 갱신해 앱 내 폭탄 배너처럼 24시간(왼쪽)→0시간(오른쪽)으로 채워지게 한다.
+ * (설정>강제 종료로는 종료 가능 — OS 정책)
  */
 class BombService : Service() {
 
     companion object {
         const val ACTION_START = "com.tom07.sharap.BOMB_START"
         const val ACTION_STOP = "com.tom07.sharap.BOMB_STOP"
+        const val ACTION_REASSERT = "com.tom07.sharap.BOMB_REASSERT"
         const val FGS_NOTIF_ID = 990001
         const val CHANNEL_ID = "sharap_ongoing"
         const val CHANNEL_NAME = "샤랍 마감 임박 알림"
@@ -44,6 +46,7 @@ class BombService : Service() {
     private var title = ""
     private var deadlineMillis = 0L
     private var regularId = 0
+    private var stopping = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -52,7 +55,15 @@ class BombService : Service() {
             stopBomb()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_REASSERT) {
+            // 사용자가 스와이프로 지웠을 때 즉시 다시 표시
+            if (!stopping && deadlineMillis > System.currentTimeMillis()) {
+                reShow()
+            }
+            return START_REDELIVER_INTENT
+        }
 
+        stopping = false
         courseName = intent?.getStringExtra("courseName") ?: ""
         title = intent?.getStringExtra("title") ?: ""
         deadlineMillis = intent?.getLongExtra("deadlineMillis", 0L) ?: 0L
@@ -113,7 +124,21 @@ class BombService : Service() {
         handler.postDelayed(r, UPDATE_INTERVAL_MS)
     }
 
+    /** 스와이프로 지워졌을 때 알림을 즉시 다시 띄운다. */
+    private fun reShow() {
+        try {
+            val type = if (Build.VERSION.SDK_INT >= 34) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                0
+            }
+            ServiceCompat.startForeground(this, FGS_NOTIF_ID, buildNotification(), type)
+        } catch (_: Exception) {
+        }
+    }
+
     private fun stopBomb() {
+        stopping = true
         updateRunnable?.let { handler.removeCallbacks(it) }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -141,6 +166,12 @@ class BombService : Service() {
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
         val contentPi = PendingIntent.getActivity(
             this, 0, launch,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        // 스와이프로 지우면(deleteIntent) 서비스가 즉시 다시 띄운다
+        val reassertPi = PendingIntent.getService(
+            this, 1,
+            Intent(this, BombService::class.java).setAction(ACTION_REASSERT),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -171,6 +202,7 @@ class BombService : Service() {
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
+            .setDeleteIntent(reassertPi)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(rv)
