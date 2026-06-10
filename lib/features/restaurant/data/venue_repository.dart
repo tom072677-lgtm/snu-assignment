@@ -52,7 +52,9 @@ class VenueRepository {
 
   Future<List<Venue>> _loadJson() async {
     final raw = await rootBundle.loadString('assets/data/venues.json');
-    final list = jsonDecode(raw) as List;
+    // 1.5MB JSON 디코딩은 무거우므로 별도 isolate에서 처리해 UI 프레임 끊김 방지.
+    // 원시 List/Map만 isolate 경계를 넘기고, Venue 변환은 메인에서 수행한다.
+    final list = await compute(_decodeJsonList, raw);
     // 한 항목이라도 형식이 깨지면 음식점·지도 전체가 죽지 않도록 건너뜀
     final venues = <Venue>[];
     for (final e in list) {
@@ -77,6 +79,9 @@ class VenueRepository {
     return res.data as Map<String, dynamic>;
   }
 }
+
+/// compute()용 top-level 함수 — isolate에서 JSON 문자열을 List로 디코딩.
+List<dynamic> _decodeJsonList(String raw) => jsonDecode(raw) as List;
 
 final venueRepositoryProvider = Provider<VenueRepository>((_) => VenueRepository());
 

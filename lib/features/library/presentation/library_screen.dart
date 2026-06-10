@@ -12,20 +12,39 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class _LibraryScreenState extends ConsumerState<LibraryScreen>
+    with WidgetsBindingObserver {
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    // 60초마다 자동 갱신
+    WidgetsBinding.instance.addObserver(this);
+    _startTimer();
+  }
+
+  // 60초마다 자동 갱신 (포그라운드에서만 동작)
+  void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 60), (_) {
       ref.invalidate(librarySeatsProvider);
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 백그라운드에선 불필요한 스크랩 요청 중단, 복귀 시 즉시 갱신 후 재개
+    if (state == AppLifecycleState.paused) {
+      _timer?.cancel();
+    } else if (state == AppLifecycleState.resumed) {
+      ref.invalidate(librarySeatsProvider);
+      _startTimer();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
