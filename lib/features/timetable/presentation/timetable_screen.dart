@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../data/timetable_repository.dart';
 import '../domain/timetable_models.dart';
+import '../domain/semester.dart';
 import '../../library/presentation/library_screen.dart';
 import '../data/ics_import_service.dart';
 import 'mysnu_webview_screen.dart';
@@ -31,6 +32,11 @@ class TimetableScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(builder: (_) => const LibraryScreen()),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: '마이스누 시간표 갱신',
+            onPressed: () => _openMySNU(context, ref),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -72,9 +78,16 @@ class _CustomOnlyBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final customEvents  = ref.watch(customEventsProvider);
     final mySNUSessions = ref.watch(mySNUSessionsProvider);
+    final isStale = isTimetableStale(
+      hasSessions: mySNUSessions.isNotEmpty,
+      capturedAt: ref.watch(mySNUCapturedAtProvider),
+      snoozedSemester: ref.watch(mySNUSnoozedSemesterProvider),
+      now: DateTime.now(),
+    );
 
     return Column(
       children: [
+        if (isStale) _buildStaleBanner(context, ref),
         // 상태 배너
         Container(
           width: double.infinity,
@@ -96,7 +109,11 @@ class _CustomOnlyBody extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF1A73E8)),
                   tooltip: '마이스누 데이터 초기화',
-                  onPressed: () => ref.read(mySNUSessionsProvider.notifier).clear(),
+                  onPressed: () {
+                    ref.read(mySNUSessionsProvider.notifier).clear();
+                    ref.read(mySNUCapturedAtProvider.notifier).clear();
+                    ref.read(mySNUSnoozedSemesterProvider.notifier).clear();
+                  },
                 )
               else
                 Row(
@@ -123,6 +140,9 @@ class _CustomOnlyBody extends ConsumerWidget {
             customEvents: customEvents,
             onDeleteCustomEvent: (id) =>
                 ref.read(customEventsProvider.notifier).remove(id),
+            onDeleteCourse: mySNUSessions.isNotEmpty
+                ? (summary) => _onDeleteCourse(context, ref, summary)
+                : null,
           ),
         ),
       ],
@@ -160,11 +180,20 @@ class _TimetableBody extends ConsumerWidget {
       ),
       data: (data) {
         final hasSessions = data.sessions.isNotEmpty || customEvents.isNotEmpty;
+        final mySNUSessions = ref.watch(mySNUSessionsProvider);
+        final isStale = isTimetableStale(
+          hasSessions: mySNUSessions.isNotEmpty,
+          capturedAt: ref.watch(mySNUCapturedAtProvider),
+          snoozedSemester: ref.watch(mySNUSnoozedSemesterProvider),
+          now: DateTime.now(),
+        );
         return Column(
           children: [
             // ① 오늘 수업 배너
             _TodayBanner(sessions: data.todaySessions, customEvents: customEvents),
-            // ② 세션이 하나도 없으면 안내 배너
+            // ②a 지난 학기 시간표면 갱신 권유 배너
+            if (isStale) _buildStaleBanner(context, ref),
+            // ②b 세션이 하나도 없으면 안내 배너
             if (!hasSessions)
               _buildNoSessionBanner(context, ref),
             // ③ 그리드 시간표 (항상 표시 — 커스텀 이벤트만 있어도 보여야 함)
@@ -174,6 +203,9 @@ class _TimetableBody extends ConsumerWidget {
                 customEvents: customEvents,
                 onDeleteCustomEvent: (id) =>
                     ref.read(customEventsProvider.notifier).remove(id),
+                onDeleteCourse: mySNUSessions.isNotEmpty
+                    ? (summary) => _onDeleteCourse(context, ref, summary)
+                    : null,
               ),
             ),
           ],
@@ -218,6 +250,62 @@ Widget _buildNoSessionBanner(BuildContext context, WidgetRef ref) {
   );
 }
 
+// ── 지난 학기 시간표 갱신 권유 배너 ───────────────────────────────
+
+Widget _buildStaleBanner(BuildContext context, WidgetRef ref) {
+  final captured = ref.read(mySNUCapturedAtProvider);
+  final keyLabel = captured != null ? semesterKey(captured) : '';
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF4E5),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFF5C77E)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.update, size: 18, color: Color(0xFFE8810C)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '지난 학기($keyLabel) 시간표예요.\n새 학기 시간표로 갱신할까요?',
+            style: const TextStyle(
+                fontSize: 12, color: Color(0xFF8A5A00), height: 1.4),
+          ),
+        ),
+        TextButton(
+          onPressed: () => _openMySNU(context, ref),
+          child: const Text('갱신', style: TextStyle(fontSize: 12)),
+        ),
+        TextButton(
+          onPressed: () => ref
+              .read(mySNUSnoozedSemesterProvider.notifier)
+              .set(semesterKey(DateTime.now())),
+          child: const Text('나중에',
+              style: TextStyle(fontSize: 12, color: Color(0xFF999999))),
+        ),
+      ],
+    ),
+  );
+}
+
+// ── 드랍한 과목 삭제(실행취소 지원) ────────────────────────────────
+
+void _onDeleteCourse(BuildContext context, WidgetRef ref, String summary) {
+  final removed = ref.read(mySNUSessionsProvider.notifier).removeCourse(summary);
+  if (removed.isEmpty) return; // mySNU 세션이 아니면 무시
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text("'$summary' 삭제됨"),
+    action: SnackBarAction(
+      label: '실행취소',
+      onPressed: () =>
+          ref.read(mySNUSessionsProvider.notifier).restoreSessions(removed),
+    ),
+  ));
+}
+
 // ── mySNU 웹뷰 열기 ──────────────────────────────────────────────
 
 Future<void> _openMySNU(BuildContext context, WidgetRef ref) async {
@@ -227,6 +315,9 @@ Future<void> _openMySNU(BuildContext context, WidgetRef ref) async {
   );
   if (result != null && result.isNotEmpty) {
     ref.read(mySNUSessionsProvider.notifier).setSessions(result);
+    // 캡처 성공 시점 기록 → 학기 전환 감지의 기준. 스누즈는 새 캡처로 해제.
+    ref.read(mySNUCapturedAtProvider.notifier).set(DateTime.now());
+    ref.read(mySNUSnoozedSemesterProvider.notifier).clear();
     // timetableProvider는 mySNU 세션을 우선 사용하므로 invalidate 필요 없음
     // (mySNUSessionsProvider 변경이 timetableProvider를 자동으로 재계산)
   }
@@ -265,6 +356,9 @@ Future<void> _importIcs(BuildContext context, WidgetRef ref) async {
   if (confirmed != true || !context.mounted) return;
 
   ref.read(mySNUSessionsProvider.notifier).setSessions(sessions);
+  // ICS import도 "시간표를 마지막으로 설정한 시점"으로 기록(한계: .ics의 실제 학기는 알 수 없음).
+  ref.read(mySNUCapturedAtProvider.notifier).set(DateTime.now());
+  ref.read(mySNUSnoozedSemesterProvider.notifier).clear();
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${sessions.length}개 수업을 시간표에 추가했어요.')),

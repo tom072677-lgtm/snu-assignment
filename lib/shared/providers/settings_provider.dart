@@ -280,12 +280,86 @@ class MySNUSessionsNotifier extends Notifier<List<ClassSession>> {
     state = [];
     _prefs.remove(kMySNUSessions);
   }
+
+  /// 같은 과목명(summary) 세션을 모두 제거(드랍한 과목 통째). 제거분 반환(실행취소용).
+  List<ClassSession> removeCourse(String summary) {
+    final removed = state.where((s) => s.summary == summary).toList();
+    if (removed.isEmpty) return const [];
+    final next = state.where((s) => s.summary != summary).toList();
+    state = next;
+    _prefs.setString(
+      kMySNUSessions,
+      jsonEncode(next.map((s) => s.toJson()).toList()),
+    );
+    return removed;
+  }
+
+  /// 실행취소: 제거분을 다시 합쳐 저장.
+  void restoreSessions(List<ClassSession> restored) {
+    if (restored.isEmpty) return;
+    setSessions([...state, ...restored]);
+  }
 }
 
 final mySNUSessionsProvider =
     NotifierProvider<MySNUSessionsNotifier, List<ClassSession>>(
   MySNUSessionsNotifier.new,
 );
+
+// ─── mySNU 시간표 캡처 시점 / 스누즈 / stale 판정 ────────────────────────────
+
+class MySNUCapturedAtNotifier extends Notifier<DateTime?> {
+  late SharedPreferences _prefs;
+
+  @override
+  DateTime? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    final raw = _prefs.getString(kMySNUCapturedAt);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  void set(DateTime t) {
+    state = t;
+    _prefs.setString(kMySNUCapturedAt, t.toIso8601String());
+  }
+
+  void clear() {
+    state = null;
+    _prefs.remove(kMySNUCapturedAt);
+  }
+}
+
+final mySNUCapturedAtProvider =
+    NotifierProvider<MySNUCapturedAtNotifier, DateTime?>(
+  MySNUCapturedAtNotifier.new,
+);
+
+class MySNUSnoozedSemesterNotifier extends Notifier<String?> {
+  late SharedPreferences _prefs;
+
+  @override
+  String? build() {
+    _prefs = ref.watch(sharedPrefsProvider);
+    return _prefs.getString(kMySNUSnoozedSemester);
+  }
+
+  void set(String semesterKeyValue) {
+    state = semesterKeyValue;
+    _prefs.setString(kMySNUSnoozedSemester, semesterKeyValue);
+  }
+
+  void clear() {
+    state = null;
+    _prefs.remove(kMySNUSnoozedSemester);
+  }
+}
+
+final mySNUSnoozedSemesterProvider =
+    NotifierProvider<MySNUSnoozedSemesterNotifier, String?>(
+  MySNUSnoozedSemesterNotifier.new,
+);
+// stale 판정은 DateTime.now()가 매 build마다 신선해야 하므로 캐시되는 Provider로
+// 두지 않고, 화면 build에서 isTimetableStale(...)을 직접 호출한다(학기 경계 반응성).
 
 // ─── 단과대 / 학과 코드 ────────────────────────────────────────────────────────
 

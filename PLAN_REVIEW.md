@@ -1,38 +1,47 @@
-인코딩이 깨져 있지만 구조상 한국어 계획으로 보입니다. 같은 언어로 피드백하되, 깨진 원문에서 추정 가능한 범위와 불확실한 부분을 분리해서 보겠습니다.
-web search: 
-web search: flutter_local_notifications 17.2.2 AndroidNotificationDetails usesChronometer chronometerCountDown when timeoutAfter
-계획은 방향은 맞지만 **needs revision**입니다. 특히 “앱 완전 종료/강제 종료 후에도 24시간 카운트다운 알림 보장”처럼 보이는 성공 기준은 Android에서 그대로 보장하기 어렵습니다.
+계획 내용은 대체로 타당하지만 **needs revision**입니다. 구현 전에 몇 가지 동작 기준을 더 명확히 해야 합니다.
 System.Management.Automation.RemoteException
-**1. 문제 / 리스크**
+## 1. 문제 / 리스크
 System.Management.Automation.RemoteException
-- 원문 인코딩이 깨져 있어 일부 요구사항이 모호합니다. 구현 전에 `PLAN.md`를 UTF-8로 복구해서 정확한 문장으로 다시 리뷰받는 게 좋습니다.
-- Android의 “강제 종료” 정의가 불명확합니다. 최근 앱에서 스와이프 제거와 설정 화면의 “강제 중지”는 다릅니다. 사용자가 앱을 강제 중지하면 FCM/background handler/local alarm 모두 신뢰할 수 없습니다. 성공 기준에서 이 차이를 명시해야 합니다.
-- `zonedSchedule(... exactAllowWhileIdle)`는 Android 12+ exact alarm 권한 상태에 크게 의존합니다. 권한이 없을 때 fallback 정책, 사용자 안내, 실패 로깅이 계획에 더 구체적으로 필요합니다.
-- `timeoutAfter`는 알림이 표시된 시점 기준 duration 성격이므로, 알림이 늦게 뜨거나 이미 마감이 지난 상태에서 생성될 때 계산을 조심해야 합니다.
-- background FCM에서 `deadline`을 처리하려면 background isolate에서 Firebase, local notification plugin, timezone 초기화가 모두 독립적으로 가능해야 합니다. UI/provider/repository 의존성이 섞이면 실패하기 쉽습니다.
-- 알림 채널은 한 번 생성되면 importance/sound/vibration 같은 속성이 사실상 변경되지 않습니다. countdown 전용 channel을 새로 둘지, 기존 channel을 쓸지 명확히 해야 합니다.
-- `flutter_local_notifications`의 `AndroidNotificationDetails`에는 `when`, `usesChronometer`, `chronometerCountDown`, `timeoutAfter` 필드가 존재합니다. 다만 버전 고정이 중요하므로 실제 프로젝트의 `17.2.2` API로 컴파일 확인해야 합니다. 참고: [pub.dev AndroidNotificationDetails](https://pub.dev/documentation/flutter_local_notifications/latest/flutter_local_notifications/AndroidNotificationDetails-class.html), [flutter_local_notifications setup notes](https://pub.dev/packages/flutter_local_notifications).
+- `uid`와 `ev.id`가 같은 값인지 확인이 필요합니다. 계획에서는 `removeSession(String uid)`인데 `TimetableGrid`에서는 `onDeleteSession?.call(ev.id)`라고 되어 있어, `ClassSession.uid`와 렌더링 이벤트 id가 다르면 삭제가 실패하거나 잘못된 항목을 지울 수 있습니다.
 System.Management.Automation.RemoteException
-**2. 빠진 엣지 케이스**
+- `_importIcs` 성공 시에도 `capturedAt = DateTime.now()`를 기록하는 설계는 의미가 애매합니다. iCal 파일이 과거에 export된 파일이면 “방금 갱신됨”처럼 보일 수 있습니다. MySNU 캡처와 로컬 ICS import를 같은 freshness 기준으로 봐도 되는지 결정해야 합니다.
 System.Management.Automation.RemoteException
-- 과제가 이미 24시간 이내일 때 즉시 표시는 적혀 있지만, 이미 마감 지난 과제는 반드시 cancel/skip 해야 합니다.
-- 마감 시간이 변경된 경우 기존 예약 ID cancel 후 재예약해야 합니다.
-- 완료/삭제가 다른 기기나 서버에서 발생했는데 현재 앱이 죽어 있는 경우 알림이 남을 수 있습니다. 이를 해결할 FCM 이벤트나 다음 앱 실행 시 정리 로직이 필요합니다.
-- 여러 과제가 동시에 24시간 이내일 때 알림을 모두 ongoing으로 띄울지, 가장 가까운 하나만 띄울지, 그룹화할지 정책이 없습니다.
-- 기기 재부팅, timezone 변경, DST 변경, 수동 시간 변경 후 재예약 전략이 필요합니다.
-- POST_NOTIFICATIONS 거부 상태에서의 UX/로그/무시 정책이 빠져 있습니다.
-- FCM notification payload와 local notification이 중복 표시될 가능성을 차단해야 합니다. deadline은 data-only로 받을지 명시하는 편이 안전합니다.
+- `semesterKey(DateTime.now())`를 provider 내부에서 직접 쓰면 테스트가 어려워집니다. 단위 테스트나 위젯 테스트에서는 clock 주입이 가능한 구조가 더 좋습니다. 예: `currentDateProvider`를 별도로 두고 stale provider가 그 값을 watch.
 System.Management.Automation.RemoteException
-**3. 더 단순한 대안**
+- snooze가 `semesterKey(now)` 기준이라, 사용자가 학기 전환 직전/직후에 누른 경우 의도와 다르게 동작할 수 있습니다. 특히 2월 말, 8월 말, 9월 초 경계에서 확인 필요합니다.
 System.Management.Automation.RemoteException
-- “초 단위 실시간 알림”이 필수라면 Android chronometer 사용은 가장 단순한 접근입니다. 1분마다 직접 갱신하는 방식보다 낫습니다.
-- exact alarm까지 쓰지 않고, 앱 실행/동기화 시점에 24시간 이내 과제만 즉시 ongoing 알림으로 띄우는 방식이 훨씬 단순하지만, 앱을 열지 않은 사용자에게 24시간 시점에 자동 노출하는 요구는 만족하지 못합니다.
-- 백엔드가 deadline 24시간 전 push를 보낼 수 있다면 local scheduling보다 구조는 단순해질 수 있습니다. 다만 오프라인/FCM 지연/OS 제한 문제는 여전히 남습니다.
+- `SharedPreferences.setString/remove`는 Future를 반환합니다. 기존 코드 스타일이 fire-and-forget이면 맞춰도 되지만, 저장 실패를 전혀 고려하지 않는다는 점은 명시된 tradeoff로 남습니다.
 System.Management.Automation.RemoteException
-**4. 최종 판정**
+## 2. 누락된 엣지 케이스
+System.Management.Automation.RemoteException
+- `DateTime.tryParse(raw)`가 실패해서 `null`이 되는 경우: 현재 stale false로 처리될 듯한데, 손상된 prefs 값을 지울지 그대로 둘지 정해야 합니다.
+System.Management.Automation.RemoteException
+- `removeSession`에서 같은 `uid`가 여러 개 있으면 전부 삭제됩니다. 의도한 동작인지 확인해야 합니다. 보통 같은 과목이 여러 요일/시간 블록으로 나뉘면 하나만 지울지, 같은 uid 전체를 지울지가 중요합니다.
+System.Management.Automation.RemoteException
+- 삭제 확인 UX가 필요합니다. 수업 블록 탭 후 바로 삭제 버튼을 누르면 복구 경로가 사실상 “MySNU 전체 갱신”뿐이므로 confirm dialog 또는 undo snackbar가 더 안전합니다.
+System.Management.Automation.RemoteException
+- MySNU 갱신 실패 시 `capturedAt`이 갱신되면 안 됩니다. 계획에는 “성공 후 setSessions 직후”라고 되어 있어 괜찮지만, 빈 결과/부분 실패/사용자 취소가 성공으로 처리되지 않는지 확인해야 합니다.
+System.Management.Automation.RemoteException
+- capturedAt이 현재 학기인데 실제 세션 목록이 이전 학기 데이터인 경우는 감지하지 못합니다. 이건 “캡처 시점 기반” 설계의 한계로 명시하면 충분합니다.
+System.Management.Automation.RemoteException
+## 3. 더 단순한 대안
+System.Management.Automation.RemoteException
+- snooze provider를 별도 provider로 두는 건 괜찮지만, capturedAt은 `MySNUSessionsNotifier.setSessions` 안에서 함께 기록하는 편이 더 단순할 수 있습니다. 그러면 `_openMySNU`, `_importIcs` 각각에서 기록을 빼먹을 위험이 줄어듭니다. 다만 ICS import와 MySNU capture를 다르게 취급하려면 현재 계획처럼 분리하는 편이 낫습니다.
+System.Management.Automation.RemoteException
+- `semesterKey`는 새 파일로 분리하지 않고 provider 근처 private 함수로 시작해도 됩니다. 다만 테스트를 명확히 하려면 새 domain 파일도 합리적입니다.
+System.Management.Automation.RemoteException
+- 개별 삭제는 별도 callback 추가보다 `TimetableGrid`가 `WidgetRef`를 받는 식으로도 가능하지만, 현재 계획의 callback 방식이 더 깔끔하고 영향 범위가 작습니다.
+System.Management.Automation.RemoteException
+## 4. Overall verdict
 System.Management.Automation.RemoteException
 **needs revision**
 System.Management.Automation.RemoteException
-수정 후 다시 진행하는 것을 권장합니다. 최소 수정 항목은 다음입니다: 강제 종료 보장 범위 재정의, exact alarm 권한/fallback 명시, background isolate 초기화 설계, stable notification ID/cancel 정책, 여러 과제 처리 정책, 재부팅/timezone/마감 변경 엣지 케이스, 그리고 `flutter analyze`/단위 테스트/기기 테스트 기준 추가.
-SUCCESS: The process with PID 2500 (child process of PID 22072) has been terminated.
-SUCCESS: The process with PID 22072 (child process of PID 18932) has been terminated.
+핵심 방향은 좋습니다. 다만 구현 전에 최소한 다음 3가지는 정리해야 합니다.
+System.Management.Automation.RemoteException
+1. `ClassSession.uid`와 grid event id의 관계 확인  
+2. ICS import도 freshness 갱신으로 볼지 결정  
+3. 삭제 단위가 “블록 하나”인지 “같은 uid 전체”인지 결정  
+System.Management.Automation.RemoteException
+이 세 가지가 명확해지면 계획은 구현해도 괜찮습니다.
+SUCCESS: The process with PID 9968 (child process of PID 20608) has been terminated.
+SUCCESS: The process with PID 20608 (child process of PID 12572) has been terminated.

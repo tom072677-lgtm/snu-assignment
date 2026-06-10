@@ -101,12 +101,15 @@ class TimetableGrid extends StatelessWidget {
   final List<ClassSession>  sessions;
   final List<CustomEvent>   customEvents;
   final void Function(String eventId) onDeleteCustomEvent;
+  // 드랍한 과목(summary)을 시간표에서 통째로 삭제. null이면 삭제 미제공.
+  final void Function(String summary)? onDeleteCourse;
 
   const TimetableGrid({
     super.key,
     required this.sessions,
     required this.customEvents,
     required this.onDeleteCustomEvent,
+    this.onDeleteCourse,
   });
 
   @override
@@ -337,13 +340,32 @@ class TimetableGrid extends StatelessWidget {
   }
 
   void _onTapSession(BuildContext context, _GridEvent ev) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-        '${ev.title}  ${_minLabel(ev.startMin)}~${_minLabel(ev.endMin)}'
-        '${ev.location.isNotEmpty ? '  ${ev.location}' : ''}',
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(ev.title),
+        content: Text(
+          '${_minLabel(ev.startMin)} ~ ${_minLabel(ev.endMin)}'
+          '${ev.location.isNotEmpty ? '\n${ev.location}' : ''}'
+          '${onDeleteCourse != null ? '\n\n드랍한 과목이면 시간표에서 삭제할 수 있어요.' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+          if (onDeleteCourse != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onDeleteCourse!(ev.title); // ev.title == ClassSession.summary
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+        ],
       ),
-      duration: const Duration(seconds: 2),
-    ));
+    );
   }
 
   // ── 이벤트 수집 ──────────────────────────────────────────────
