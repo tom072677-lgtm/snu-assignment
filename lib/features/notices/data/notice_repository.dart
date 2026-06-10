@@ -627,11 +627,10 @@ class NoticeRepository {
           int.parse(m.group(3)!));
       if (d != null) return d;
     }
-    // MM.DD (연도 없음) → 현재 연도
+    // MM.DD (연도 없음) → 현재 연도 (연말엔 1월 날짜가 과거로 잡히지 않도록 보정)
     m = RegExp(r'(?<!\d)([01]?\d)\s*[.\-/]\s*([0-3]?\d)(?!\d)').firstMatch(t);
     if (m != null) {
-      final d = _ymd(DateTime.now().year, int.parse(m.group(1)!),
-          int.parse(m.group(2)!));
+      final d = _ymdNoYear(int.parse(m.group(1)!), int.parse(m.group(2)!));
       if (d != null) return d;
     }
     return null;
@@ -640,6 +639,16 @@ class NoticeRepository {
   static DateTime? _ymd(int y, int mo, int da) {
     if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
     return DateTime(y, mo, da);
+  }
+
+  /// 연도 없는 MM.DD를 해석: now.year로 가정하되, now보다 ~6개월 이상
+  /// 과거면 내년(now.year+1)으로 롤오버 (연말에 1월 날짜가 과거로 잡히는 문제 보정)
+  static DateTime? _ymdNoYear(int mo, int da) {
+    final now = DateTime.now();
+    final d = _ymd(now.year, mo, da);
+    if (d == null) return null;
+    if (now.difference(d).inDays > 182) return DateTime(now.year + 1, mo, da);
+    return d;
   }
 
   // ─── SNU 비교과 ────────────────────────────────────────────────────────────
@@ -801,7 +810,7 @@ class NoticeRepository {
       final month = int.tryParse(m[1]!) ?? 0;
       final day   = int.tryParse(m[2]!) ?? 0;
       if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-      return DateTime(now.year, month, day);
+      return _deadlineNoYear(now, month, day);
     }
 
     // MM월 DD일까지
@@ -810,7 +819,7 @@ class NoticeRepository {
       final month = int.tryParse(m[1]!) ?? 0;
       final day   = int.tryParse(m[2]!) ?? 0;
       if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-      return DateTime(now.year, month, day);
+      return _deadlineNoYear(now, month, day);
     }
 
     // MM.DD까지
@@ -819,10 +828,18 @@ class NoticeRepository {
       final month = int.tryParse(m[1]!) ?? 0;
       final day   = int.tryParse(m[2]!) ?? 0;
       if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-      return DateTime(now.year, month, day);
+      return _deadlineNoYear(now, month, day);
     }
 
     return null;
+  }
+
+  /// 연도 없는 마감일: now.year로 가정하되, now보다 ~6개월 이상 과거면
+  /// 내년(now.year+1)으로 롤오버 (연말에 1월 마감이 과거로 잡히는 문제 보정)
+  static DateTime _deadlineNoYear(DateTime now, int month, int day) {
+    final d = DateTime(now.year, month, day);
+    if (now.difference(d).inDays > 182) return DateTime(now.year + 1, month, day);
+    return d;
   }
 }
 

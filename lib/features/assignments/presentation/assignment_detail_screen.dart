@@ -130,6 +130,12 @@ class _AssignmentDetailScreenState
 
   Widget _buildHeader(Assignment a) {
     final colorScheme = Theme.of(context).colorScheme;
+    // D-day는 달력 날짜 기준으로 계산 (24h 미만이어도 내일이면 D-1)
+    final now = DateTime.now();
+    final due = a.dueDate;
+    final dDay = DateTime(due.year, due.month, due.day)
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -152,8 +158,8 @@ class _AssignmentDetailScreenState
                   child: Text(
                     a.isOverdue
                         ? '마감'
-                        : a.remaining.inDays > 0
-                            ? 'D-${a.remaining.inDays}'
+                        : dDay > 0
+                            ? 'D-$dDay'
                             : '오늘',
                     style: const TextStyle(
                         color: Colors.white,

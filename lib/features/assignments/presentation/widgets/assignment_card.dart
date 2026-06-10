@@ -42,7 +42,6 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
     final a = widget.assignment;
     final memos = ref.watch(memosProvider);
     final memo = memos[a.etlId] ?? '';
-    final remaining = a.remaining;
     final colorScheme = Theme.of(context).colorScheme;
 
     final badgeColor = a.isOverdue
@@ -51,10 +50,16 @@ class _AssignmentCardState extends ConsumerState<AssignmentCard> {
             ? Colors.red
             : colorScheme.primary;
 
+    // D-day는 달력 날짜 기준으로 계산 (24h 미만이어도 내일이면 D-1)
+    final now = DateTime.now();
+    final due = a.dueDate;
+    final dDay = DateTime(due.year, due.month, due.day)
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
     final badgeText = a.isOverdue
         ? '마감'
-        : remaining.inDays > 0
-            ? 'D-${remaining.inDays}'
+        : dDay > 0
+            ? 'D-$dDay'
             : '오늘';
 
     return Card(

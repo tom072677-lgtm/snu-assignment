@@ -179,6 +179,9 @@ class AssignmentsNotifier
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       if (json['icalUrl'] != currentIcalUrl) return null;
+      // days가 바뀌면 무효화 (7↔30일 전환 시 잘못된 크기의 캐시 반환 방지)
+      final currentDays = ref.read(assignmentDaysProvider);
+      if ((json['days'] as int?) != currentDays) return null;
       return _parseAssignments(json['data'] as List);
     } catch (_) {
       return null;
