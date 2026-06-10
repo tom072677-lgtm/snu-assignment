@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 진행바: 반투명 흰 트랙 + 흰 채움 (그라데이션 배경 위에서 잘 보이도록) -->
+<!-- 진행바: 어두운 트랙 + 빨강 채움 (검은 배경 위에서 빨강이 왼→오로 채워짐) -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape>
             <corners android:radius="3dp" />
-            <solid android:color="#44FFFFFF" />
+            <solid android:color="#33FFFFFF" />
         </shape>
     </item>
     <item android:id="@android:id/progress">
         <clip>
             <shape>
                 <corners android:radius="3dp" />
-                <solid android:color="#FFFFFFFF" />
+                <solid android:color="#FFFF1744" />
             </shape>
         </clip>
     </item>

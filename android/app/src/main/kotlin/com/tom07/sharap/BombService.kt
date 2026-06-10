@@ -180,17 +180,11 @@ class BombService : Service() {
         val elapsed = (WINDOW_MS - remaining).coerceIn(0L, WINDOW_MS)
         val progress = (elapsed * PROGRESS_MAX / WINDOW_MS).toInt()
         // 평소 주황 그라데이션, 마감 1시간 이내면 빨강 그라데이션 (왼쪽 어둡고 오른쪽 밝음)
-        val gradientRes = if (remaining < 3_600_000L) {
-            R.drawable.bomb_gradient_red
-        } else {
-            R.drawable.bomb_gradient
-        }
-        // 카드 전체를 덮을 기본색 = 그라데이션 시작색 (헤더까지 같은 색으로 채움)
-        val baseColor = if (remaining < 3_600_000L) 0xFFB71C1C.toInt() else 0xFFE65100.toInt()
+        // 배경은 검은색, 진행바(빨강)가 왼쪽→오른쪽으로 채워진다
+        val baseColor = 0xFF000000.toInt()
 
-        // 커스텀 레이아웃 — 그라데이션 배경 + 카운트다운 + 진행바 (앱 내 배너와 동일한 느낌)
+        // 커스텀 레이아웃 — 검은 배경 + 카운트다운 + 빨강 진행바
         val rv = RemoteViews(packageName, R.layout.bomb_notification)
-        rv.setInt(R.id.bomb_root, "setBackgroundResource", gradientRes)
         rv.setTextViewText(R.id.bomb_title, label)
         rv.setChronometer(
             R.id.bomb_chrono, SystemClock.elapsedRealtime() + remaining, null, true,
