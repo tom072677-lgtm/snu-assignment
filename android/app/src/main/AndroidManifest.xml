@@ -23,6 +23,10 @@
     <!-- 재부팅 후 알림 복구 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+    <!-- 마감 임박 폭탄 알림 포그라운드 서비스 (스와이프로 못 지우게) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+
     <application
         android:label="샤랍"
         android:name="${applicationName}"
@@ -69,6 +73,16 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+
+        <!-- 마감 임박 폭탄 포그라운드 서비스 -->
+        <service
+            android:name=".BombService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="assignment_deadline_reminder"/>
+        </service>
 
         <!-- 홈 화면 위젯 -->
         <receiver

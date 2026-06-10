@@ -97,41 +97,64 @@ class AssignmentsNotifier
     final completed = ref.read(completedTasksProvider);
     final prefs = ref.read(sharedPrefsProvider);
 
-    // 24h 이내 + 미완료 + 미만료 과제만 ongoing 알림 대상
-    final shouldBeActive = <String>{
+    // 미완료·미만료·미래 마감 과제 → 폭탄 알림 관리 대상
+    // (마감 24h 전 OS가 자동 게시하도록 예약, 이미 24h 이내면 즉시 게시)
+    final now = DateTime.now();
+    final managed = <String>{
       for (final a in list)
         if (!a.isOverdue &&
             !completed.contains(a.etlId) &&
-            a.remaining.inHours < 24)
+            a.dueDate.isAfter(now))
           a.etlId,
     };
 
-    // 이전에 활성화된 알림 Set 로드
+    // 이전에 관리하던 알림 Set 로드
     final prevActive =
         (prefs.getStringList('active_ongoing_etlIds') ?? []).toSet();
 
-    // 더 이상 필요 없는 ongoing 알림 취소 (완료·만료·목록 제거된 과제)
+    // 더 이상 대상 아닌 알림 취소 (완료·만료·목록 제거된 과제)
+    // 예약·게시 모두 같은 id라 cancel 한 번으로 함께 취소됨
     for (final etlId in prevActive) {
-      if (!shouldBeActive.contains(etlId)) {
+      if (!managed.contains(etlId)) {
         NotificationService.cancelOngoingNotification(etlId).ignore();
       }
     }
 
-    // 대상 과제 ongoing 알림 표시/갱신
+    // 가장 임박한(24h 이내) 과제 → 포그라운드 서비스 폭탄 알림 (스와이프로 못 지움)
+    final urgent = list
+        .where((a) => managed.contains(a.etlId) && a.remaining.inHours < 24)
+        .toList()
+      ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    final mostUrgent = urgent.isEmpty ? null : urgent.first;
+
+    // 대상 과제: 마감 24h 전 예약 (이미 24h 이내면 즉시 게시)
+    // 단, 가장 임박한 과제는 FGS가 담당하므로 제외
     for (final a in list) {
-      if (shouldBeActive.contains(a.etlId)) {
-        notifService.showOngoingNotification(
+      if (managed.contains(a.etlId) && a.etlId != mostUrgent?.etlId) {
+        notifService.scheduleOngoingNotification(
           etlId: a.etlId,
           title: a.title,
           courseName: a.courseName,
-          remaining: a.remaining,
+          dueDate: a.dueDate,
         ).ignore();
       }
     }
 
-    // 현재 활성 Set 저장
+    // 가장 임박한 과제 FGS 시작 / 없으면 종료
+    if (mostUrgent != null) {
+      notifService.startBombService(
+        etlId: mostUrgent.etlId,
+        courseName: mostUrgent.courseName,
+        title: mostUrgent.title,
+        dueDate: mostUrgent.dueDate,
+      ).ignore();
+    } else {
+      notifService.stopBombService().ignore();
+    }
+
+    // 현재 관리 Set 저장
     prefs
-        .setStringList('active_ongoing_etlIds', shouldBeActive.toList())
+        .setStringList('active_ongoing_etlIds', managed.toList())
         .ignore();
 
     // 서버에 FCM 스케줄 동기화

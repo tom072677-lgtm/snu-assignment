@@ -60,6 +60,7 @@ dependencies:
 
   # 권한 (마이크 등 — 권한 상태 구분 + 설정 딥링크)
   permission_handler: ^12.0.3
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

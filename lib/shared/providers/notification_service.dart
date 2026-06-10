@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 import '../../core/constants.dart';
 import '../../core/dio_client.dart';
 
@@ -13,6 +15,41 @@ import '../../core/dio_client.dart';
 Future<void> handleBackgroundFcm(RemoteMessage message) async {
   final data = message.data;
   final type = data['type'] as String? ?? '';
+
+  // deadline: 마감 임박 → ongoing chronometer 알림(실시간 카운트다운).
+  // 서버가 notification 페이로드를 함께 보내 Android가 기본 알림(id=0)을 자동 표시하므로,
+  // 그것을 제거하고 실시간 카운트다운 ongoing 알림만 남긴다. (마감 알림은 항상 표시)
+  if (type == 'deadline' && (data['etlId'] ?? '').toString().isNotEmpty) {
+    try {
+      final dueDate = DateTime.parse(data['dueDate'] as String);
+      final remaining = dueDate.difference(DateTime.now());
+      final localNotif = FlutterLocalNotificationsPlugin();
+      await localNotif.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
+      );
+      final android = localNotif.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      // 백그라운드 isolate엔 채널이 없을 수 있으므로 보장
+      await android?.createNotificationChannel(
+          NotificationService._ongoingChannel);
+      // 자동 표시된 기본 알림(id=0) 제거 → ongoing 알림만 남김
+      await android?.cancel(0, tag: message.notification?.android?.tag);
+      if (remaining.inSeconds > 0) {
+        await NotificationService._showOngoingChronometer(
+          localNotif,
+          etlId: data['etlId'].toString(),
+          title: (data['title'] ?? '').toString(),
+          courseName: (data['courseName'] ?? '').toString(),
+          remaining: remaining,
+        );
+      }
+    } catch (e) {
+      debugPrint('[FCM-bg] deadline 처리 실패: $e');
+    }
+    return;
+  }
 
   // notification payload가 있으면 Android가 자동으로 표시함.
   // 사용자가 해당 타입을 비활성화한 경우 자동 표시된 알림을 취소한다.
@@ -88,6 +125,9 @@ final notificationServiceProvider =
 class NotificationService {
   static final _localNotif = FlutterLocalNotificationsPlugin();
 
+  // 폭탄 포그라운드 서비스 제어용 네이티브 채널
+  static const _fgsChannel = MethodChannel('com.tom07.sharap/bomb');
+
   // FCM 토큰 등록 전에 subscribeEtl이 호출된 경우 URL 보관 → 토큰 등록 후 재시도
   String? _pendingEtlUrl;
 
@@ -143,6 +183,10 @@ class NotificationService {
   }
 
   Future<void> initialize() async {
+    // 타임존 초기화 (zonedSchedule용 — 한국 전용 앱이므로 Asia/Seoul 고정)
+    tzdata.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+
     // 로컬 알림 초기화
     await _localNotif.initialize(
       const InitializationSettings(
@@ -298,6 +342,49 @@ class NotificationService {
     return '[${'█' * filled}${'░' * empty}]';
   }
 
+  /// ongoing 고정 알림을 **시스템 chronometer로 실시간 카운트다운**되게 발송.
+  /// `when`=마감시각 + `chronometerCountDown`=true → OS가 초 단위로 직접 갱신
+  /// (앱이 백그라운드/종료 상태여도 동작). 포그라운드·백그라운드 핸들러 공용.
+  static Future<void> _showOngoingChronometer(
+    FlutterLocalNotificationsPlugin plugin, {
+    required String etlId,
+    required String title,
+    required String courseName,
+    required Duration remaining,
+  }) async {
+    final h = remaining.inHours;
+    final m = remaining.inMinutes % 60;
+    final timeStr = h > 0 ? '$h시간 $m분 후 마감' : '$m분 후 마감';
+    final notifTitle = '💣 ${courseName.isNotEmpty ? courseName : title}';
+    final body = courseName.isNotEmpty ? title : timeStr;
+    final whenMs = DateTime.now().add(remaining).millisecondsSinceEpoch;
+
+    await plugin.show(
+      _stableId('deadline:$etlId'),
+      notifTitle,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _ongoingChannel.id,
+          _ongoingChannel.name,
+          channelDescription: _ongoingChannel.description,
+          importance: Importance.low, // 채널은 high이지만 갱신 시 무음
+          priority: Priority.low,
+          ongoing: true,
+          autoCancel: false,
+          onlyAlertOnce: true,
+          when: whenMs, // 마감 시각
+          usesChronometer: true, // when을 타이머로 표시
+          chronometerCountDown: true, // 카운트다운(↓)으로 실시간 틱
+          showWhen: true,
+          timeoutAfter: remaining.inMilliseconds, // 마감 시 자동 제거
+          styleInformation:
+              BigTextStyleInformation(body, contentTitle: notifTitle),
+        ),
+      ),
+    );
+  }
+
   /// 24h 이내 과제용 고정 알림 (스와이프 삭제 불가)
   /// [headsUp] true: 폭탄 채널로 팝업 알림(non-ongoing) + ongoing 알림 동시 발송
   ///           false: ongoing 알림만 조용히 갱신
@@ -315,24 +402,13 @@ class NotificationService {
     final bar = _progressBar(remaining);
     final body = '$bar  $timeStr\n$title';
 
-    // ① ongoing 알림 — 알림 바에 항상 고정 (스와이프 불가)
-    await _localNotif.show(
-      _stableId('deadline:$etlId'),
-      notifTitle,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _ongoingChannel.id,
-          _ongoingChannel.name,
-          channelDescription: _ongoingChannel.description,
-          importance: Importance.low,   // 채널은 high이지만 업데이트 시 소리 없음
-          priority: Priority.low,
-          ongoing: true,
-          autoCancel: false,
-          onlyAlertOnce: true,
-          styleInformation: BigTextStyleInformation(body, contentTitle: notifTitle),
-        ),
-      ),
+    // ① ongoing 알림 — 알림 바에 항상 고정 (스와이프 불가) + 실시간 chronometer
+    await _showOngoingChronometer(
+      _localNotif,
+      etlId: etlId,
+      title: title,
+      courseName: courseName,
+      remaining: remaining,
     );
 
     if (!headsUp) return;
@@ -367,6 +443,114 @@ class NotificationService {
     });
   }
 
+  /// 마감 24시간 전에 OS가 폭탄 알림을 자동 게시하도록 예약한다.
+  /// 앱이 꺼져 있거나 서버 푸시가 없어도 알림이 뜨고, 크로노미터로 마감까지 유지된다.
+  /// 이미 24시간 이내면 예약 대신 즉시 게시(showOngoingNotification)로 처리.
+  Future<void> scheduleOngoingNotification({
+    required String etlId,
+    required String title,
+    required String courseName,
+    required DateTime dueDate,
+  }) async {
+    final now = DateTime.now();
+    if (!dueDate.isAfter(now)) return; // 이미 마감
+
+    final id = _stableId('deadline:$etlId');
+    final trigger = dueDate.subtract(const Duration(hours: 24));
+
+    // 이미 24시간 이내 → 즉시 게시 (예약 시점이 이미 지남)
+    if (!trigger.isAfter(now)) {
+      await showOngoingNotification(
+        etlId: etlId,
+        title: title,
+        courseName: courseName,
+        remaining: dueDate.difference(now),
+      );
+      return;
+    }
+
+    // 24시간 이상 남음 → 마감 24시간 전 발동 예약
+    final notifTitle = '💣 ${courseName.isNotEmpty ? courseName : title}';
+    final body = courseName.isNotEmpty ? title : '24시간 후 마감';
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _ongoingChannel.id,
+        _ongoingChannel.name,
+        channelDescription: _ongoingChannel.description,
+        importance: Importance.low,
+        priority: Priority.low,
+        ongoing: true,
+        autoCancel: false,
+        onlyAlertOnce: true,
+        when: dueDate.millisecondsSinceEpoch, // 마감 시각 (크로노미터 기준)
+        usesChronometer: true,
+        chronometerCountDown: true,
+        showWhen: true,
+        timeoutAfter: const Duration(hours: 24).inMilliseconds, // 마감 시 자동 제거
+        styleInformation: BigTextStyleInformation(body, contentTitle: notifTitle),
+      ),
+    );
+
+    // 마감일 변경 등으로 인한 이전 예약 제거 후 재예약
+    await _localNotif.cancel(id);
+    final when = tz.TZDateTime.from(trigger, tz.local);
+    try {
+      await _localNotif.zonedSchedule(
+        id, notifTitle, body, when, details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      // 정확 알람 권한이 없으면 비정확 알람으로 폴백 (몇 분 오차 허용)
+      debugPrint('[Notif] exact 예약 실패 → inexact 폴백: $e');
+      await _localNotif.zonedSchedule(
+        id, notifTitle, body, when, details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
+  }
+
+  /// 가장 임박한 과제를 포그라운드 서비스 알림으로 띄운다 (스와이프로 못 지움).
+  /// FGS를 못 띄우면(백그라운드 시작 제한 등) 기존 ongoing 알림으로 폴백 — 알림 없는 상태 방지.
+  Future<void> startBombService({
+    required String etlId,
+    required String courseName,
+    required String title,
+    required DateTime dueDate,
+  }) async {
+    final regularId = _stableId('deadline:$etlId');
+    try {
+      final ok = await _fgsChannel.invokeMethod<bool>('startBomb', {
+        'courseName': courseName,
+        'title': title,
+        'deadlineMillis': dueDate.millisecondsSinceEpoch,
+        'regularId': regularId,
+      });
+      if (ok == true) return; // FGS 시작됨 → 못 지우는 폭탄 알림 표시 중
+    } catch (e) {
+      debugPrint('[Bomb] FGS 시작 실패: $e');
+    }
+    // 폴백: 일반 ongoing 알림 (밀어서 지울 수 있음)
+    await showOngoingNotification(
+      etlId: etlId,
+      title: title,
+      courseName: courseName,
+      remaining: dueDate.difference(DateTime.now()),
+    );
+  }
+
+  /// 폭탄 포그라운드 서비스 종료 (더 이상 24h 이내 과제가 없을 때)
+  Future<void> stopBombService() async {
+    try {
+      await _fgsChannel.invokeMethod('stopBomb');
+    } catch (e) {
+      debugPrint('[Bomb] FGS 종료 실패: $e');
+    }
+  }
+
   /// heads-up 팝업 전용 알림만 취소 (bomb: prefix)
   static Future<void> cancelBombNotification(String etlId) async {
     await _localNotif.cancel(_stableId('bomb:$etlId'));
@@ -391,8 +575,23 @@ class NotificationService {
   }) async {
     final currentIds = assignments.map((a) => a.etlId).toSet();
 
-    // 새로 추가된 과제 → heads-up 팝업
+    // 가장 임박한 과제 → FGS 폭탄 알림 (못 지움). 나머지 → 일반 ongoing.
+    // FGS와 일반 알림이 같은 과제에 중복 표시되지 않도록 most-urgent는 제외한다.
+    final active = assignments.where((a) => a.remaining.inSeconds > 0).toList()
+      ..sort((a, b) => a.remaining.compareTo(b.remaining));
+    final mostUrgent = active.isEmpty ? null : active.first;
+    if (mostUrgent != null) {
+      await startBombService(
+        etlId: mostUrgent.etlId,
+        courseName: mostUrgent.courseName,
+        title: mostUrgent.title,
+        dueDate: DateTime.now().add(mostUrgent.remaining),
+      );
+    }
+
+    // 나머지 과제 → 일반 ongoing + 새 과제는 heads-up 팝업
     for (final a in assignments) {
+      if (a.etlId == mostUrgent?.etlId) continue; // FGS가 담당
       final isNew = !previousEtlIds.contains(a.etlId);
       if (a.remaining.inSeconds > 0) {
         await showOngoingNotification(
