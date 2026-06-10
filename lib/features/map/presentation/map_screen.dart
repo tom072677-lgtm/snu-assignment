@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart' show Position;
+import 'package:geolocator/geolocator.dart' show Position, Geolocator;
 import 'package:sensors_plus/sensors_plus.dart';
 import '../data/map_repository.dart';
 import '../../../features/partner/data/partner_repository.dart';
@@ -14,7 +14,8 @@ import '../../../features/restaurant/domain/venue.dart';
 import '../../../features/restaurant/presentation/venue_detail_screen.dart';
 import '../../../shared/providers/settings_provider.dart';
 import 'route_search_screen.dart';
-import 'widgets/route_panel.dart' show RouteOverlayPanel, resolveCurrentPosition;
+import 'widgets/route_panel.dart'
+    show RouteOverlayPanel, resolveCurrentPosition, LocationFailure;
 
 // SNU 관악캠퍼스 중심 좌표
 const _snuCenter = NLatLng(37.4607, 126.9526);
@@ -165,8 +166,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   Future<void> _initLocation() async {
     _mapCtrl?.setLocationTrackingMode(NLocationTrackingMode.noFollow);
-    final pos = await resolveCurrentPosition();
-    if (pos == null) return;
+    final (pos, fail) = await resolveCurrentPosition();
+    // 초기 시도는 조용히 (사유만 로그)
+    if (pos == null) {
+      debugPrint('[MapScreen._initLocation] 위치 실패: $fail');
+      return;
+    }
     _initialPosition = pos;
     _mapCtrl?.updateCamera(NCameraUpdate.withParams(
       target: NLatLng(pos.latitude, pos.longitude),
@@ -174,8 +179,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   Future<void> _goToMyLocation() async {
-    final pos = await resolveCurrentPosition() ?? _initialPosition;
-    if (pos == null) return;
+    final (resolved, fail) = await resolveCurrentPosition();
+    final pos = resolved ?? _initialPosition;
+    if (pos == null) {
+      debugPrint('[MapScreen._goToMyLocation] 위치 실패: $fail');
+      if (!mounted) return;
+      if (fail == LocationFailure.serviceDisabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치 서비스(GPS)를 켜주세요')),
+        );
+      } else if (fail == LocationFailure.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('위치 권한이 차단되어 있습니다'),
+            action: SnackBarAction(
+              label: '설정 열기',
+              onPressed: () => Geolocator.openAppSettings(),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치 권한을 확인해 주세요')),
+        );
+      }
+      return;
+    }
     _initialPosition = pos;
     _mapCtrl?.updateCamera(NCameraUpdate.withParams(
       target: NLatLng(pos.latitude, pos.longitude),
@@ -186,8 +215,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
   // ── 나침반 ────────────────────────────────────────────────────────
 
   void _startCompass() {
-    _compassSub = magnetometerEventStream().listen((event) {
+    // 자기장 이벤트는 초당 수십~수백 회 → 1도 미만 변화는 무시해 rebuild 폭주 방지
+    _compassSub = magnetometerEventStream(
+            samplingPeriod: SensorInterval.uiInterval)
+        .listen((event) {
       final heading = math.atan2(event.y, event.x) * (180 / math.pi);
+      if ((heading - _heading).abs() < 1) return;
       setState(() => _heading = heading);
       if (_compassMode) {
         _mapCtrl?.updateCamera(NCameraUpdate.withParams(bearing: heading));

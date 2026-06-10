@@ -23,36 +23,46 @@ class _C {
   static const panelRadius = 20.0;
 }
 
+/// 위치 취득 실패 사유 (호출부에서 사용자 안내를 분기하기 위함)
+enum LocationFailure { serviceDisabled, denied, deniedForever, error }
+
 /// 위치 권한 체크 + 현재위치 취득 헬퍼.
-/// 1) 권한 확인/요청 → 거부 시 null 반환
-/// 2) 서비스 꺼짐 시 null 반환
+/// 성공 시 (Position, null), 실패 시 (null, LocationFailure)를 반환한다.
+/// 1) 서비스 꺼짐 → serviceDisabled
+/// 2) 권한 거부 → denied / deniedForever
 /// 3) 캐시 위치가 5분 이내면 바로 반환, 오래됐으면 getCurrentPosition(20s) 대기
-Future<Position?> resolveCurrentPosition() async {
+Future<(Position?, LocationFailure?)> resolveCurrentPosition() async {
   try {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null;
+    if (!serviceEnabled) return (null, LocationFailure.serviceDisabled);
 
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    if (perm == LocationPermission.denied ||
-        perm == LocationPermission.deniedForever) { return null; }
+    if (perm == LocationPermission.deniedForever) {
+      return (null, LocationFailure.deniedForever);
+    }
+    if (perm == LocationPermission.denied) {
+      return (null, LocationFailure.denied);
+    }
 
     final last = await Geolocator.getLastKnownPosition();
     if (last != null) {
       final age = DateTime.now().difference(last.timestamp);
-      if (age.inMinutes < 5) return last; // 5분 이내 캐시는 신뢰
+      if (age.inMinutes < 5) return (last, null); // 5분 이내 캐시는 신뢰
     }
 
-    return await Geolocator.getCurrentPosition(
+    final pos = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         timeLimit: Duration(seconds: 20),
       ),
     );
-  } catch (_) {
-    return null;
+    return (pos, null);
+  } catch (e) {
+    debugPrint('[resolveCurrentPosition] error: $e');
+    return (null, LocationFailure.error);
   }
 }
 
@@ -105,6 +115,7 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
   bool _arrivalLoading = false;
   int _arrivalReqId = 0;
   Timer? _arrivalTimer;
+  bool _showSettingsButton = false; // 위치 영구 거부 시 '설정 열기' 노출
 
   late final AnimationController _anim;
   double _panelHeight = 0;
@@ -139,14 +150,27 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
       olat = _currentOrigin!.lat;
       olng = _currentOrigin!.lng;
     } else {
-      final pos = widget.initialPosition ?? await resolveCurrentPosition();
+      Position? pos = widget.initialPosition;
+      LocationFailure? fail;
+      if (pos == null) {
+        (pos, fail) = await resolveCurrentPosition();
+      }
       if (!mounted) return;
       if (pos == null) {
-        const errState = _ModeState(
-          error: '위치를 가져올 수 없습니다.\n위치 권한과 GPS를 확인해주세요.',
-        );
+        // 사유별 안내 (서비스 꺼짐 / 영구 거부 / 일시 거부·오류)
+        final String msg;
+        if (fail == LocationFailure.serviceDisabled) {
+          msg = '위치 서비스(GPS)를 켜주세요.';
+        } else if (fail == LocationFailure.deniedForever) {
+          msg = '위치 권한이 차단되어 있습니다.\n설정에서 권한을 허용해주세요.';
+        } else {
+          msg = '위치를 가져올 수 없습니다.\n위치 권한과 GPS를 확인해주세요.';
+        }
+        debugPrint('[RouteOverlayPanel._fetchAll] 위치 실패: $fail');
+        final errState = _ModeState(error: msg);
         setState(() {
           _states = {for (final m in RouteMode.values) m: errState};
+          _showSettingsButton = fail == LocationFailure.deniedForever;
         });
         widget.onRouteLoaded(null, _mode);
         return;
@@ -638,6 +662,13 @@ class _RouteOverlayPanelState extends ConsumerState<RouteOverlayPanel>
                 style: const TextStyle(color: Colors.red, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
+              if (_showSettingsButton) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => Geolocator.openAppSettings(),
+                  child: const Text('설정 열기'),
+                ),
+              ],
             ],
           ),
         ),
