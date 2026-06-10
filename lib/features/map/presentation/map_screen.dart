@@ -412,6 +412,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     // 마커 모두 지우고 poi_marker만
     await _clearVenueMarkers();
+    if (!mounted) return; // await 사이 화면 이탈 시 setState-after-dispose 방지
     setState(() {
       _sheetMode = _SheetMode.placeDetail;
       _selectedPlace = place;

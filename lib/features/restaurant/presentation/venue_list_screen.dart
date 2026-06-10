@@ -84,8 +84,8 @@ class _VenueRow extends ConsumerWidget {
             ),
           ),
           // 즐겨찾기 별 아이콘
-          GestureDetector(
-            onTap: () {
+          IconButton(
+            onPressed: () {
               final willFav = !isFav;
               ref.read(favVenuesProvider.notifier).toggle(venue.id);
               Analytics.venueFavoriteToggled(
@@ -93,13 +93,10 @@ class _VenueRow extends ConsumerWidget {
                 nowFavorite: willFav,
               );
             },
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Icon(
-                isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                size: 20,
-                color: isFav ? Colors.amber[600] : Colors.grey[400],
-              ),
+            iconSize: 20,
+            icon: Icon(
+              isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: isFav ? Colors.amber[600] : Colors.grey[400],
             ),
           ),
         ],

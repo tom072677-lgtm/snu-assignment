@@ -409,16 +409,13 @@ class _PartnerRow extends ConsumerWidget {
               ),
             ),
           ),
-          GestureDetector(
-            onTap: () =>
+          IconButton(
+            onPressed: () =>
                 ref.read(favPartnersProvider.notifier).toggle(restaurant.id),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Icon(
-                isFav ? Icons.favorite : Icons.favorite_border,
-                size: 20,
-                color: isFav ? Colors.red : Colors.grey[400],
-              ),
+            iconSize: 20,
+            icon: Icon(
+              isFav ? Icons.favorite : Icons.favorite_border,
+              color: isFav ? Colors.red : Colors.grey[400],
             ),
           ),
         ],
@@ -500,21 +497,18 @@ class _VenueRow extends ConsumerWidget {
               ),
             ),
           // 즐겨찾기
-          GestureDetector(
-            onTap: () {
+          IconButton(
+            onPressed: () {
               ref.read(favVenuesProvider.notifier).toggle(venue.id);
               Analytics.venueFavoriteToggled(
                 venueName: venue.name,
                 nowFavorite: !isFav,
               );
             },
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Icon(
-                isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                size: 20,
-                color: isFav ? Colors.amber[600] : Colors.grey[400],
-              ),
+            iconSize: 20,
+            icon: Icon(
+              isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: isFav ? Colors.amber[600] : Colors.grey[400],
             ),
           ),
         ],
