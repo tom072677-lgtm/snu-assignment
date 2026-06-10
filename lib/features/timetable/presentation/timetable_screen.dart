@@ -220,30 +220,48 @@ class _TimetableBody extends ConsumerWidget {
 Widget _buildNoSessionBanner(BuildContext context, WidgetRef ref) {
   return Container(
     width: double.infinity,
-    margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     decoration: BoxDecoration(
       color: const Color(0xFFF0F4FF),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xFFBBCCF8)),
     ),
-    child: Row(
+    child: Column(
       children: [
-        const Icon(Icons.info_outline, size: 18, color: Color(0xFF1A73E8)),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text(
-            'eTL에서 수업 일정을 가져오지 못했어요.\n마이스누 로그인으로 불러오거나 직접 추가해 보세요.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF3C5A99), height: 1.4),
+        const Icon(Icons.event_note, size: 30, color: Color(0xFF1A73E8)),
+        const SizedBox(height: 10),
+        const Text(
+          '아직 시간표가 없어요',
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A2B50)),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          '마이스누에 로그인하면 실제 수강 시간표를\n그대로 불러와요. (eTL엔 시간표가 없어요)',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Color(0xFF5A6B8C), height: 1.4),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => _openMySNU(context, ref),
+            icon: const Icon(Icons.login, size: 18),
+            label: const Text('마이스누 로그인하고 불러오기'),
           ),
         ),
-        TextButton(
-          onPressed: () => _openMySNU(context, ref),
-          child: const Text('마이스누', style: TextStyle(fontSize: 12)),
-        ),
+        const SizedBox(height: 2),
         TextButton(
           onPressed: () => _importIcs(context, ref),
-          child: const Text('ICS', style: TextStyle(fontSize: 12)),
+          child: const Text('에브리타임 ICS로 가져오기',
+              style: TextStyle(fontSize: 12)),
+        ),
+        const Text(
+          '또는 우하단 +로 직접 추가',
+          style: TextStyle(fontSize: 11, color: Color(0xFF9AA7BF)),
         ),
       ],
     ),
