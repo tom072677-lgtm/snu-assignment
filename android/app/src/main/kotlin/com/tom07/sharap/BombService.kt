@@ -146,10 +146,12 @@ class BombService : Service() {
         val remaining = (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0L)
         val elapsed = (WINDOW_MS - remaining).coerceIn(0L, WINDOW_MS)
         val progress = (elapsed * PROGRESS_MAX / WINDOW_MS).toInt()
+        // 앱 내 폭탄 배너와 동일: 평소 주황(E65100), 마감 1시간 이내면 빨강(D32F2F)
+        val bgColor = if (remaining < 3_600_000L) 0xFFD32F2F.toInt() else 0xFFE65100.toInt()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bomb)
-            .setColor(0xFFD32F2F.toInt())
+            .setColor(bgColor)
             .setColorized(true)
             .setContentTitle(displayTitle)
             .setContentText(title)
