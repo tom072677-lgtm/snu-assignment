@@ -185,6 +185,8 @@ class BombService : Service() {
         } else {
             R.drawable.bomb_gradient
         }
+        // 카드 전체를 덮을 기본색 = 그라데이션 시작색 (헤더까지 같은 색으로 채움)
+        val baseColor = if (remaining < 3_600_000L) 0xFFB71C1C.toInt() else 0xFFE65100.toInt()
 
         // 커스텀 레이아웃 — 그라데이션 배경 + 카운트다운 + 진행바 (앱 내 배너와 동일한 느낌)
         val rv = RemoteViews(packageName, R.layout.bomb_notification)
@@ -198,6 +200,8 @@ class BombService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bomb)
+            .setColorized(true)
+            .setColor(baseColor)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
