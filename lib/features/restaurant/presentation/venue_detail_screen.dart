@@ -111,7 +111,7 @@ class _InfoCard extends StatelessWidget {
             if (venue.phone != null) ...[
               const Divider(height: 16),
               GestureDetector(
-                onTap: () => launchUrl(Uri.parse('tel:${venue.phone}')),
+                onTap: () => _launchTel(context, venue.phone!),
                 child: _Row(
                   icon: Icons.phone_outlined,
                   label: '전화',
@@ -146,6 +146,20 @@ class _InfoCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _launchTel(BuildContext context, String phone) async {
+    try {
+      final uri = Uri.parse('tel:$phone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
+    } catch (e) {
+      debugPrint('[venue] 전화 연결 실패: $e');
+    }
   }
 }
 
@@ -330,10 +344,7 @@ class _InstagramCard extends StatelessWidget {
                 const Spacer(),
                 if (venue.instagramHandle != null)
                   TextButton(
-                    onPressed: () => launchUrl(
-                      Uri.parse(
-                          'https://instagram.com/${venue.instagramHandle!.replaceAll('@', '')}'),
-                    ),
+                    onPressed: () => _openInstagram(context),
                     child: Text(venue.instagramHandle!,
                         style: const TextStyle(fontSize: 12)),
                   ),
@@ -350,6 +361,21 @@ class _InstagramCard extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openInstagram(BuildContext context) async {
+    try {
+      final uri = Uri.parse(
+          'https://instagram.com/${venue.instagramHandle!.replaceAll('@', '')}');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
+    } catch (e) {
+      debugPrint('[venue] 인스타그램 열기 실패: $e');
+    }
+  }
 }
 
 class _IgPost extends StatelessWidget {
@@ -359,12 +385,10 @@ class _IgPost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final caption = (post['caption'] as String? ?? '').split('\n').first;
-    final date = (post['date'] as String? ?? '').substring(0, 10);
+    final raw = post['date'] as String? ?? '';
+    final date = raw.length >= 10 ? raw.substring(0, 10) : raw;
     return GestureDetector(
-      onTap: () {
-        final url = post['url'] as String?;
-        if (url != null) launchUrl(Uri.parse(url));
-      },
+      onTap: () => _openPost(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
@@ -400,5 +424,26 @@ class _IgPost extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // 스크래핑된 게시물 URL은 신뢰할 수 없으므로 scheme 검증 후 열기
+  Future<void> _openPost(BuildContext context) async {
+    final url = post['url'] as String?;
+    if (url == null) return;
+    try {
+      final uri = Uri.parse(url);
+      if (uri.scheme != 'http' && uri.scheme != 'https') {
+        debugPrint('[venue] 차단된 게시물 scheme: ${uri.scheme}');
+        return;
+      }
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
+    } catch (e) {
+      debugPrint('[venue] 게시물 열기 실패: $e');
+    }
   }
 }
