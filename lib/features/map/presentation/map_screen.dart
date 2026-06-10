@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' show Position, Geolocator;
-import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import '../data/map_repository.dart';
 import '../../../features/partner/data/partner_repository.dart';
 import '../../../features/partner/domain/partner_restaurant.dart';
@@ -138,7 +138,7 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen>
     with SingleTickerProviderStateMixin {
   NaverMapController? _mapCtrl;
-  StreamSubscription<MagnetometerEvent>? _compassSub;
+  StreamSubscription<CompassEvent>? _compassSub;
   double _heading = 0;
   bool _compassMode = false;
   Position? _initialPosition;
@@ -215,11 +215,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   // ── 나침반 ────────────────────────────────────────────────────────
 
   void _startCompass() {
-    // 자기장 이벤트는 초당 수십~수백 회 → 1도 미만 변화는 무시해 rebuild 폭주 방지
-    _compassSub = magnetometerEventStream(
-            samplingPeriod: SensorInterval.uiInterval)
-        .listen((event) {
-      final heading = math.atan2(event.y, event.x) * (180 / math.pi);
+    final stream = FlutterCompass.events;
+    if (stream == null) return; // 나침반 센서가 없는 기기
+    // flutter_compass: 가속도계+자기계 융합으로 기울임 보정된 heading 제공
+    // (raw atan2와 달리 폰을 손에 들어도 정확). 1도 미만 변화는 무시해 rebuild 폭주 방지.
+    _compassSub = stream.listen((event) {
+      final heading = event.heading;
+      if (heading == null || !mounted) return; // 센서 캘리브레이션 필요 시 null
       if ((heading - _heading).abs() < 1) return;
       setState(() => _heading = heading);
       if (_compassMode) {

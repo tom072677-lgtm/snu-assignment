@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../data/favorites_repository.dart';
@@ -213,11 +214,39 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
       return;
     }
     if (!_sttReady) {
-      if (mounted) {
+      // 권한 거부와 엔진 부재를 구분해 안내한다.
+      final status = await Permission.microphone.status;
+      if (!mounted) return;
+      if (status.isPermanentlyDenied) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('음성 인식을 사용할 수 없습니다')),
+          const SnackBar(
+            content: Text('마이크 권한이 차단되어 있어요'),
+            action: SnackBarAction(label: '설정 열기', onPressed: openAppSettings),
+          ),
         );
+        return;
       }
+      if (status.isDenied) {
+        // 재요청 후 허용되면 STT 재초기화 (이후 다시 마이크 버튼을 누르면 동작)
+        final result = await Permission.microphone.request();
+        if (result.isGranted) {
+          await _initStt();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('마이크 권한이 허용됐어요. 다시 눌러 주세요')),
+            );
+          }
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('음성 검색을 하려면 마이크 권한이 필요해요')),
+          );
+        }
+        return;
+      }
+      // 권한은 있으나 음성 엔진을 쓸 수 없는 기기
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이 기기에서는 음성 인식을 사용할 수 없어요')),
+      );
       return;
     }
     _focus.unfocus();

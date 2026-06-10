@@ -28,7 +28,7 @@ dependencies:
   # 지도
   flutter_naver_map: ^1.4.4
   geolocator: ^13.0.1
-  sensors_plus: ^5.0.1
+  flutter_compass: ^0.8.1  # 나침반 (가속도계+자기계 융합, 기울임 보정 heading)
 
   # 달력 UI
   table_calendar: ^3.1.2
@@ -57,6 +57,9 @@ dependencies:
   uuid: ^4.4.0
   url_launcher: ^6.3.0
   xml: ^6.5.0
+
+  # 권한 (마이크 등 — 권한 상태 구분 + 설정 딥링크)
+  permission_handler: ^12.0.3
 
 dev_dependencies:
   flutter_test:
