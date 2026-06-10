@@ -18,9 +18,9 @@ import androidx.core.app.ServiceCompat
 
 /**
  * 마감 임박 과제를 위한 포그라운드 서비스.
- * Android 14+에서는 일반 ongoing 알림이 스와이프로 지워지므로,
- * 포그라운드 서비스 알림으로 띄워 사용자가 밀어서 지울 수 없게 한다.
- * (단, 설정 > 강제 종료로는 종료 가능 — 이는 OS 정책상 불가피)
+ * Android 14+에서 일반 ongoing 알림은 스와이프로 지워지므로, 포그라운드 서비스 알림으로
+ * 띄워 못 지우게 한다. 진행바(setProgress)를 1분마다 갱신해 앱 내 폭탄 배너처럼
+ * 24시간(왼쪽)→0시간(오른쪽)으로 채워지게 한다. (설정>강제 종료로는 종료 가능 — OS 정책)
  */
 class BombService : Service() {
 
@@ -30,10 +30,18 @@ class BombService : Service() {
         const val FGS_NOTIF_ID = 990001
         const val CHANNEL_ID = "sharap_ongoing"
         const val CHANNEL_NAME = "샤랍 마감 임박 알림"
+        const val WINDOW_MS = 24L * 3600L * 1000L // 진행바 기준 윈도우 (24시간)
+        const val UPDATE_INTERVAL_MS = 60_000L // 1분마다 진행바 갱신
+        const val PROGRESS_MAX = 1000
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    private var stopRunnable: Runnable? = null
+    private var updateRunnable: Runnable? = null
+
+    private var courseName = ""
+    private var title = ""
+    private var deadlineMillis = 0L
+    private var regularId = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -43,28 +51,26 @@ class BombService : Service() {
             return START_NOT_STICKY
         }
 
-        val courseName = intent?.getStringExtra("courseName") ?: ""
-        val title = intent?.getStringExtra("title") ?: ""
-        val deadlineMillis = intent?.getLongExtra("deadlineMillis", 0L) ?: 0L
-        val regularId = intent?.getIntExtra("regularId", 0) ?: 0
+        courseName = intent?.getStringExtra("courseName") ?: ""
+        title = intent?.getStringExtra("title") ?: ""
+        deadlineMillis = intent?.getLongExtra("deadlineMillis", 0L) ?: 0L
+        regularId = intent?.getIntExtra("regularId", 0) ?: 0
 
-        // 이미 마감 → 서비스 종료
+        // 이미 마감 → 종료
         if (deadlineMillis <= System.currentTimeMillis()) {
             stopBomb()
             return START_NOT_STICKY
         }
 
         ensureChannel()
-        val notif = buildNotification(courseName, title, deadlineMillis)
-
         try {
             val type = if (Build.VERSION.SDK_INT >= 34) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             } else {
                 0
             }
-            ServiceCompat.startForeground(this, FGS_NOTIF_ID, notif, type)
-            // FGS 성공 → 기존 일반(밀어서 지워지는) 알림 제거, FGS 알림이 대체
+            ServiceCompat.startForeground(this, FGS_NOTIF_ID, buildNotification(), type)
+            // FGS 성공 → 기존 일반(밀어서 지워지는) 알림 제거
             if (regularId != 0) {
                 NotificationManagerCompat.from(this).cancel(regularId)
             }
@@ -72,7 +78,7 @@ class BombService : Service() {
             // FGS 시작 실패 → 최후 폴백으로 일반 알림 발송 후 종료 (알림 없는 상태 방지)
             if (regularId != 0) {
                 try {
-                    NotificationManagerCompat.from(this).notify(regularId, notif)
+                    NotificationManagerCompat.from(this).notify(regularId, buildNotification())
                 } catch (_: Exception) {
                 }
             }
@@ -80,31 +86,39 @@ class BombService : Service() {
             return START_NOT_STICKY
         }
 
-        scheduleStop(deadlineMillis)
+        startUpdates()
         return START_REDELIVER_INTENT
     }
 
-    /** 마감 시각에 서비스 자동 종료 예약 */
-    private fun scheduleStop(deadlineMillis: Long) {
-        stopRunnable?.let { handler.removeCallbacks(it) }
-        val delay = deadlineMillis - System.currentTimeMillis()
-        if (delay <= 0) {
-            stopBomb()
-            return
+    /** 1분마다 진행바를 갱신해 24h→0h로 채워지게 한다. 마감 시각이 되면 종료. */
+    private fun startUpdates() {
+        updateRunnable?.let { handler.removeCallbacks(it) }
+        val r = object : Runnable {
+            override fun run() {
+                if (deadlineMillis <= System.currentTimeMillis()) {
+                    stopBomb()
+                    return
+                }
+                try {
+                    NotificationManagerCompat.from(this@BombService)
+                        .notify(FGS_NOTIF_ID, buildNotification())
+                } catch (_: Exception) {
+                }
+                handler.postDelayed(this, UPDATE_INTERVAL_MS)
+            }
         }
-        val r = Runnable { stopBomb() }
-        stopRunnable = r
-        handler.postDelayed(r, delay)
+        updateRunnable = r
+        handler.postDelayed(r, UPDATE_INTERVAL_MS)
     }
 
     private fun stopBomb() {
-        stopRunnable?.let { handler.removeCallbacks(it) }
+        updateRunnable?.let { handler.removeCallbacks(it) }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     override fun onDestroy() {
-        stopRunnable?.let { handler.removeCallbacks(it) }
+        updateRunnable?.let { handler.removeCallbacks(it) }
         super.onDestroy()
     }
 
@@ -120,23 +134,26 @@ class BombService : Service() {
         }
     }
 
-    private fun buildNotification(
-        courseName: String,
-        title: String,
-        deadlineMillis: Long,
-    ): Notification {
+    private fun buildNotification(): Notification {
         val displayTitle = "💣 " + if (courseName.isNotEmpty()) courseName else title
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
         val contentPi = PendingIntent.getActivity(
             this, 0, launch,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
+        // 진행바: 24시간 남으면 0%(왼쪽), 마감이면 100%(오른쪽) — 앱 내 폭탄 배너와 동일 방향
+        val remaining = (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+        val elapsed = (WINDOW_MS - remaining).coerceIn(0L, WINDOW_MS)
+        val progress = (elapsed * PROGRESS_MAX / WINDOW_MS).toInt()
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bomb)
             .setColor(0xFFD32F2F.toInt())
             .setColorized(true)
             .setContentTitle(displayTitle)
             .setContentText(title)
+            .setProgress(PROGRESS_MAX, progress, false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
