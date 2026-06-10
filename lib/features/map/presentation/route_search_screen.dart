@@ -172,7 +172,8 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
       // stale response 방지: 이미 다른 쿼리로 넘어갔으면 무시
       if (!mounted || _activeQuery != trimmed) return;
       setState(() => _suggestions = results.take(8).toList());
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[route_search] search error: $e');
       if (!mounted || _activeQuery != trimmed) return;
       setState(() => _suggestions = []);
     } finally {
@@ -537,6 +538,9 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final showResults = _suggestions.isNotEmpty;
+    // 검색어가 있는데 결과가 0건이면 '검색 결과 없음' 표시 (최근 검색 대신)
+    final showNoResults =
+        !_loading && _suggestions.isEmpty && _activeQuery.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -593,6 +597,15 @@ class _RouteSearchScreenState extends ConsumerState<RouteSearchScreen> {
                   const SizedBox(height: 2),
                 if (showResults)
                   _buildSuggestions()
+                else if (showNoResults)
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        '검색 결과가 없습니다',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
                 else
                   _buildRecentsSection(),
               ],

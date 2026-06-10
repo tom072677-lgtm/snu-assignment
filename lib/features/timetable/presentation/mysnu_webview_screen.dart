@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -19,6 +20,8 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
   bool _loading    = true;
   bool _loggedIn   = false;
   bool _captured   = false;
+  bool _gaveUp     = false;
+  Timer? _giveUpTimer;
   String _statusMsg = '';
 
   static const _startUrl = 'https://my.snu.ac.kr/login.jsp';
@@ -116,6 +119,12 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
       ..loadRequest(Uri.parse(_startUrl));
   }
 
+  @override
+  void dispose() {
+    _giveUpTimer?.cancel();
+    super.dispose();
+  }
+
   void _onPageDone(String url) {
     if (!mounted) return;
     setState(() => _loading = false);
@@ -138,6 +147,11 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
         setState(() => _statusMsg = '로그인 완료 — 수업 메뉴를 찾는 중...');
         // DOM에서 시간표 링크 자동 탐색 시도
         Future.delayed(const Duration(milliseconds: 800), _tryDomSearch);
+        // 30초 안에 캡처 못 하면 무한 대기 방지를 위해 수동 안내 표시
+        _giveUpTimer = Timer(const Duration(seconds: 30), () {
+          if (!mounted || _captured) return;
+          setState(() => _gaveUp = true);
+        });
       }
     }
   }
@@ -195,6 +209,7 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
     final sessions = _parseSlim(slim);
     if (sessions.isNotEmpty) {
       _captured = true;
+      _giveUpTimer?.cancel();
       debugPrint('[mySNU] 성공! ${sessions.length}개 수업 추출');
       Navigator.pop(context, sessions);
     }
@@ -345,8 +360,46 @@ class _MySNUWebViewScreenState extends State<MySNUWebViewScreen> {
       ),
       body: Stack(children: [
         WebViewWidget(controller: _ctrl),
+        // 자동 캡처 실패 시: 화면 하단에 눈에 띄는 안내 카드 + 뒤로 가기 버튼
+        if (_gaveUp)
+          Positioned(
+            bottom: 12, left: 12, right: 12,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '시간표를 자동으로 찾지 못했어요. 수업/시간표 탭을 직접 눌러보거나, '
+                      '뒤로 가서 ICS 가져오기 또는 직접 추가를 이용해 주세요.',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => setState(() => _gaveUp = false),
+                          child: const Text('닫기'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('뒤로 가기'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
         // 상태 메시지: 좌하단 소형 chip — 화면을 덮지 않음
-        if (_statusMsg.isNotEmpty)
+        else if (_statusMsg.isNotEmpty)
           Positioned(
             bottom: 12, left: 12,
             child: Material(

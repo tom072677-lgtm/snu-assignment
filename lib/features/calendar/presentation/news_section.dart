@@ -135,6 +135,12 @@ class _ScheduleList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Center(
+        child: Text('표시할 항목이 없어요',
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (_, i) {
@@ -159,6 +165,12 @@ class _NoticeList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Center(
+        child: Text('표시할 항목이 없어요',
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (_, i) {

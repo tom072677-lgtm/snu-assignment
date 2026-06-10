@@ -50,7 +50,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           onRetry: () => ref.invalidate(librarySeatsProvider),
         ),
         data: (data) => data.rooms.isEmpty
-            ? _EmptyView(updatedAt: data.updatedAt)
+            ? _EmptyView(
+                updatedAt: data.updatedAt,
+                onRetry: () => ref.invalidate(librarySeatsProvider),
+              )
             : _RoomList(data: data),
       ),
     );
@@ -151,7 +154,8 @@ class _SeatCard extends StatelessWidget {
 
 class _EmptyView extends StatelessWidget {
   final DateTime? updatedAt;
-  const _EmptyView({this.updatedAt});
+  final VoidCallback onRetry;
+  const _EmptyView({this.updatedAt, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +171,8 @@ class _EmptyView extends StatelessWidget {
             '도서관 시스템이 점검 중일 수 있어요',
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
         ],
       ),
     );

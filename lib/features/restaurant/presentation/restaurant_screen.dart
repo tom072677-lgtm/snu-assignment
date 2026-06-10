@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/analytics.dart';
 import '../../../shared/providers/settings_provider.dart';
+import '../../../shared/widgets/friendly_error.dart';
 import '../data/venue_repository.dart';
 import '../domain/venue.dart';
 import 'venue_detail_screen.dart';
@@ -157,21 +158,24 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
     final venuesAsync = ref.watch(venuesProvider);
     return venuesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 12),
-            Text(e.toString(), style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => ref.invalidate(venuesProvider),
-              child: const Text('다시 시도'),
-            ),
-          ],
-        ),
-      ),
+      error: (e, _) {
+        debugPrint('[restaurant] load error: $e');
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 12),
+              Text(friendlyError(e), style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => ref.invalidate(venuesProvider),
+                child: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        );
+      },
       data: (venues) {
         final filtered = _filter(venues);
         return Column(
@@ -220,13 +224,16 @@ class _RestaurantScreenState extends ConsumerState<RestaurantScreen>
     final async = ref.watch(partnerRestaurantsProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Text(
-          '불러오기 실패\n$e',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.grey),
-        ),
-      ),
+      error: (e, _) {
+        debugPrint('[restaurant] load error: $e');
+        return Center(
+          child: Text(
+            friendlyError(e),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey),
+          ),
+        );
+      },
       data: (list) {
         final active = list.where((r) => !r.isExpired).toList();
         if (active.isEmpty) {

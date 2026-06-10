@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/settings_provider.dart';
 import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/friendly_error.dart';
 import '../data/assignment_repository.dart';
 import 'widgets/assignment_card.dart';
 import 'widgets/bomb_countdown_banner.dart';
@@ -51,10 +52,13 @@ class AssignmentsScreen extends ConsumerWidget {
                 ? _buildNoEtl(context, ref)
                 : assignmentsAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => ErrorView(
-                      message: e.toString(),
-                      onRetry: () => ref.invalidate(assignmentsProvider),
-                    ),
+                    error: (e, _) {
+                      debugPrint('[assignments] load error: $e');
+                      return ErrorView(
+                        message: friendlyError(e),
+                        onRetry: () => ref.invalidate(assignmentsProvider),
+                      );
+                    },
                     data: (assignments) {
                       final active = assignments
                           .where((a) => !completed.contains(a.etlId))

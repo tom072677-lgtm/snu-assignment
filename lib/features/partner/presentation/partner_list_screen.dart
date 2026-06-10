@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/partner_repository.dart';
 import '../domain/partner_restaurant.dart';
 import '../../../shared/providers/settings_provider.dart';
+import '../../../shared/widgets/friendly_error.dart';
 
 /// 제휴 식당 목록 화면.
 /// - 카테고리 필터 (전체 / 음식점 / 카페 / 편의점 / 기타)
@@ -139,23 +140,26 @@ class _PartnerListScreenState extends ConsumerState<PartnerListScreen> {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                    const SizedBox(height: 12),
-                    Text('불러오기 실패\n$e',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: _refresh,
-                      child: const Text('다시 시도'),
-                    ),
-                  ],
-                ),
-              ),
+              error: (e, _) {
+                debugPrint('[partner] load error: $e');
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      Text(friendlyError(e),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: _refresh,
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                );
+              },
               data: (list) {
                 final favIds = ref.watch(favPartnersProvider);
                 var filtered = _selectedCategory == '전체'

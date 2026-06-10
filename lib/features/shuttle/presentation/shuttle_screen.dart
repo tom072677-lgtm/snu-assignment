@@ -24,6 +24,7 @@ class _ShuttleScreenState extends ConsumerState<ShuttleScreen> {
   ShuttleRoute? _selectedRoute;
   ShuttleStation? _selectedStation;
   ShuttleArrival? _arrival;
+  String? _arrivalError;
   bool _loadingArrival = false;
   Timer? _timer;
 
@@ -56,14 +57,23 @@ class _ShuttleScreenState extends ConsumerState<ShuttleScreen> {
     final route = _selectedRoute;
     final station = _selectedStation;
     if (route == null || station == null) return;
-    setState(() => _loadingArrival = true);
+    setState(() {
+      _loadingArrival = true;
+      _arrivalError = null;
+    });
     try {
       final result = await ref
           .read(shuttleRepositoryProvider)
           .fetchArrival(route.id, station.code);
       if (mounted) setState(() { _arrival = result; _loadingArrival = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loadingArrival = false);
+    } catch (e) {
+      debugPrint('[shuttle] arrival fetch failed: $e');
+      if (mounted) {
+        setState(() {
+          _loadingArrival = false;
+          _arrivalError = '도착 정보를 불러오지 못했어요';
+        });
+      }
     }
   }
 
@@ -113,6 +123,7 @@ class _ShuttleScreenState extends ConsumerState<ShuttleScreen> {
     return _ArrivalView(
       arrival: _arrival,
       loading: _loadingArrival,
+      error: _arrivalError,
       stationName: _selectedStation!.name,
       routeName: _selectedRoute!.name,
     );
@@ -315,11 +326,13 @@ class _ArrivalView extends StatelessWidget {
   const _ArrivalView({
     required this.arrival,
     required this.loading,
+    required this.error,
     required this.stationName,
     required this.routeName,
   });
   final ShuttleArrival? arrival;
   final bool loading;
+  final String? error;
   final String stationName;
   final String routeName;
 
@@ -345,7 +358,10 @@ class _ArrivalView extends StatelessWidget {
             if (loading && arrival == null)
               const CircularProgressIndicator()
             else if (arrival == null)
-              const Text('정보를 불러오는 중...')
+              Text(
+                error ?? '도착 정보를 불러오지 못했어요',
+                style: const TextStyle(color: Colors.grey),
+              )
             else ...[
               _ArrivalChip(label: '첫번째 버스', value: arrival!.first),
               if (arrival!.second != null) ...[
