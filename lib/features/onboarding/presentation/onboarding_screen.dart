@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/snu_departments.dart';
 import '../../../shared/providers/settings_provider.dart';
+import '../../opportunities/data/prefs_store.dart';
+import '../../opportunities/domain/user_prefs.dart';
 
 const _kStatusOptions = ['학사', '석사', '박사'];
 
@@ -15,8 +17,9 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  int _step = 0; // 0: 단과대, 1: 학과, 2: 학적
+  int _step = 0; // 0: 단과대, 1: 학과, 2: 학적, 3: 관심분야
   SnuCollege? _selectedCollege;
+  final Set<String> _interests = {};
 
   void _selectCollege(SnuCollege college) {
     setState(() {
@@ -33,6 +36,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _selectStatus(String? status) {
     ref.read(academicStatusProvider.notifier).set(status);
+    setState(() => _step = 3); // 학적 선택 후 관심분야 스텝으로
+  }
+
+  Future<void> _finishOnboarding() async {
+    await OppPrefsStore().save(OppUserPrefs(interests: _interests));
+    if (!mounted) return;
     ref.read(onboardingCompleteProvider.notifier).set(true);
   }
 
@@ -60,9 +69,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           const Icon(Icons.arrow_back_ios,
                               size: 16, color: Color(0xFF555555)),
                           Text(
-                            _step == 1
-                                ? _selectedCollege!.name
-                                : '학과/학부',
+                            switch (_step) {
+                              1 => _selectedCollege!.name,
+                              2 => '학과/학부',
+                              _ => '학적',
+                            },
                             style: const TextStyle(
                                 fontSize: 14, color: Color(0xFF555555)),
                           ),
@@ -83,7 +94,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     switch (_step) {
                       0 => '소속 단과대학을 선택해주세요\n제휴 식당 및 복지 혜택을 확인할 수 있어요.',
                       1 => '학과/학부를 선택해주세요',
-                      _ => '학적을 선택해주세요\n비교과 프로그램 필터링에 사용돼요.',
+                      2 => '학적을 선택해주세요\n비교과 프로그램 필터링에 사용돼요.',
+                      _ => '관심 분야를 선택해주세요\n혜택·기회 탭에서 맞춤 추천에 사용돼요.',
                     },
                     style: const TextStyle(
                       fontSize: 16,
@@ -104,6 +116,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _StepDot(active: _step >= 1, label: '학과'),
                   _StepLine(active: _step >= 2),
                   _StepDot(active: _step >= 2, label: '학적'),
+                  _StepLine(active: _step >= 3),
+                  _StepDot(active: _step >= 3, label: '관심'),
                 ],
               ),
             ),
@@ -113,7 +127,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               child: switch (_step) {
                 0 => _buildCollegeList(),
                 1 => _buildDeptList(),
-                _ => _buildStatusList(),
+                2 => _buildStatusList(),
+                _ => _buildInterestsList(),
               },
             ),
           ],
@@ -195,6 +210,52 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           const Spacer(),
           TextButton(
             onPressed: () => _selectStatus(null),
+            child: const Text(
+              '건너뛰기',
+              style: TextStyle(color: Color(0xFF888888), fontSize: 14),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInterestsList() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final opt in kInterestOptions)
+                    FilterChip(
+                      label: Text(opt),
+                      selected: _interests.contains(opt),
+                      onSelected: (v) => setState(() {
+                        if (v) {
+                          _interests.add(opt);
+                        } else {
+                          _interests.remove(opt);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: _finishOnboarding,
+            child: const Text('시작하기'),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _finishOnboarding,
             child: const Text(
               '건너뛰기',
               style: TextStyle(color: Color(0xFF888888), fontSize: 14),
