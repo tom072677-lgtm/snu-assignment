@@ -136,11 +136,23 @@ async function fetchKdtCourses(pageSize = 100) {
   }));
 }
 
+// 공모전(격리 스크래핑 모듈). 파일이 없거나 던져도 다른 소스엔 영향 없음.
+let fetchContests = async () => [];
+try {
+  ({ fetchContests } = require("./contests"));
+} catch (e) {
+  console.warn("[opportunities] contests 모듈 없음 — 공모전 생략:", e.message);
+}
+
 // ── 집계: 소스별 실패 격리 + 마감필터 + dedup ──────────────
 async function getOpportunities() {
-  const settled = await Promise.allSettled([fetchScholarships(), fetchKdtCourses()]);
+  const settled = await Promise.allSettled([
+    fetchScholarships(),
+    fetchKdtCourses(),
+    fetchContests(),
+  ]);
   let items = [];
-  const labels = ["scholarship", "education"];
+  const labels = ["scholarship", "education", "contest"];
   settled.forEach((s, i) => {
     if (s.status === "fulfilled") items.push(...s.value);
     else console.error(`[opportunities] ${labels[i]} 소스 실패:`, s.reason && s.reason.message);
