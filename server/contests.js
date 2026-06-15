@@ -36,7 +36,17 @@ function pruned(obj) {
 async function fetchContests() {
   const url = "https://www.wevity.com/?c=find&s=1";
   const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "text/html" },
+    headers: {
+      "User-Agent": UA,
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      Referer: "https://www.wevity.com/",
+      "Upgrade-Insecure-Requests": "1",
+      "sec-ch-ua": '"Chromium";v="120", "Not?A_Brand";v="24"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+    },
   });
   if (!res.ok) throw new Error(`위비티 HTTP ${res.status}`);
   const html = await res.text();
