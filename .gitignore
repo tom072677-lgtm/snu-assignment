@@ -40,3 +40,6 @@ replacements.txt
 node_modules/
 server/node_modules/
 *.log
+
+# Superpowers brainstorm 목업 산출물
+.superpowers/
