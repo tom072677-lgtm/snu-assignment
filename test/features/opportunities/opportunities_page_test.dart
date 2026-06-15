@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sharap/features/opportunities/data/opportunity_repository.dart';
+import 'package:sharap/features/opportunities/data/contest_scraper.dart';
+import 'package:sharap/features/opportunities/domain/opportunity.dart';
 import 'package:sharap/features/opportunities/presentation/opportunities_providers.dart';
 import 'package:sharap/features/opportunities/presentation/opportunity_card.dart';
 import 'package:sharap/features/opportunities/presentation/opportunities_page.dart';
@@ -14,6 +16,11 @@ const _json = '''
 ]
 ''';
 
+class _FakeScraper extends ContestScraper {
+  @override
+  Future<List<Opportunity>> fetch() async => [];
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -24,6 +31,7 @@ void main() {
       overrides: [
         opportunityRepositoryProvider.overrideWithValue(
             FixtureOpportunityRepository(loadAsset: (_) async => _json)),
+        contestScraperProvider.overrideWithValue(_FakeScraper()),
       ],
       child: const MaterialApp(home: OpportunitiesPage()),
     ));

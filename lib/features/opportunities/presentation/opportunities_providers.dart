@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/notification_service.dart';
 import '../data/opportunity_repository.dart';
 import '../data/server_opportunity_repository.dart';
+import '../data/contest_scraper.dart';
 import '../data/scrap_store.dart';
 import '../data/prefs_store.dart';
 import '../domain/opportunity.dart';
@@ -15,8 +17,22 @@ final opportunityRepositoryProvider =
 final scrapStoreProvider = Provider<ScrapStore>((ref) => ScrapStore());
 final prefsStoreProvider = Provider<OppPrefsStore>((ref) => OppPrefsStore());
 
-final allOpportunitiesProvider = FutureProvider<List<Opportunity>>(
-    (ref) => ref.watch(opportunityRepositoryProvider).fetchAll());
+// 공모전은 위비티가 클라우드 IP를 막아 서버에선 못 긁음 → 온디바이스(폰 IP)로 스크랩.
+final contestScraperProvider = Provider<ContestScraper>((ref) => ContestScraper());
+
+// 서버(장학·교육) + 온디바이스(공모전) 병합. 공모전 실패해도 서버 데이터는 그대로.
+final allOpportunitiesProvider = FutureProvider<List<Opportunity>>((ref) async {
+  final repo = ref.watch(opportunityRepositoryProvider);
+  final scraper = ref.watch(contestScraperProvider);
+  final results = await Future.wait<List<Opportunity>>([
+    repo.fetchAll(),
+    scraper.fetch().catchError((Object e) {
+      debugPrint('[opportunities] 공모전 스크랩 실패: $e');
+      return <Opportunity>[];
+    }),
+  ]);
+  return [...results[0], ...results[1]];
+});
 
 final userPrefsProvider = FutureProvider<OppUserPrefs>(
     (ref) => ref.watch(prefsStoreProvider).load());
