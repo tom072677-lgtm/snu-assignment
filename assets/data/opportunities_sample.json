@@ -1,0 +1,8 @@
+[
+  {"id":"uth2","category":"contest","title":"제2회 유쓰 쇼츠 페스티벌","organization":"LG유플러스","url":"https://www.lguplus.com/uth","source":"sample","deadline":"2026-07-31","tags":["영상/콘텐츠","마케팅"],"summary":"AI로 쇼츠 제작, 대상 LA 연수","extra":{"prize":"LA 5박7일 연수 + 상금","target":"누구나","field":"영상/AI"}},
+  {"id":"sch_blue","category":"scholarship","title":"푸른등대 기부장학금","organization":"한국장학재단","url":"https://www.kosaf.go.kr","source":"sample","deadline":"2026-07-18","region":"전국","tags":["생활비","중복가능"],"extra":{"amount":"100~500만원","eligibility":"8구간 이하"}},
+  {"id":"edu_ssafy","category":"education","title":"SSAFY 16기 모집","organization":"삼성","url":"https://www.ssafy.com","source":"sample","deadline":"2026-08-12","tags":["IT/개발","이공계/연구"],"extra":{"period":"1년","cost":"무료 + 월 140만원","capacity":"제한"}},
+  {"id":"act_supporters","category":"activity","title":"○○ 서포터즈 3기","organization":"△△재단","url":"https://example.org","source":"sample","deadline":"2026-08-05","tags":["마케팅","기획"],"extra":{"prize":"활동비 + 수료증","target":"대학생"}},
+  {"id":"intern_alio","category":"intern","title":"공공기관 체험형 청년인턴","organization":"○○공사","url":"https://www.alio.go.kr","source":"sample","deadline":"2026-07-25","region":"세종","tags":["경영/경제"],"extra":{"pay":"월 약 215만원","term":"3개월"}},
+  {"id":"con_design","category":"contest","title":"전국 대학생 디자인 공모전","organization":"□□협회","url":"https://example.org/design","source":"sample","deadline":"2026-09-01","tags":["디자인","예술/문학"],"extra":{"prize":"대상 300만원","target":"대학생","field":"디자인"}}
+]
