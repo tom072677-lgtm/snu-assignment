@@ -9,7 +9,8 @@ import 'opportunity_detail_page.dart';
 import 'my_scraps_page.dart';
 
 class OpportunitiesPage extends ConsumerWidget {
-  const OpportunitiesPage({super.key});
+  final bool embedded;
+  const OpportunitiesPage({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,16 +19,7 @@ class OpportunitiesPage extends ConsumerWidget {
     final cat = ref.watch(selectedCategoryProvider);
     final scraps = ref.watch(scrapsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('혜택·기회'), actions: [
-        IconButton(
-          icon: const Icon(Icons.star),
-          tooltip: '내 스크랩',
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const MyScrapsPage())),
-        ),
-      ]),
-      body: Column(children: [
+    final body = Column(children: [
         _CategoryChips(
             selected: cat,
             onSelect: (c) =>
@@ -91,7 +83,18 @@ class OpportunitiesPage extends ConsumerWidget {
             },
           ),
         ),
+      ]);
+    if (embedded) return body;
+    return Scaffold(
+      appBar: AppBar(title: const Text('혜택·기회'), actions: [
+        IconButton(
+          icon: const Icon(Icons.star),
+          tooltip: '내 스크랩',
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const MyScrapsPage())),
+        ),
       ]),
+      body: body,
     );
   }
 }

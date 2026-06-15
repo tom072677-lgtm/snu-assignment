@@ -7,7 +7,8 @@ import '../domain/club.dart';
 /// - 기본: 전체 노출(결정1-B). 가입 자격은 숨김이 아니라 표시 + 선택 필터.
 /// - 활동 분야 6분류 칩 필터 + 가입자격 필터 + 이름/활동 검색.
 class ClubListScreen extends ConsumerStatefulWidget {
-  const ClubListScreen({super.key});
+  final bool embedded;
+  const ClubListScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<ClubListScreen> createState() => _ClubListScreenState();
@@ -38,12 +39,7 @@ class _ClubListScreenState extends ConsumerState<ClubListScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(clubsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('동아리', style: TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: false,
-      ),
-      body: Column(
+    final body = Column(
         children: [
           // 검색 바
           Padding(
@@ -155,7 +151,14 @@ class _ClubListScreenState extends ConsumerState<ClubListScreen> {
             ),
           ),
         ],
+      );
+    if (widget.embedded) return body;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('동아리', style: TextStyle(fontWeight: FontWeight.w700)),
+        centerTitle: false,
       ),
+      body: body,
     );
   }
 }

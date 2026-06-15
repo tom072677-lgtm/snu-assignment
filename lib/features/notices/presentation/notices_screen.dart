@@ -11,6 +11,30 @@ import '../domain/extra_program.dart';
 import '../domain/notice.dart';
 import 'notice_detail_screen.dart';
 
+/// 사용자 학과명 탭 라벨 (정보 탭에서 재사용). 미설정 시 '학과 공지'.
+String deptTabLabel(WidgetRef ref) {
+  final code = ref.watch(departmentCodeProvider);
+  if (code == null) return '학과 공지';
+  for (final c in snuColleges) {
+    for (final d in c.departments) {
+      if (d.code == code) return d.name;
+    }
+  }
+  return '학과 공지';
+}
+
+/// '내 정보 설정' 바텀시트 (정보 탭 AppBar에서 재사용).
+void showNoticeProfileSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const _ProfileSheet(),
+  );
+}
+
 /// 공지/기회 탭 메인 화면
 /// - 체육교육과 탭: 공지 목록 (HTML 스크래핑)
 /// - 비교과 탭: 현재 신청중이거나 5일 이내 시작하는 프로그램 목록
@@ -84,8 +108,8 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen>
       body: TabBarView(
         controller: _tabCtrl,
         children: const [
-          _SportsTab(),
-          _ExtraTab(),
+          SportsTab(),
+          ExtraTab(),
         ],
       ),
     );
@@ -94,14 +118,14 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen>
 
 // ─── 체육교육과 공지 탭 ─────────────────────────────────────────────────────
 
-class _SportsTab extends ConsumerStatefulWidget {
-  const _SportsTab();
+class SportsTab extends ConsumerStatefulWidget {
+  const SportsTab({super.key});
 
   @override
-  ConsumerState<_SportsTab> createState() => _SportsTabState();
+  ConsumerState<SportsTab> createState() => SportsTabState();
 }
 
-class _SportsTabState extends ConsumerState<_SportsTab> {
+class SportsTabState extends ConsumerState<SportsTab> {
   bool _showAll = false;
 
   @override
@@ -333,14 +357,14 @@ class _SportsNoticeItem extends StatelessWidget {
 
 // ─── 비교과 탭 ──────────────────────────────────────────────────────────────
 
-class _ExtraTab extends ConsumerStatefulWidget {
-  const _ExtraTab();
+class ExtraTab extends ConsumerStatefulWidget {
+  const ExtraTab({super.key});
 
   @override
-  ConsumerState<_ExtraTab> createState() => _ExtraTabState();
+  ConsumerState<ExtraTab> createState() => ExtraTabState();
 }
 
-class _ExtraTabState extends ConsumerState<_ExtraTab> {
+class ExtraTabState extends ConsumerState<ExtraTab> {
   bool _myCollegeOnly = false;
 
   String? _userCollegeName() {

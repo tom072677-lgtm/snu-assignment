@@ -6,11 +6,9 @@ import 'core/theme.dart';
 import 'features/assignments/presentation/assignments_screen.dart';
 import 'features/calendar/presentation/calendar_screen.dart';
 import 'features/map/presentation/map_screen.dart';
-import 'features/notices/presentation/notices_screen.dart';
+import 'features/info/presentation/info_screen.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
-import 'features/opportunities/presentation/opportunities_page.dart';
 import 'features/restaurant/presentation/restaurant_screen.dart';
-import 'features/clubs/presentation/club_list_screen.dart';
 import 'features/timetable/presentation/timetable_screen.dart';
 import 'shared/providers/settings_provider.dart';
 
@@ -60,11 +58,9 @@ class _MainShellState extends State<_MainShell> {
     AssignmentsScreen(),
     TimetableScreen(),
     CalendarScreen(),
-    NoticesScreen(),
+    InfoScreen(),
     RestaurantScreen(),
-    ClubListScreen(),
     MapScreen(),
-    OpportunitiesPage(),
   ];
 
   @override
@@ -105,9 +101,9 @@ class _MainShellState extends State<_MainShell> {
             label: '달력',
           ),
           NavigationDestination(
-            icon: Icon(Icons.campaign_outlined),
-            selectedIcon: Icon(Icons.campaign),
-            label: '공지',
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: '정보',
           ),
           NavigationDestination(
             icon: Icon(Icons.restaurant_outlined),
@@ -115,19 +111,9 @@ class _MainShellState extends State<_MainShell> {
             label: '식당',
           ),
           NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: '동아리',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: '지도',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.card_giftcard_outlined),
-            selectedIcon: Icon(Icons.card_giftcard),
-            label: '혜택',
           ),
         ],
       ),
