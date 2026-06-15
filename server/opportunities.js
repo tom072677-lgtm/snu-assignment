@@ -152,10 +152,16 @@ async function getOpportunities() {
     fetchContests(),
   ]);
   let items = [];
+  const errors = [];
   const labels = ["scholarship", "education", "contest"];
   settled.forEach((s, i) => {
-    if (s.status === "fulfilled") items.push(...s.value);
-    else console.error(`[opportunities] ${labels[i]} 소스 실패:`, s.reason && s.reason.message);
+    if (s.status === "fulfilled") {
+      items.push(...s.value);
+    } else {
+      const msg = (s.reason && s.reason.message) || String(s.reason);
+      console.error(`[opportunities] ${labels[i]} 소스 실패:`, msg);
+      errors.push({ source: labels[i], message: String(msg).slice(0, 300) });
+    }
   });
 
   // 마감 지난 항목 제거 (deadline 있고 오늘 이전)
@@ -171,7 +177,7 @@ async function getOpportunities() {
     seen.add(key);
     out.push(o);
   }
-  return out;
+  return { items: out, errors };
 }
 
 module.exports = { getOpportunities, fetchScholarships, fetchKdtCourses };

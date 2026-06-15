@@ -2219,10 +2219,10 @@ app.get("/api/opportunities", async (req, res) => {
     return res.json({ source: "cache", count: oppCache.length, items: oppCache });
   }
   try {
-    const items = await getOpportunities();
+    const { items, errors } = await getOpportunities();
     oppCache = items;
     oppCacheAt = Date.now();
-    res.json({ source: "live", count: items.length, items });
+    res.json({ source: "live", count: items.length, errors, items });
   } catch (e) {
     console.error("[opportunities] 실패:", e.message);
     if (oppCache) return res.json({ source: "stale", count: oppCache.length, items: oppCache });
