@@ -2215,7 +2215,8 @@ let oppCacheAt = 0;
 const OPP_TTL = 60 * 60 * 1000; // 1시간
 
 app.get("/api/opportunities", async (req, res) => {
-  if (oppCache && Date.now() - oppCacheAt < OPP_TTL) {
+  // ?fresh=1 → 캐시 우회(진단/강제 갱신용)
+  if (!req.query.fresh && oppCache && Date.now() - oppCacheAt < OPP_TTL) {
     return res.json({ source: "cache", count: oppCache.length, items: oppCache });
   }
   try {
