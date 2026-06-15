@@ -161,6 +161,14 @@ class NotificationService {
     importance: Importance.high,
   );
 
+  // 혜택·기회 마감 알림 채널 (스크랩한 공모전/장학 등 D-3/D-1)
+  static const _oppChannel = AndroidNotificationChannel(
+    'sharap_opp',
+    '샤랍 혜택 마감 알림',
+    description: '스크랩한 공모전·장학·교육 등 마감 임박 알림',
+    importance: Importance.high,
+  );
+
   // 폭탄 긴급 알림 채널 (heads-up 팝업 보장 — Importance.max)
   static const _bombChannelId   = 'sharap_bomb';
   static const _bombChannelName = '샤랍 폭탄 알림';
@@ -201,6 +209,7 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(_announcementChannel);
     await androidPlugin?.createNotificationChannel(_ongoingChannel);
     await androidPlugin?.createNotificationChannel(_bombChannel);
+    await androidPlugin?.createNotificationChannel(_oppChannel);
 
     // FCM 권한 요청
     final messaging = FirebaseMessaging.instance;
@@ -672,6 +681,55 @@ class NotificationService {
       debugPrint('[FCM] eTL 구독 해제 완료');
     } catch (e) {
       debugPrint('[FCM] eTL 구독 해제 실패: $e');
+    }
+  }
+
+  /// 스크랩한 혜택의 마감 D-3, D-1 오전 9시에 로컬 알림 예약(과거 시점은 건너뜀).
+  /// 기존 _stableId(djb2)로 결정적 ID 생성 → 앱 재시작 후에도 cancel 가능.
+  Future<void> scheduleOpportunityDeadline({
+    required String oppId,
+    required String title,
+    required DateTime deadline,
+  }) async {
+    for (final d in [3, 1]) {
+      final when =
+          DateTime(deadline.year, deadline.month, deadline.day - d, 9);
+      if (!when.isAfter(DateTime.now())) continue;
+      final id = _stableId('opp:$oppId:d$d');
+      final details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _oppChannel.id,
+          _oppChannel.name,
+          channelDescription: _oppChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      );
+      try {
+        await _localNotif.zonedSchedule(
+          id,
+          '마감 D-$d · $title',
+          '신청 마감이 다가옵니다. 잊지 마세요!',
+          tz.TZDateTime.from(when, tz.local),
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (e) {
+        debugPrint('[Notif] 혜택 마감 예약 실패(opp:$oppId d$d): $e');
+      }
+    }
+  }
+
+  /// 스크랩 해제 시 해당 혜택의 D-3/D-1 예약 취소.
+  Future<void> cancelOpportunityDeadline(String oppId) async {
+    for (final d in [3, 1]) {
+      try {
+        await _localNotif.cancel(_stableId('opp:$oppId:d$d'));
+      } catch (e) {
+        debugPrint('[Notif] 혜택 마감 취소 실패(opp:$oppId d$d): $e');
+      }
     }
   }
 

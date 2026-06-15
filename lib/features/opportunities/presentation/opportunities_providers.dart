@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../shared/providers/notification_service.dart';
 import '../data/opportunity_repository.dart';
 import '../data/scrap_store.dart';
 import '../data/prefs_store.dart';
@@ -55,3 +56,20 @@ class ScrapsNotifier extends StateNotifier<List<ScrapEntry>> {
 final scrapsProvider =
     StateNotifierProvider<ScrapsNotifier, List<ScrapEntry>>(
         (ref) => ScrapsNotifier(ref.watch(scrapStoreProvider)));
+
+/// 스크랩 토글 + 마감 로컬 알림 예약/취소를 한 곳에서 처리(목록·상세 공용).
+/// 알림은 기존 NotificationService 재사용. 알림 호출은 서비스 내부에서 try/catch됨.
+Future<void> toggleScrapWithNotif(WidgetRef ref, Opportunity o) async {
+  final notifier = ref.read(scrapsProvider.notifier);
+  final notif = ref.read(notificationServiceProvider);
+  if (notifier.isScrapped(o.id)) {
+    await notifier.remove(o.id);
+    await notif.cancelOpportunityDeadline(o.id);
+  } else {
+    await notifier.add(scrapEntryOf(o));
+    if (o.deadline != null) {
+      await notif.scheduleOpportunityDeadline(
+          oppId: o.id, title: o.title, deadline: o.deadline!);
+    }
+  }
+}

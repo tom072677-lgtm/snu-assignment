@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../domain/opportunity.dart';
 import '../domain/pitfall_content.dart';
-import '../domain/scrap_entry.dart';
 import 'opportunities_providers.dart';
 
 class OpportunityDetailPage extends ConsumerWidget {
@@ -37,14 +36,7 @@ class OpportunityDetailPage extends ConsumerWidget {
         IconButton(
           icon: Icon(scrapped ? Icons.star : Icons.star_border,
               color: scrapped ? const Color(0xFFFFB400) : null),
-          onPressed: () {
-            final n = ref.read(scrapsProvider.notifier);
-            if (scrapped) {
-              n.remove(opp.id);
-            } else {
-              n.add(scrapEntryOf(opp));
-            }
-          },
+          onPressed: () => toggleScrapWithNotif(ref, opp),
         ),
       ]),
       body: ListView(padding: const EdgeInsets.all(16), children: [

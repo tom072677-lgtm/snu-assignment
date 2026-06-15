@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/opportunity.dart';
 import '../domain/opportunity_query.dart';
 import '../domain/pitfall_content.dart';
-import '../domain/scrap_entry.dart';
 import 'opportunities_providers.dart';
 import 'opportunity_card.dart';
 import 'opportunity_detail_page.dart';
@@ -84,14 +83,7 @@ class OpportunitiesPage extends ConsumerWidget {
                           MaterialPageRoute(
                               builder: (_) =>
                                   OpportunityDetailPage(opp: o))),
-                      onToggleScrap: () {
-                        final n = ref.read(scrapsProvider.notifier);
-                        if (scrapped) {
-                          n.remove(o.id);
-                        } else {
-                          n.add(scrapEntryOf(o));
-                        }
-                      },
+                      onToggleScrap: () => toggleScrapWithNotif(ref, o),
                     );
                   },
                 ),
