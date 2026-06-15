@@ -2208,6 +2208,28 @@ app.get("/api/dept-notices", async (req, res) => {
   }
 });
 
+// ── 혜택·기회(장학·교육) 집계 ──────────────────────────────
+const { getOpportunities } = require("./opportunities");
+let oppCache = null;
+let oppCacheAt = 0;
+const OPP_TTL = 60 * 60 * 1000; // 1시간
+
+app.get("/api/opportunities", async (req, res) => {
+  if (oppCache && Date.now() - oppCacheAt < OPP_TTL) {
+    return res.json({ source: "cache", count: oppCache.length, items: oppCache });
+  }
+  try {
+    const items = await getOpportunities();
+    oppCache = items;
+    oppCacheAt = Date.now();
+    res.json({ source: "live", count: items.length, items });
+  } catch (e) {
+    console.error("[opportunities] 실패:", e.message);
+    if (oppCache) return res.json({ source: "stale", count: oppCache.length, items: oppCache });
+    res.status(502).json({ error: "fetch-failed" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
 });

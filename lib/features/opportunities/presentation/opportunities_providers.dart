@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/notification_service.dart';
 import '../data/opportunity_repository.dart';
+import '../data/server_opportunity_repository.dart';
 import '../data/scrap_store.dart';
 import '../data/prefs_store.dart';
 import '../domain/opportunity.dart';
 import '../domain/scrap_entry.dart';
 import '../domain/user_prefs.dart';
 
+// 실데이터: 서버 집계 API. (테스트는 이 provider를 Fixture로 override)
 final opportunityRepositoryProvider =
-    Provider<OpportunityRepository>((ref) => FixtureOpportunityRepository());
+    Provider<OpportunityRepository>((ref) => ServerOpportunityRepository());
 
 final scrapStoreProvider = Provider<ScrapStore>((ref) => ScrapStore());
 final prefsStoreProvider = Provider<OppPrefsStore>((ref) => OppPrefsStore());
