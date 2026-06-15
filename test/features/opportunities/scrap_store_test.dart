@@ -25,7 +25,7 @@ void main() {
 
   test('no duplicate on re-add', () async {
     final store = ScrapStore();
-    final e = ScrapEntry(
+    const e = ScrapEntry(
         id: 'x', title: 't', deadline: null, status: ScrapStatus.interested);
     await store.add(e);
     await store.add(e);
@@ -33,7 +33,7 @@ void main() {
   });
 
   test('survives reload (persisted json)', () async {
-    await ScrapStore().add(ScrapEntry(
+    await ScrapStore().add(const ScrapEntry(
         id: 'x', title: 't', deadline: null, status: ScrapStatus.interested));
     final reloaded = await ScrapStore().all();
     expect(reloaded.single.id, 'x');
