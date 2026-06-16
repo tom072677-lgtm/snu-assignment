@@ -32,6 +32,13 @@ class ExtraProgram {
   String get detailUrl =>
       'https://extra.snu.ac.kr/ptfol/pgm/view.do?pgmSeq=$seq';
 
+  /// 프로그램명으로 필터링된 "목록" URL.
+  /// view.do 직접 접근은 NetFunnel anti-bot에 403으로 막히므로(검증됨),
+  /// 정상 목록 페이지(검색 필터)를 열어 그 안에서 클릭해 들어가게 한다.
+  String get searchListUrl =>
+      'https://extra.snu.ac.kr/ptfol/pgm/index.do?currentPageNo=1'
+      '&searchValue=${Uri.encodeComponent(name)}';
+
   /// 사용자의 단과대 이름이 이 프로그램의 신청대상에 해당하는지 판단.
   /// - targetOrg가 비어있거나 "서울대학교"를 포함하면 전체 대상 → true
   /// - collegeName이 null/빈값이면 특정 대상 프로그램은 제외 → false

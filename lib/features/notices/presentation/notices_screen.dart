@@ -578,8 +578,8 @@ class _ExtraProgramTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Text(
-            'ℹ️ 상세 소개·신청은 SNU 비교과 로그인 후 앱 안에서 볼 수 있어요. '
-            '최초 1회만 로그인하면 이후엔 바로 열립니다.',
+            'ℹ️ 아래 버튼을 누르면 앱 안에서 이 프로그램만 검색돼 열려요. '
+            '최초 1회 SNU 로그인 후, 뜬 프로그램을 탭하면 상세·신청이 보입니다.',
             style:
                 TextStyle(fontSize: 12, color: Color(0xFF555555), height: 1.4),
           ),
@@ -594,7 +594,7 @@ class _ExtraProgramTile extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => InAppWebScreen(
-                    url: program.detailUrl, title: program.name),
+                    url: program.searchListUrl, title: program.name),
               ),
             ),
           ),
