@@ -569,11 +569,26 @@ class _ExtraProgramTile extends StatelessWidget {
               : '제한없음',
         ),
         const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F7F7),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Text(
+            'ℹ️ 위 정보가 SNU 비교과가 공개하는 전부예요. 프로그램 상세 소개·신청은 '
+            'SNU 비교과 로그인 후 확인할 수 있습니다.',
+            style:
+                TextStyle(fontSize: 12, color: Color(0xFF777777), height: 1.4),
+          ),
+        ),
+        const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
-          child: OutlinedButton.icon(
+          child: FilledButton.icon(
             icon: const Icon(Icons.open_in_browser, size: 16),
-            label: const Text('신청 페이지 열기'),
+            label: const Text('SNU 비교과에서 상세·신청'),
             onPressed: () async {
               final uri = Uri.parse(program.detailUrl);
               if (await canLaunchUrl(uri)) {

@@ -189,6 +189,7 @@ class NoticeRepository {
         'date': n.date?.toIso8601String(),
         'description': n.description,
         'imageUrl': n.imageUrl,
+        'body': n.body,
       };
 
   Notice _noticeFromMap(Map<String, dynamic> m) => Notice(
@@ -205,6 +206,7 @@ class NoticeRepository {
         date: m['date'] != null ? DateTime.tryParse(m['date'] as String) : null,
         description: m['description'] as String?,
         imageUrl: m['imageUrl'] as String?,
+        body: m['body'] as String?,
       );
 
   // ─── 학과별 공지 (RSS/Atom 피드) ───────────────────────────────────────────
@@ -389,6 +391,7 @@ class NoticeRepository {
           : '';
       if (!seenTitleDate.add('$title|$dateKey')) continue;
 
+      final rawBody = _feedBody(n);
       out.add(Notice(
         id: 'dept_${deptCode}_${_stableHash(norm)}',
         title: title,
@@ -396,6 +399,7 @@ class NoticeRepository {
         source: NoticeSource.department,
         category: _bracketCategory(title),
         date: date,
+        body: rawBody.isEmpty ? null : htmlToText(rawBody),
       ));
       if (out.length >= limit) break;
     }
@@ -408,6 +412,31 @@ class NoticeRepository {
 
   static String _feedText(XmlElement n, String tag) =>
       n.getElement(tag)?.innerText.trim() ?? '';
+
+  /// item 본문 추출: content:encoded(네임스페이스 무관, local name 'encoded') 우선,
+  /// 없으면 description.
+  static String _feedBody(XmlElement n) {
+    for (final e in n.descendantElements) {
+      if (e.name.local == 'encoded') return e.innerText.trim();
+    }
+    return _feedText(n, 'description');
+  }
+
+  /// 본문 HTML을 읽기 쉬운 텍스트로 변환(블록태그→줄바꿈, 엔티티 디코딩, 공백 정리).
+  static String htmlToText(String html) {
+    var s = html;
+    s = s.replaceAll(RegExp(r'<\s*br\s*/?>', caseSensitive: false), '\n');
+    s = s.replaceAll(
+        RegExp(r'</\s*(p|div|li|tr|h[1-6]|table)\s*>', caseSensitive: false),
+        '\n');
+    final frag = html_parser.parseFragment(s);
+    var t = frag.text ?? '';
+    t = t.replaceAll(' ', ' ');
+    t = t.replaceAll(RegExp(r'[ \t ]+'), ' ');
+    t = t.replaceAll(RegExp(r' *\n *'), '\n');
+    t = t.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return t.trim();
+  }
 
   static String _atomLink(XmlElement entry) {
     for (final l in entry.findElements('link')) {

@@ -17,6 +17,7 @@ class Notice {
     this.date,
     this.description,
     this.imageUrl,
+    this.body,
   });
 
   final String id;
@@ -29,6 +30,9 @@ class Notice {
   final DateTime? date;        // 체육교육과 게시일
   final String? description;   // 비교과 설명 텍스트
   final String? imageUrl;      // 비교과 썸네일 URL
+  final String? body;          // 학과 공지 본문(RSS content:encoded → 정제 텍스트)
+
+  bool get hasBody => body != null && body!.trim().isNotEmpty;
 
   bool get isExtra => source == NoticeSource.extra;
   bool get isSports => source == NoticeSource.sports;
