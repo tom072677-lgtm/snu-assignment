@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../features/onboarding/domain/snu_departments.dart';
 import '../../../shared/providers/settings_provider.dart';
+import '../../../shared/widgets/in_app_web_screen.dart';
 import '../data/notice_repository.dart';
 import '../domain/department_notice_source.dart';
 import '../domain/extra_program.dart';
@@ -573,28 +574,29 @@ class _ExtraProgramTile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F7),
+            color: const Color(0xFFF5F7FF),
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Text(
-            'ℹ️ 위 정보가 SNU 비교과가 공개하는 전부예요. 프로그램 상세 소개·신청은 '
-            'SNU 비교과 로그인 후 확인할 수 있습니다.',
+            'ℹ️ 상세 소개·신청은 SNU 비교과 로그인 후 앱 안에서 볼 수 있어요. '
+            '최초 1회만 로그인하면 이후엔 바로 열립니다.',
             style:
-                TextStyle(fontSize: 12, color: Color(0xFF777777), height: 1.4),
+                TextStyle(fontSize: 12, color: Color(0xFF555555), height: 1.4),
           ),
         ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            icon: const Icon(Icons.open_in_browser, size: 16),
-            label: const Text('SNU 비교과에서 상세·신청'),
-            onPressed: () async {
-              final uri = Uri.parse(program.detailUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
+            icon: const Icon(Icons.article_outlined, size: 16),
+            label: const Text('상세 보기 / 신청 (앱 내)'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InAppWebScreen(
+                    url: program.detailUrl, title: program.name),
+              ),
+            ),
           ),
         ),
       ],
