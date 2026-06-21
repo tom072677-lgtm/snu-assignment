@@ -9,22 +9,13 @@ void main() {
 
   test('save and load prefs', () async {
     final store = OppPrefsStore();
-    await store.save(const OppUserPrefs(interests: {'디자인', 'IT/개발'}, region: '서울'));
+    await store.save(const OppUserPrefs(interests: {'디자인', 'IT/개발'}));
     final p = await store.load();
     expect(p.interests, containsAll({'디자인', 'IT/개발'}));
-    expect(p.region, '서울');
   });
 
   test('default is empty', () async {
     final p = await OppPrefsStore().load();
     expect(p.interests, isEmpty);
-    expect(p.region, isNull);
-  });
-
-  test('clearing region removes it', () async {
-    final store = OppPrefsStore();
-    await store.save(const OppUserPrefs(interests: {'기획'}, region: '부산'));
-    await store.save(const OppUserPrefs(interests: {'기획'}, region: null));
-    expect((await store.load()).region, isNull);
   });
 }

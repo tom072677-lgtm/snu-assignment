@@ -283,4 +283,11 @@ async function getOpportunities() {
   return { items: out, errors };
 }
 
-module.exports = { getOpportunities, fetchScholarships, fetchKdtCourses, fetchYouthPolicies };
+module.exports = {
+  getOpportunities,
+  fetchScholarships,
+  fetchKdtCourses,
+  fetchYouthPolicies,
+  regionFromZipCd, // 테스트용 export
+  deadlineFromAplyYmd, // 테스트용 export
+};

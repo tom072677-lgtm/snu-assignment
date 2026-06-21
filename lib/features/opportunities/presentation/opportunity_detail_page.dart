@@ -45,7 +45,7 @@ class OpportunityDetailPage extends ConsumerWidget {
         const SizedBox(height: 6),
         Text(opp.organization, style: const TextStyle(color: Colors.grey)),
         const SizedBox(height: 16),
-        for (final e in opp.extra.entries) _row(e.key, e.value),
+        for (final e in opp.extra.entries) _row(_extraLabel(e.key), e.value),
         if (opp.deadline != null)
           _row('마감',
               '${opp.deadline!.year}.${opp.deadline!.month}.${opp.deadline!.day}'),
@@ -78,6 +78,30 @@ class OpportunityDetailPage extends ConsumerWidget {
       ]),
     );
   }
+
+  // extra 키(영문)를 한글 라벨로. 전 카테고리(장학·교육·공모전·청년정책) 공용.
+  static String _extraLabel(String key) =>
+      const {
+        'support': '지원내용',
+        'amount': '지원금액',
+        'prize': '시상',
+        'cost': '비용',
+        'capacity': '정원',
+        'grade': '성적기준',
+        'eligibility': '소득기준',
+        'restriction': '자격제한',
+        'univType': '대학구분',
+        'residency': '거주요건',
+        'target': '대상',
+        'period': '기간',
+        'field': '분야',
+        'status': '상태',
+        'dday': 'D-day',
+        'applyPeriod': '신청기간',
+        'ageMin': '최소연령',
+        'ageMax': '최대연령',
+      }[key] ??
+      key;
 
   Widget _row(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),

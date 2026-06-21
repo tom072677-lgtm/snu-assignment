@@ -36,14 +36,34 @@ void main() {
     expect(r.map((e) => e.id).toList(), ['today']);
   });
 
-  test('category filter', () {
+  test('category filter (single)', () {
     final list = [
       _o('c', OppCategory.contest, DateTime(2026, 7, 5)),
       _o('s', OppCategory.scholarship, DateTime(2026, 7, 6)),
     ];
     final r = OpportunityQuery.process(list,
-        now: now, category: OppCategory.scholarship);
+        now: now, categories: {OppCategory.scholarship});
     expect(r.map((e) => e.id).toList(), ['s']);
+  });
+
+  test('category filter (multi) keeps any selected', () {
+    final list = [
+      _o('c', OppCategory.contest, DateTime(2026, 7, 5)),
+      _o('s', OppCategory.scholarship, DateTime(2026, 7, 6)),
+      _o('i', OppCategory.intern, DateTime(2026, 7, 7)),
+    ];
+    final r = OpportunityQuery.process(list,
+        now: now, categories: {OppCategory.contest, OppCategory.intern});
+    expect(r.map((e) => e.id).toSet(), {'c', 'i'});
+  });
+
+  test('empty categories = 전체', () {
+    final list = [
+      _o('c', OppCategory.contest, DateTime(2026, 7, 5)),
+      _o('s', OppCategory.scholarship, DateTime(2026, 7, 6)),
+    ];
+    final r = OpportunityQuery.process(list, now: now);
+    expect(r.map((e) => e.id).toSet(), {'c', 's'});
   });
 
   test('region filter keeps nationwide(null) and matching region', () {

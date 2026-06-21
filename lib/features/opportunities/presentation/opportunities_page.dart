@@ -16,14 +16,20 @@ class OpportunitiesPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncAll = ref.watch(allOpportunitiesProvider);
     final asyncPrefs = ref.watch(userPrefsProvider);
-    final cat = ref.watch(selectedCategoryProvider);
+    final cats = ref.watch(selectedCategoryProvider);
     final scraps = ref.watch(scrapsProvider);
 
     final body = Column(children: [
         _CategoryChips(
-            selected: cat,
-            onSelect: (c) =>
-                ref.read(selectedCategoryProvider.notifier).state = c),
+            selected: cats,
+            onToggle: (c) {
+              final next = {...cats};
+              // 이미 선택된 칩을 다시 누르면 해제(사라짐).
+              next.contains(c) ? next.remove(c) : next.add(c);
+              ref.read(selectedCategoryProvider.notifier).state = next;
+            },
+            onClear: () =>
+                ref.read(selectedCategoryProvider.notifier).state = const {}),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
           child: Row(children: [
@@ -47,8 +53,8 @@ class OpportunitiesPage extends ConsumerWidget {
             ),
           ]),
         ),
-        if (cat != null && kPitfalls[cat] != null)
-          _PitfallBanner(pitfall: kPitfalls[cat]!.first),
+        for (final c in cats)
+          if (kPitfalls[c] != null) _PitfallBanner(pitfall: kPitfalls[c]!.first),
         Expanded(
           child: asyncAll.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -62,10 +68,9 @@ class OpportunitiesPage extends ConsumerWidget {
               final list = OpportunityQuery.process(
                 all,
                 now: DateTime.now(),
-                category: cat,
+                categories: cats,
                 interests: prefs?.interests ?? const {},
                 region: ref.watch(selectedRegionProvider), // 앱 내 지역 선택이 단일 권위 소스
-
                 query: ref.watch(searchQueryProvider),
               );
               if (list.isEmpty) {
@@ -111,29 +116,35 @@ class OpportunitiesPage extends ConsumerWidget {
 }
 
 class _CategoryChips extends StatelessWidget {
-  final OppCategory? selected;
-  final ValueChanged<OppCategory?> onSelect;
-  const _CategoryChips({required this.selected, required this.onSelect});
+  final Set<OppCategory> selected;
+  final ValueChanged<OppCategory> onToggle; // 같은 칩 재선택 시 해제
+  final VoidCallback onClear; // '전체' = 선택 비우기
+  const _CategoryChips(
+      {required this.selected, required this.onToggle, required this.onClear});
 
   @override
   Widget build(BuildContext context) {
-    final items = <(String, OppCategory?)>[
-      ('전체', null),
-      for (final c in OppCategory.values) (categoryLabel(c), c),
-    ];
     return SizedBox(
       height: 46,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         children: [
-          for (final it in items)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
+            child: FilterChip(
+              label: const Text('전체'),
+              selected: selected.isEmpty,
+              onSelected: (_) => onClear(),
+            ),
+          ),
+          for (final c in OppCategory.values)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
-              child: ChoiceChip(
-                label: Text(it.$1),
-                selected: selected == it.$2,
-                onSelected: (_) => onSelect(it.$2),
+              child: FilterChip(
+                label: Text(categoryLabel(c)),
+                selected: selected.contains(c),
+                onSelected: (_) => onToggle(c),
               ),
             ),
         ],

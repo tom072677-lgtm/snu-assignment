@@ -37,8 +37,9 @@ final allOpportunitiesProvider = FutureProvider<List<Opportunity>>((ref) async {
 final userPrefsProvider = FutureProvider<OppUserPrefs>(
     (ref) => ref.watch(prefsStoreProvider).load());
 
-/// 카테고리 필터(null=전체) · 검색어.
-final selectedCategoryProvider = StateProvider<OppCategory?>((ref) => null);
+/// 카테고리 필터(복수 선택, 빈 집합=전체) · 검색어.
+final selectedCategoryProvider =
+    StateProvider<Set<OppCategory>>((ref) => const {});
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
 /// 지역 필터(null=전체). 사용자가 앱에서 직접 고르는 단일 권위 소스.

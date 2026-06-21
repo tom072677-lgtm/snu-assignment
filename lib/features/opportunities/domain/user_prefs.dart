@@ -1,7 +1,6 @@
 class OppUserPrefs {
   final Set<String> interests;
-  final String? region;
-  const OppUserPrefs({this.interests = const {}, this.region});
+  const OppUserPrefs({this.interests = const {}});
 }
 
 /// 온보딩/필터에서 고르는 관심 분야(고정 어휘).

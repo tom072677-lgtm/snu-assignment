@@ -37,7 +37,8 @@ class OpportunityCard extends StatelessWidget {
     final benefit = opp.extra['prize'] ??
         opp.extra['amount'] ??
         opp.extra['cost'] ??
-        opp.extra['pay'];
+        opp.extra['pay'] ??
+        opp.extra['support']; // 청년정책 지원내용
     final color = _catColor();
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -93,6 +94,8 @@ class OpportunityCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 3),
                   child: Text(benefit,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF1A8F3C),

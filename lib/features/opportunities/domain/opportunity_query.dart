@@ -6,7 +6,7 @@ class OpportunityQuery {
   static List<Opportunity> process(
     List<Opportunity> items, {
     required DateTime now,
-    OppCategory? category,
+    Set<OppCategory> categories = const {},
     Set<String> interests = const {},
     String? region,
     String? query,
@@ -15,7 +15,8 @@ class OpportunityQuery {
     final list = items.where((o) {
       // 오늘 마감은 유지(D-day), 어제 이전만 제거.
       if (o.deadline != null && o.deadline!.isBefore(today)) return false;
-      if (category != null && o.category != category) return false;
+      // 카테고리 복수 선택: 비어 있으면 전체, 아니면 선택된 것만.
+      if (categories.isNotEmpty && !categories.contains(o.category)) return false;
       // region 필터: 지역 지정 항목이 내 지역과 다르면 제외. 전국(null)은 항상 노출.
       if (region != null && region.isNotEmpty && o.region != null && o.region != region) {
         return false;
