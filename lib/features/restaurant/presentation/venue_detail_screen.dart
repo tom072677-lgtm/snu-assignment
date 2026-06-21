@@ -159,6 +159,10 @@ class _InfoCard extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('[venue] 전화 연결 실패: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
     }
   }
 }
@@ -374,6 +378,10 @@ class _InstagramCard extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('[venue] 인스타그램 열기 실패: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
     }
   }
 }
@@ -444,6 +452,10 @@ class _IgPost extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('[venue] 게시물 열기 실패: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('앱을 열 수 없어요')));
+      }
     }
   }
 }

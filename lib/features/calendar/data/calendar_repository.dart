@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -21,7 +22,9 @@ class CalendarRepository extends StateNotifier<List<CalendarEvent>> {
       return list
           .map((e) => CalendarEvent.fromJson(e as Map<String, dynamic>))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      // 사용자가 직접 입력한 이벤트라 손실 체감이 큼 — 원인을 로그에 남겨 진단 가능하게(규칙 11).
+      debugPrint('[CalendarRepository._load] 저장된 이벤트 파싱 실패: $e');
       return [];
     }
   }

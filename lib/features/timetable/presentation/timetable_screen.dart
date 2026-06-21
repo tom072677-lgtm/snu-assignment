@@ -343,9 +343,13 @@ Future<void> _importIcs(BuildContext context, WidgetRef ref) async {
   try {
     sessions = await IcsImportService.pickAndParse();
   } catch (e) {
+    debugPrint('[IcsImport] 가져오기 실패: $e'); // 규칙 11: file_picker PlatformException 등 진단용
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('오류: ${e.toString().replaceAll('FormatException: ', '')}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return;

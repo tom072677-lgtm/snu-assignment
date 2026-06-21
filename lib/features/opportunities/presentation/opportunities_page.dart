@@ -7,6 +7,8 @@ import 'opportunities_providers.dart';
 import 'opportunity_card.dart';
 import 'opportunity_detail_page.dart';
 import 'my_scraps_page.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/friendly_error.dart';
 
 class OpportunitiesPage extends ConsumerWidget {
   final bool embedded;
@@ -60,8 +62,9 @@ class OpportunitiesPage extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) {
               debugPrint('opportunities 로드 실패: $e');
-              return Center(
-                  child: Text('불러오지 못했어요\n$e', textAlign: TextAlign.center));
+              return ErrorView(
+                  message: friendlyError(e),
+                  onRetry: () => ref.invalidate(allOpportunitiesProvider));
             },
             data: (all) {
               final prefs = asyncPrefs.asData?.value;
@@ -74,7 +77,14 @@ class OpportunitiesPage extends ConsumerWidget {
                 query: ref.watch(searchQueryProvider),
               );
               if (list.isEmpty) {
-                return const Center(child: Text('해당 조건의 기회가 없어요'));
+                // 빈 결과에도 당겨서 새로고침 가능하도록 스크롤 가능한 위젯으로 감쌈.
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(allOpportunitiesProvider),
+                  child: ListView(children: const [
+                    SizedBox(height: 200),
+                    Center(child: Text('해당 조건의 기회가 없어요')),
+                  ]),
+                );
               }
               return RefreshIndicator(
                 onRefresh: () async => ref.invalidate(allOpportunitiesProvider),

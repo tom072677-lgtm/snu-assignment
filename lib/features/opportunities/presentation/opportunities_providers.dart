@@ -20,18 +20,32 @@ final prefsStoreProvider = Provider<OppPrefsStore>((ref) => OppPrefsStore());
 // 공모전은 위비티가 클라우드 IP를 막아 서버에선 못 긁음 → 온디바이스(폰 IP)로 스크랩.
 final contestScraperProvider = Provider<ContestScraper>((ref) => ContestScraper());
 
-// 서버(장학·교육) + 온디바이스(공모전) 병합. 공모전 실패해도 서버 데이터는 그대로.
+// 서버(장학·교육·청년정책)와 온디바이스(공모전)를 분리. 느린 공모전 스크랩(최대 ~20초)이
+// 이미 도착한 서버 데이터까지 막지 않도록 — 서버 결과 먼저 표시, 공모전은 도착하면 합쳐짐.
+final serverOpportunitiesProvider = FutureProvider<List<Opportunity>>((ref) async {
+  return ref.watch(opportunityRepositoryProvider).fetchAll();
+});
+
+final contestOpportunitiesProvider = FutureProvider<List<Opportunity>>((ref) async {
+  return ref.watch(contestScraperProvider).fetch().catchError((Object e) {
+    debugPrint('[opportunities] 공모전 스크랩 실패: $e');
+    return <Opportunity>[];
+  });
+});
+
+// 서버 도착 즉시 반환(스피너 ~1-2초). 공모전은 도착 시 rebuild로 합쳐짐.
+// 중복 제거: 서버측 공모전 스크랩이 성공하면 온디바이스와 겹치므로 title+주최+url 기준 dedup.
 final allOpportunitiesProvider = FutureProvider<List<Opportunity>>((ref) async {
-  final repo = ref.watch(opportunityRepositoryProvider);
-  final scraper = ref.watch(contestScraperProvider);
-  final results = await Future.wait<List<Opportunity>>([
-    repo.fetchAll(),
-    scraper.fetch().catchError((Object e) {
-      debugPrint('[opportunities] 공모전 스크랩 실패: $e');
-      return <Opportunity>[];
-    }),
-  ]);
-  return [...results[0], ...results[1]];
+  final server = await ref.watch(serverOpportunitiesProvider.future);
+  final contest =
+      ref.watch(contestOpportunitiesProvider).valueOrNull ?? const <Opportunity>[];
+  final seen = <String>{};
+  return [
+    for (final o in [...server, ...contest])
+      if (seen.add(
+          '${o.title.replaceAll(RegExp(r"\s+"), "").toLowerCase()}|${o.organization}|${o.url}'))
+        o,
+  ];
 });
 
 final userPrefsProvider = FutureProvider<OppUserPrefs>(

@@ -65,9 +65,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorView(
-          onRetry: () => ref.invalidate(librarySeatsProvider),
-        ),
+        error: (e, _) {
+          debugPrint('[library] seats load error: $e');
+          return _ErrorView(
+            onRetry: () => ref.invalidate(librarySeatsProvider),
+          );
+        },
         data: (data) => data.rooms.isEmpty
             ? _EmptyView(
                 updatedAt: data.updatedAt,

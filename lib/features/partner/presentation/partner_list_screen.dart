@@ -251,6 +251,7 @@ class _PartnerCard extends ConsumerWidget {
                       restaurant.imageUrl!,
                       width: 64,
                       height: 64,
+                      cacheWidth: 128, // 64dp 표시에 원본 해상도 디코드 방지(메모리 절감)
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _placeholder(),
                     )

@@ -36,13 +36,14 @@ class Analytics {
     }).ignore();
   }
 
+  // 순서는 lib/app.dart의 _screens / destinations와 반드시 일치시킬 것.
   static String _tabName(int i) => switch (i) {
         0 => 'assignments',
         1 => 'timetable',
         2 => 'calendar',
-        3 => 'restaurant',
-        4 => 'map',
-        5 => 'shuttle',
+        3 => 'info',
+        4 => 'restaurant',
+        5 => 'map',
         _ => 'unknown',
       };
 
