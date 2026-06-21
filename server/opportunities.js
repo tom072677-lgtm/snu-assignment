@@ -12,7 +12,11 @@ const YOUTH_POLICY_KEY = process.env.YOUTH_POLICY_KEY || ""; // 온통청년 청
 // ── 작은 유틸 ───────────────────────────────────────────────
 async function getJson(url) {
   // Node 18+ 전역 fetch 사용 (Render Node 20+).
-  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  // 타임아웃 필수: 멈춘 정부 API가 fetch를 영구 hang → refreshOpps single-flight 마비 방지.
+  const r = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
+  });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -284,7 +288,8 @@ async function getOpportunities() {
   });
 
   // 마감 지난 항목 제거 (deadline 있고 오늘 이전)
-  const today = ymdDash(new Date());
+  // Render는 UTC로 동작 → KST 기준 오늘로 계산(KST 00~09시에 UTC가 전날이라 마감 필터가 하루 어긋나는 것 방지).
+  const today = ymdDash(new Date(Date.now() + 9 * 3600 * 1000));
   items = items.filter((o) => !o.deadline || o.deadline >= today);
 
   // dedup: 정규화(title)+organization+deadline

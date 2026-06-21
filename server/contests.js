@@ -47,13 +47,14 @@ async function fetchContests() {
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": '"Windows"',
     },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`위비티 HTTP ${res.status}`);
   const html = await res.text();
   const $ = cheerio.load(html);
 
   const items = [];
-  const today = new Date();
+  const today = new Date(Date.now() + 9 * 3600 * 1000); // Render UTC → KST 기준
   $("ul.list > li").each((_, el) => {
     const $el = $(el);
     if ($el.hasClass("top")) return; // 헤더 행 제외
@@ -71,7 +72,8 @@ async function fetchContests() {
 
     let deadline = null;
     const m = dayText.match(/D-(\d+)/);
-    if (m) {
+    // 접수예정 행의 D-N은 '접수 시작'까지의 일수라 마감일이 아님 → 마감으로 쓰면 안 됨(잘못된 조기 마감/필터링).
+    if (m && !/접수예정/.test(dayText)) {
       const d = new Date(today);
       d.setDate(d.getDate() + parseInt(m[1], 10));
       deadline = ymdDash(d); // 근사값
