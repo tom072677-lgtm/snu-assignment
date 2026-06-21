@@ -10,7 +10,9 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const API_KEY = 'AIzaSyDHRuELWhKIJ5T1dgr65BNwhj_m00IAF1Y';
+// 키는 환경변수로만 (리포에 박지 않음). 실행: GOOGLE_PLACES_KEY=... node scripts/collect_venues.js
+const API_KEY = process.env.GOOGLE_PLACES_KEY;
+if (!API_KEY) throw new Error('GOOGLE_PLACES_KEY 환경변수가 필요합니다');
 
 // ── 수집 대상 지역 ────────────────────────────────────────────────────
 // 낙성대 → 서울대입구로 통합 (샤로수길 상권 전체)
