@@ -7,6 +7,7 @@
 
 const ODCLOUD_KEY = process.env.ODCLOUD_KEY || "";
 const WORK24_KDT_KEY = process.env.WORK24_KDT_KEY || "";
+const YOUTH_POLICY_KEY = process.env.YOUTH_POLICY_KEY || ""; // 온통청년 청년정책 apiKeyNm
 
 // ── 작은 유틸 ───────────────────────────────────────────────
 async function getJson(url) {
@@ -136,6 +137,107 @@ async function fetchKdtCourses(pageSize = 100) {
   }));
 }
 
+// ── 청년정책 (온통청년 getPlcy) ─────────────────────────────
+// 일자리 → intern(앱 라벨 "일자리"), 참여･기반 → activity(대외활동)만 수집.
+// 지역은 전국 전부 수집하고, region(시·도)을 채워 앱에서 필터하게 한다.
+// 법정동코드(zipCd) 앞2자리 → 시·도. 강원/전북 특별자치도 전환으로 구·신 코드 둘 다 매핑.
+const SIDO_BY_PREFIX = {
+  "11": "서울", "26": "부산", "27": "대구", "28": "인천", "29": "광주",
+  "30": "대전", "31": "울산", "36": "세종", "41": "경기",
+  "42": "강원", "51": "강원", "43": "충북", "44": "충남",
+  "45": "전북", "52": "전북", "46": "전남", "47": "경북", "48": "경남", "50": "제주",
+};
+
+// zipCd 콤마목록 → 시·도 1개면 그 값, 0개/2개 이상(여러 지역에 걸침)이면 null(=전국, 앱에서 항상 노출).
+// 근사: 한 시·도의 여러 구만 나열돼도 그 시·도로 판정(정상). 여러 시·도면 전국 취급(안전한 과다노출 방향).
+function regionFromZipCd(zipCd) {
+  const sidos = new Set();
+  for (const code of String(zipCd || "").split(",")) {
+    const sido = SIDO_BY_PREFIX[code.trim().slice(0, 2)];
+    if (sido) sidos.add(sido);
+  }
+  return sidos.size === 1 ? [...sidos][0] : null;
+}
+
+// "20260615 ~ 20260630" / 단일 8자리 / "상시" 등 → 종료일 YYYY-MM-DD. 실패 시 null(상시).
+function deadlineFromAplyYmd(aplyYmd) {
+  const nums = String(aplyYmd || "").match(/\d{8}/g);
+  if (!nums || !nums.length) return null;
+  const end = nums[nums.length - 1]; // 구간이면 종료일, 단일이면 그 날짜
+  return `${end.slice(0, 4)}-${end.slice(4, 6)}-${end.slice(6, 8)}`;
+}
+
+async function fetchYouthPolicies(pageSize = 100) {
+  if (!YOUTH_POLICY_KEY) {
+    console.warn("[opportunities] YOUTH_POLICY_KEY 없음 — 청년정책(일자리·대외활동) 생략");
+    return [];
+  }
+  const base =
+    `https://www.youthcenter.go.kr/go/ythip/getPlcy` +
+    `?apiKeyNm=${encodeURIComponent(YOUTH_POLICY_KEY)}&rtnType=json&pageSize=${pageSize}`;
+  const getPage = async (n) => {
+    const j = await getJson(`${base}&pageNum=${n}`);
+    return (j && j.result) || {};
+  };
+
+  const first = await getPage(1);
+  const totCount = (first.pagging && first.pagging.totCount) || 0;
+  let rows = first.youthPolicyList || [];
+
+  // 나머지 페이지: 제한 동시성(콜드스타트 완화) + 페이지 상한(폭주 방지).
+  const totalPages = Math.min(Math.ceil(totCount / pageSize), 30);
+  if (totalPages > 1) {
+    const nums = [];
+    for (let n = 2; n <= totalPages; n++) nums.push(n);
+    const CONC = 5;
+    for (let i = 0; i < nums.length; i += CONC) {
+      const batch = await Promise.all(nums.slice(i, i + CONC).map(getPage));
+      for (const r of batch) rows.push(...(r.youthPolicyList || []));
+    }
+  }
+  if (Math.ceil(totCount / pageSize) > 30) {
+    console.warn(`[opportunities] 청년정책 ${totCount}건 중 상한 30페이지만 수집`);
+  }
+
+  const out = [];
+  for (const r of rows) {
+    const lcls = r.lclsfNm || "";
+    let category;
+    if (lcls === "일자리") category = "intern";
+    else if (lcls.includes("참여")) category = "activity";
+    else continue; // 그 외 분류(교육·금융복지·주거) 제외 — 사용자 확정 범위
+    out.push({
+      id: stableId("yth", r.plcyNo || `${r.plcyNm || ""}${lcls}`),
+      category,
+      title: r.plcyNm || "",
+      organization: r.sprvsnInstCdNm || r.rgtrInstCdNm || "",
+      url:
+        r.aplyUrlAddr ||
+        r.refUrlAddr1 ||
+        `https://www.youthcenter.go.kr/youngPlcyUnif/youngPlcyUnifDtl.do?bizId=${r.plcyNo || ""}`,
+      source: "온통청년",
+      deadline: deadlineFromAplyYmd(r.aplyYmd),
+      startDate: null,
+      region: regionFromZipCd(r.zipCd),
+      // 키워드는 검색·표시용. kInterestOptions 어휘와 달라 관심매칭엔 안 걸림(의도된 한계).
+      tags: String(r.plcyKywdNm || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 4),
+      summary: r.plcyExplnCn || null,
+      extra: pruned({
+        support: r.plcySprtCn,
+        field: r.mclsfNm,
+        applyPeriod: r.aplyYmd,
+        ageMin: r.sprtTrgtMinAge,
+        ageMax: r.sprtTrgtMaxAge,
+      }),
+    });
+  }
+  return out;
+}
+
 // 공모전(격리 스크래핑 모듈). 파일이 없거나 던져도 다른 소스엔 영향 없음.
 let fetchContests = async () => [];
 try {
@@ -149,11 +251,12 @@ async function getOpportunities() {
   const settled = await Promise.allSettled([
     fetchScholarships(),
     fetchKdtCourses(),
+    fetchYouthPolicies(),
     fetchContests(),
   ]);
   let items = [];
   const errors = [];
-  const labels = ["scholarship", "education", "contest"];
+  const labels = ["scholarship", "education", "youth", "contest"];
   settled.forEach((s, i) => {
     if (s.status === "fulfilled") {
       items.push(...s.value);
@@ -180,4 +283,4 @@ async function getOpportunities() {
   return { items: out, errors };
 }
 
-module.exports = { getOpportunities, fetchScholarships, fetchKdtCourses };
+module.exports = { getOpportunities, fetchScholarships, fetchKdtCourses, fetchYouthPolicies };
