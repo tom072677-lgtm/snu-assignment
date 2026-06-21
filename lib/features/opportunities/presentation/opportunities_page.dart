@@ -26,16 +26,26 @@ class OpportunitiesPage extends ConsumerWidget {
                 ref.read(selectedCategoryProvider.notifier).state = c),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-          child: TextField(
-            decoration: const InputDecoration(
-              isDense: true,
-              prefixIcon: Icon(Icons.search),
-              hintText: '제목·주최·태그 검색',
-              border: OutlineInputBorder(),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                decoration: const InputDecoration(
+                  isDense: true,
+                  prefixIcon: Icon(Icons.search),
+                  hintText: '제목·주최·태그 검색',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) =>
+                    ref.read(searchQueryProvider.notifier).state = v,
+              ),
             ),
-            onChanged: (v) =>
-                ref.read(searchQueryProvider.notifier).state = v,
-          ),
+            const SizedBox(width: 8),
+            _RegionDropdown(
+              selected: ref.watch(selectedRegionProvider),
+              onSelect: (r) =>
+                  ref.read(selectedRegionProvider.notifier).state = r,
+            ),
+          ]),
         ),
         if (cat != null && kPitfalls[cat] != null)
           _PitfallBanner(pitfall: kPitfalls[cat]!.first),
@@ -54,7 +64,8 @@ class OpportunitiesPage extends ConsumerWidget {
                 now: DateTime.now(),
                 category: cat,
                 interests: prefs?.interests ?? const {},
-                region: prefs?.region,
+                region: ref.watch(selectedRegionProvider), // 앱 내 지역 선택이 단일 권위 소스
+
                 query: ref.watch(searchQueryProvider),
               );
               if (list.isEmpty) {
@@ -127,6 +138,28 @@ class _CategoryChips extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _RegionDropdown extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+  const _RegionDropdown({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<String?>(
+      value: selected,
+      isDense: true,
+      hint: const Text('지역'),
+      underline: const SizedBox.shrink(),
+      items: [
+        const DropdownMenuItem<String?>(value: null, child: Text('전체')),
+        for (final r in kRegionOptions)
+          DropdownMenuItem<String?>(value: r, child: Text(r)),
+      ],
+      onChanged: onSelect,
     );
   }
 }

@@ -41,6 +41,16 @@ final userPrefsProvider = FutureProvider<OppUserPrefs>(
 final selectedCategoryProvider = StateProvider<OppCategory?>((ref) => null);
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
+/// 지역 필터(null=전체). 사용자가 앱에서 직접 고르는 단일 권위 소스.
+/// 전국(region=null) 항목은 OpportunityQuery에서 항상 노출됨.
+final selectedRegionProvider = StateProvider<String?>((ref) => null);
+
+/// 지역 선택 어휘 — 서버 regionFromZipCd가 내는 시·도 문자열과 정확히 일치해야 함.
+const List<String> kRegionOptions = [
+  '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
+  '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주',
+];
+
 /// 스크랩 상태 단일 소스(Codex 리뷰 반영: 카드별 로컬 state 금지).
 /// 목록·상세·내스크랩이 모두 이 provider를 구독해 즉시 동기화된다.
 class ScrapsNotifier extends StateNotifier<List<ScrapEntry>> {

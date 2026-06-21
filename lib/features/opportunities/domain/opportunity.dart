@@ -28,7 +28,7 @@ String categoryLabel(OppCategory c) {
     case OppCategory.education:
       return '교육';
     case OppCategory.intern:
-      return '인턴';
+      return '일자리'; // 온통청년 일자리 정책(취업·창업·일경험 포함) — "인턴"보다 정확
   }
 }
 
