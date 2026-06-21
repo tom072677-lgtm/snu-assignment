@@ -2209,28 +2209,77 @@ app.get("/api/dept-notices", async (req, res) => {
 });
 
 // ── 혜택·기회(장학·교육) 집계 ──────────────────────────────
+// 캐시 미스 시 전체 fetch가 ~10초라, 사용자가 그 시간을 통째로 기다리지 않도록:
+//  (1) 시작 + 주기 워밍으로 캐시를 항상 채워두고,
+//  (2) 만료돼도 stale 캐시를 즉시 응답 + 백그라운드 갱신(stale-while-revalidate),
+//  (3) single-flight로 동시 요청이 중복 fetch를 트리거하지 않게 한다.
 const { getOpportunities } = require("./opportunities");
 let oppCache = null;
 let oppCacheAt = 0;
+let oppRefreshing = null; // 진행 중 갱신 promise(single-flight)
 const OPP_TTL = 60 * 60 * 1000; // 1시간
+const OPP_WARM_INTERVAL = 50 * 60 * 1000; // 만료(1h) 전에 미리 갱신
+
+function refreshOpps() {
+  if (oppRefreshing) return oppRefreshing; // 이미 갱신 중이면 그 promise 공유
+  oppRefreshing = getOpportunities()
+    .then(({ items, errors }) => {
+      oppCache = items;
+      oppCacheAt = Date.now();
+      if (errors && errors.length) {
+        console.warn("[opportunities] 소스 일부 실패:", JSON.stringify(errors));
+      }
+      return items;
+    })
+    .finally(() => {
+      oppRefreshing = null;
+    });
+  return oppRefreshing;
+}
 
 app.get("/api/opportunities", async (req, res) => {
-  // ?fresh=1 → 캐시 우회(진단/강제 갱신용)
-  if (!req.query.fresh && oppCache && Date.now() - oppCacheAt < OPP_TTL) {
+  const fresh = oppCache && Date.now() - oppCacheAt < OPP_TTL;
+
+  // ?fresh=1 → 강제 갱신(진단용). 결과를 기다려 반환.
+  if (req.query.fresh) {
+    try {
+      const items = await refreshOpps();
+      return res.json({ source: "live", count: items.length, items });
+    } catch (e) {
+      console.error("[opportunities] 실패:", e.message);
+      if (oppCache) return res.json({ source: "stale", count: oppCache.length, items: oppCache });
+      return res.status(502).json({ error: "fetch-failed" });
+    }
+  }
+
+  if (fresh) {
     return res.json({ source: "cache", count: oppCache.length, items: oppCache });
   }
+
+  // 만료됐지만 캐시 있음 → 즉시 응답 + 백그라운드 갱신(사용자 대기 0).
+  if (oppCache) {
+    refreshOpps().catch((e) =>
+      console.error("[opportunities] 백그라운드 갱신 실패:", e.message));
+    return res.json({ source: "stale", count: oppCache.length, items: oppCache });
+  }
+
+  // 캐시 완전 비어있음(최초 1회, 보통 시작 워밍이 채워둠) → 부득이 대기.
   try {
-    const { items, errors } = await getOpportunities();
-    oppCache = items;
-    oppCacheAt = Date.now();
-    res.json({ source: "live", count: items.length, errors, items });
+    const items = await refreshOpps();
+    res.json({ source: "live", count: items.length, items });
   } catch (e) {
     console.error("[opportunities] 실패:", e.message);
-    if (oppCache) return res.json({ source: "stale", count: oppCache.length, items: oppCache });
     res.status(502).json({ error: "fetch-failed" });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`✅ SNU 과제 서버 실행 중: http://localhost:${PORT}`);
+  // 혜택·기회 캐시 워밍: 콜드스타트/만료 시 사용자가 ~10초 대기하는 것 방지.
+  refreshOpps().catch((e) =>
+    console.error("[opportunities] 시작 워밍 실패:", e.message));
+  setInterval(() => {
+    refreshOpps().catch((e) =>
+      console.error("[opportunities] 주기 갱신 실패:", e.message));
+  }, OPP_WARM_INTERVAL);
 });
