@@ -175,24 +175,40 @@ async function fetchYouthPolicies(pageSize = 100) {
   const base =
     `https://www.youthcenter.go.kr/go/ythip/getPlcy` +
     `?apiKeyNm=${encodeURIComponent(YOUTH_POLICY_KEY)}&rtnType=json&pageSize=${pageSize}`;
+  // 페이지당 재시도 1회(일시적 500 대비 — deptNotices의 TLS 재시도와 같은 취지).
   const getPage = async (n) => {
-    const j = await getJson(`${base}&pageNum=${n}`);
-    return (j && j.result) || {};
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const j = await getJson(`${base}&pageNum=${n}`);
+        return (j && j.result) || {};
+      } catch (e) {
+        if (attempt === 2) throw e;
+      }
+    }
   };
 
-  const first = await getPage(1);
+  const first = await getPage(1); // page1 실패 시 throw → youth 소스만 격리(다른 소스 무영향)
   const totCount = (first.pagging && first.pagging.totCount) || 0;
   let rows = first.youthPolicyList || [];
 
   // 나머지 페이지: 제한 동시성(콜드스타트 완화) + 페이지 상한(폭주 방지).
+  // 부분 실패 허용: 한 페이지가 (재시도 후에도) 실패해도 그 페이지만 버리고 진행.
+  // 단일 일시적 500이 youth 전체(최대 1시간)를 날리지 않도록 — 누락 페이지 수는 로그로 남김.
   const totalPages = Math.min(Math.ceil(totCount / pageSize), 30);
   if (totalPages > 1) {
     const nums = [];
     for (let n = 2; n <= totalPages; n++) nums.push(n);
     const CONC = 5;
+    let dropped = 0;
     for (let i = 0; i < nums.length; i += CONC) {
-      const batch = await Promise.all(nums.slice(i, i + CONC).map(getPage));
-      for (const r of batch) rows.push(...(r.youthPolicyList || []));
+      const settled = await Promise.allSettled(nums.slice(i, i + CONC).map(getPage));
+      for (const s of settled) {
+        if (s.status === "fulfilled") rows.push(...(s.value.youthPolicyList || []));
+        else dropped++;
+      }
+    }
+    if (dropped) {
+      console.warn(`[opportunities] 청년정책 페이지 ${dropped}/${totalPages - 1}개 실패(건너뜀)`);
     }
   }
   if (Math.ceil(totCount / pageSize) > 30) {
