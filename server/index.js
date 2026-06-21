@@ -7,6 +7,9 @@ const path = require("path");
 const webpush = require("web-push");
 const { MongoClient } = require("mongodb");
 const cheerio = require("cheerio");
+const rateLimit = require("express-rate-limit");
+// SSRF 가드(사설 IP 차단 + DNS rebinding 방지) — deptNotices의 검증된 구현 재사용.
+const { isPrivateAddr, safeLookup } = require("./deptNotices");
 
 // VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
@@ -28,7 +31,16 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-app.use(express.json());
+// 무인증·무제한이라 유료 API 키(카카오/ODSAY/TMAP)가 공개 중계로 남용될 수 있음 → 넉넉한 per-IP 한도.
+// SNU 캠퍼스 wifi는 다수 학생이 IP 공유 → 정상 사용 안 막게 300/분으로 여유. keep-alive cron(/health)·OPTIONS는 제외.
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
+}));
+app.use(express.json({ limit: "256kb" })); // 무인증 쓰기 엔드포인트 남용 시 페이로드 크기 제한
 
 // ──────────────────────────────────────────
 // URL fetch (헤더 지원, 리다이렉트 자동 처리, POST 지원)
@@ -38,6 +50,7 @@ function fetchText(url, redirectCount = 0, extraHeaders = {}, method = "GET", bo
     if (redirectCount > 5) return reject(new Error("리다이렉트가 너무 많습니다."));
 
     const parsed = new URL(url);
+    if (isPrivateAddr(parsed.hostname)) return reject(new Error("blocked private host"));
     const bodyBuf = body ? Buffer.from(body, "utf8") : null;
     const options = {
       hostname: parsed.hostname,
@@ -47,13 +60,19 @@ function fetchText(url, redirectCount = 0, extraHeaders = {}, method = "GET", bo
         ...extraHeaders,
         ...(bodyBuf ? { "Content-Length": bodyBuf.length } : {}),
       },
+      lookup: safeLookup, // DNS가 사설 IP로 해석되면 차단(rebinding 방지)
     };
 
     const transport = parsed.protocol === "https:" ? https : http;
     const req = transport.request(options, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        return fetchText(res.headers.location, redirectCount + 1, extraHeaders).then(resolve).catch(reject);
+        // 상대경로 location 해석 + 교차호스트 리다이렉트엔 인증헤더 제거(토큰 유출 방지) + method/body 보존
+        const nextUrl = new URL(res.headers.location, url);
+        const sameHost = nextUrl.hostname === parsed.hostname;
+        return fetchText(nextUrl.href, redirectCount + 1, sameHost ? extraHeaders : {}, method, body)
+          .then(resolve)
+          .catch(reject);
       }
       if (res.statusCode !== 200) {
         res.setEncoding("utf8");
@@ -381,25 +400,55 @@ async function fetchDongariNotices() {
   }
 }
 
-app.get("/api/events", async (req, res) => {
-  const [wesnu, dongari, snuEvents] = await Promise.all([
+// /api/opportunities와 동일 클래스 문제 방지: 캐시 미스 시 3개 스크랩(~5-15s)을
+// 매 요청 동기 실행하던 것을 → 시작/주기 워밍 + stale-while-revalidate + single-flight로.
+let eventsCache = null;
+let eventsCacheAt = 0;
+let eventsRefreshing = null;
+const EVENTS_TTL = 60 * 60 * 1000; // 1시간
+const EVENTS_WARM_INTERVAL = 50 * 60 * 1000;
+
+function refreshEvents() {
+  if (eventsRefreshing) return eventsRefreshing; // single-flight
+  eventsRefreshing = Promise.all([
     fetchWeSnuRSS(),
     fetchDongariNotices(),
     fetchSnuEvents(),
-  ]);
+  ])
+    .then(([wesnu, dongari, snuEvents]) => {
+      const notices = [...wesnu, ...dongari].sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date) - new Date(a.date);
+      });
+      const schedule =
+        snuEvents.length > 0 ? [...fallbackSchedule, ...snuEvents] : fallbackSchedule;
+      eventsCache = { schedule, notices };
+      eventsCacheAt = Date.now();
+      return eventsCache;
+    })
+    .finally(() => {
+      eventsRefreshing = null;
+    });
+  return eventsRefreshing;
+}
 
-  const notices = [...wesnu, ...dongari].sort((a, b) => {
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return new Date(b.date) - new Date(a.date);
-  });
-
-  // SNU 공식 이벤트가 있으면 사용, 없으면 fallback
-  const schedule = snuEvents.length > 0
-    ? [...fallbackSchedule, ...snuEvents]
-    : fallbackSchedule;
-
-  res.json({ schedule, notices });
+app.get("/api/events", async (req, res) => {
+  const fresh = eventsCache && Date.now() - eventsCacheAt < EVENTS_TTL;
+  if (fresh) return res.json(eventsCache);
+  // 만료됐지만 캐시 있음 → 즉시 응답 + 백그라운드 갱신(사용자 대기 0).
+  if (eventsCache) {
+    refreshEvents().catch((e) =>
+      console.error("[events] 백그라운드 갱신 실패:", e.message));
+    return res.json(eventsCache);
+  }
+  try {
+    const data = await refreshEvents();
+    res.json(data);
+  } catch (e) {
+    console.error("[events] 실패:", e.message);
+    res.status(502).json({ error: "fetch-failed" });
+  }
 });
 
 // ──────────────────────────────────────────
@@ -492,6 +541,7 @@ async function fetchTmapRoute(tmapUrl, body) {
     method: "POST",
     headers: { "Content-Type": "application/json", appKey: key },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000), // 멈춘 upstream이 요청을 영구 hang시키는 것 방지
   });
   if (!resp.ok) throw new Error(`T Map HTTP ${resp.status}`);
   const data = await resp.json();
@@ -764,7 +814,7 @@ app.get("/api/route/odsay/transit", async (req, res) => {
   try {
     const params = new URLSearchParams({ SX: String(olng), SY: String(olat), EX: String(dlng), EY: String(dlat), apiKey: odsayKey });
     const url = `https://api.odsay.com/v1/api/searchPubTransPathT?${params}`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(`ODSAY HTTP ${resp.status}: ${body.slice(0, 200)}`);
@@ -869,7 +919,7 @@ app.post("/api/push/subscribe", (req, res) => {
   if (!pushEnabled) return res.status(503).json({ error: "Push 비활성화" });
   const { subscription, tasks } = req.body;
   if (!subscription?.endpoint) return res.status(400).json({ error: "subscription 필요" });
-  const data = { subscription, tasks: tasks || [] };
+  const data = { subscription, tasks: (tasks || []).slice(0, 200) }; // 무인증 쓰기 — 크기 상한
   pushStore.set(subscription.endpoint, data);
   saveSubscription(subscription.endpoint, data);
   console.log(`[push] 구독 등록: ${pushStore.size}개`);
@@ -1050,6 +1100,11 @@ async function fetchSnucoMenu() {
     }
   });
 
+  // 빈 결과를 success로 캐싱하면 하루치 장애가 조용히 숨겨짐(규칙 13) → 던져서 진단.
+  if (!restaurants.length) {
+    console.error("[snuco] 0개 파싱됨. HTML 앞부분:", html.slice(0, 500));
+    throw new Error("snuco 메뉴 파싱 실패 (사이트 구조 변경?)");
+  }
   const result = { restaurants, fetchedAt: new Date().toISOString() };
   snucoCache.set(cacheKey, result);
   return result;
@@ -1182,11 +1237,15 @@ const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY;
 
 app.post("/api/directions", async (req, res) => {
   const { origin, destination } = req.body || {};
-  if (!origin?.lat || !destination?.lat) {
+  // 좌표를 유한 숫자로 강제 — 쿼리 파라미터 주입(예: lat="1&priority=DISTANCE") 차단 + 누락 lng 방어.
+  const num = (v) => (Number.isFinite(+v) ? +v : null);
+  const oLat = num(origin?.lat), oLng = num(origin?.lng);
+  const dLat = num(destination?.lat), dLng = num(destination?.lng);
+  if (oLat === null || oLng === null || dLat === null || dLng === null) {
     return res.status(400).json({ error: "origin/destination 필요" });
   }
   try {
-    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&priority=RECOMMEND`;
+    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${oLng},${oLat}&destination=${dLng},${dLat}&priority=RECOMMEND`;
     const result = await fetchText(url, 0, { Authorization: `KakaoAK ${KAKAO_REST_KEY}` });
     res.json(JSON.parse(result));
   } catch (err) {
@@ -1299,7 +1358,7 @@ app.post("/api/fcm/sync-tasks", async (req, res) => {
   const { token, tasks } = req.body;
   if (!token) return res.status(400).json({ error: "token 필요" });
   const existing = fcmTokenStore.get(token) || {};
-  const data = { ...existing, tasks: tasks || [] };
+  const data = { ...existing, tasks: (tasks || []).slice(0, 200) }; // 무인증 쓰기 — 크기 상한
   fcmTokenStore.set(token, data);
   await saveFcmToken(token, data);
   console.log(`[FCM] 과제 동기화: ${token.slice(0, 20)}... (${(tasks || []).length}개)`);
@@ -1503,7 +1562,11 @@ async function fetchLibrarySeats() {
     if (found) break;
   }
 
-  // 파싱 실패 시 빈 배열 반환 (502 대신 graceful)
+  // 빈 결과를 success로 캐싱하면 60초간 장애가 숨겨짐(규칙 13). 던지면 핸들러가 stale 캐시로 graceful 폴백.
+  if (!rooms.length) {
+    console.error("[library] 0 rooms parsed. HTML 앞부분:", html.slice(0, 500));
+    throw new Error("library seat 파싱 실패 (사이트 구조 변경?)");
+  }
   return rooms;
 }
 
@@ -1950,7 +2013,7 @@ async function callOdsay(olat, olng, dlat, dlng) {
   const odsayKey = process.env.ODSAY_API_KEY?.trim();
   if (!odsayKey) throw new Error('ODSAY_API_KEY not configured');
   const params = new URLSearchParams({ SX: String(olng), SY: String(olat), EX: String(dlng), EY: String(dlat), apiKey: odsayKey });
-  const resp = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params}`);
+  const resp = await fetch(`https://api.odsay.com/v1/api/searchPubTransPathT?${params}`, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`ODSAY HTTP ${resp.status}`);
   const data = await resp.json();
   if (data.error) throw new Error(`ODSAY error: ${JSON.stringify(data.error)}`);
@@ -2240,8 +2303,13 @@ function refreshOpps() {
 app.get("/api/opportunities", async (req, res) => {
   const fresh = oppCache && Date.now() - oppCacheAt < OPP_TTL;
 
-  // ?fresh=1 → 강제 갱신(진단용). 결과를 기다려 반환.
+  // ?fresh=1 → 강제 갱신(진단용). 비싼(~10초) 작업이라 MONITOR_KEY로 게이트(무인증 DoS 방지).
+  // 앱은 ?fresh를 쓰지 않으므로(일반 경로=stale-while-revalidate) 정상 트래픽 무영향.
   if (req.query.fresh) {
+    const key = req.get("x-monitor-key") || req.query.key;
+    if (!process.env.MONITOR_KEY || key !== process.env.MONITOR_KEY) {
+      return res.status(403).json({ error: "forbidden" });
+    }
     try {
       const items = await refreshOpps();
       return res.json({ source: "live", count: items.length, items });
@@ -2282,4 +2350,11 @@ app.listen(PORT, () => {
     refreshOpps().catch((e) =>
       console.error("[opportunities] 주기 갱신 실패:", e.message));
   }, OPP_WARM_INTERVAL);
+  // 이벤트(학사일정·동아리 공지) 캐시 워밍 — /api/events 첫 요청 ~5-15초 대기 방지.
+  refreshEvents().catch((e) =>
+    console.error("[events] 시작 워밍 실패:", e.message));
+  setInterval(() => {
+    refreshEvents().catch((e) =>
+      console.error("[events] 주기 갱신 실패:", e.message));
+  }, EVENTS_WARM_INTERVAL);
 });

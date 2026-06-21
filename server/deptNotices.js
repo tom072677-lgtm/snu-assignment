@@ -391,7 +391,8 @@ async function scrapeDept(dept) {
       items.push({ title, url: itemUrl, date });
       if (items.length >= 30) break;
     }
-    return { items, htmlHead: "" };
+    // 0건이면 raw JSON 앞부분을 진단용으로 노출(키 변경 시 추적 가능 — 규칙 13).
+    return { items, htmlHead: items.length ? "" : raw.slice(0, 600) };
   }
 
   // 일부 학과 서버(math)는 간헐적으로 TLS 연결을 리셋함 → 1회 재시도.
@@ -413,7 +414,7 @@ async function scrapeDept(dept) {
   throw lastErr;
 }
 
-module.exports = { DEPT_NOTICE_SOURCES, scrapeDept };
+module.exports = { DEPT_NOTICE_SOURCES, scrapeDept, isPrivateAddr, safeLookup };
 
 // Live self-test: node deptNotices.js <deptCode>
 if (require.main === module) {
