@@ -1207,6 +1207,38 @@ app.get("/api/restaurant/list", (req, res) => {
   res.json(list);
 });
 
+// ──────────────────────────────────────────
+// ntfy 릴레이 (이메일 요약 알림용)
+// ──────────────────────────────────────────
+// Apps Script가 Google 공유 IP로 ntfy.sh에 직접 발행하면 간헐 차단·방문자 쿼터에
+// 걸린다(2026-07-04 장애: Address unavailable 509회 + HTTP 429). 이 서버의 IP로
+// 대신 발행해 우회한다. 공개 repo라 토픽(=비밀)을 코드에 못 두므로 SHA-256 해시로
+// 허용 토픽을 검증한다(해시로는 토픽 역산 불가 → 오픈 릴레이 남용 방지).
+const crypto = require("crypto");
+const NTFY_RELAY_TOPIC_HASHES = new Set([
+  "a03be6564cc7072cf145d1090d6cf5cc998e507e0ab1cee4600b393f4b32b6fd",
+]);
+
+app.post("/api/notify", async (req, res) => {
+  const { topic, title, message, click } = req.body || {};
+  const hash = topic ? crypto.createHash("sha256").update(String(topic)).digest("hex") : "";
+  if (!NTFY_RELAY_TOPIC_HASHES.has(hash)) {
+    return res.status(403).json({ error: "허용되지 않은 토픽" });
+  }
+  try {
+    await fetchText(
+      "https://ntfy.sh", 0,
+      { "Content-Type": "application/json; charset=utf-8" },
+      "POST",
+      JSON.stringify({ topic, title, message, click })
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[notify] ntfy 발행 실패:", err.message);
+    res.status(502).json({ error: `ntfy 발행 실패: ${err.message}` });
+  }
+});
+
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 // ──────────────────────────────────────────
