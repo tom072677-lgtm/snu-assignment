@@ -1310,6 +1310,7 @@ if (FCM_SERVER_KEY) {
 const fcmTokenStore = new Map();
 let fcmCol = null; // MongoDB fcm_tokens 컬렉션
 let sentKeysCol = null; // MongoDB sent_keys 컬렉션 (재시작 후에도 중복 방지)
+let extraSeenCol = null; // MongoDB extra_seen 컬렉션 (비교과 신규 감지 — 재시작 후에도 유지)
 
 async function connectFcmMongo() {
   if (!MONGO_URI) return;
@@ -1333,6 +1334,8 @@ async function connectFcmMongo() {
     const keyDocs = await sentKeysCol.find({}, { projection: { _id: 1 } }).toArray();
     keyDocs.forEach((d) => sentKeys.add(d._id));
     console.log(`[FCM] sentKeys 로드: ${sentKeys.size}개`);
+
+    extraSeenCol = db.collection("extra_seen");
   } catch (err) {
     console.error("[FCM] MongoDB 연결 실패:", err.message);
   }
@@ -1450,6 +1453,132 @@ if (fcmAdmin) {
     }
   }, 5 * 60 * 1000);
 }
+
+// ──────────────────────────────────────────
+// 알림 공용: 등록된 모든 기기로 FCM 발송 (단일 사용자 배포 전제)
+// ──────────────────────────────────────────
+async function sendFcmToAllTokens({ type, title, body, url }) {
+  if (!fcmAdmin) return 0;
+  let sent = 0;
+  for (const token of [...fcmTokenStore.keys()]) {
+    try {
+      await fcmAdmin.send({
+        token,
+        notification: { title, body },
+        data: { type, url: url || "" },
+        android: {
+          priority: "high",
+          // 백그라운드 자동 표시 알림이 앱의 기존 채널로 나가도록 명시
+          // (채널 미지정 시 기본 채널로 빠져 사용자 설정과 어긋남)
+          notification: { channelId: "sharap_alerts" },
+        },
+      });
+      sent++;
+    } catch (err) {
+      console.error(`[FCM] 발송 실패(${type}):`, err.message);
+      if (err.code === "messaging/registration-token-not-registered") {
+        fcmTokenStore.delete(token);
+        deleteFcmToken(token);
+      }
+    }
+  }
+  return sent;
+}
+
+// ──────────────────────────────────────────
+// 이메일 요약 알림 릴레이 (Apps Script → FCM)
+// ──────────────────────────────────────────
+// ntfy.sh는 발행자 IP당 일일 쿼터가 있어 Google·Render 공유 IP가 동시에 429까지
+// 발생(2026-07-06 실측) → FCM으로 전환. 인증은 ntfy 릴레이와 같은 시크릿 해시 재사용.
+app.post("/api/email-notify", async (req, res) => {
+  const { secret, title, body, url } = req.body || {};
+  const hash = secret
+    ? crypto.createHash("sha256").update(String(secret)).digest("hex")
+    : "";
+  if (!NTFY_RELAY_TOPIC_HASHES.has(hash)) {
+    return res.status(403).json({ error: "인증 실패" });
+  }
+  if (!title || !body) return res.status(400).json({ error: "title/body 필요" });
+  const safeUrl =
+    typeof url === "string" && /^https?:\/\//.test(url) ? url : "";
+  const sent = await sendFcmToAllTokens({
+    type: "email",
+    title: String(title).slice(0, 200),
+    body: String(body).slice(0, 1000),
+    url: safeUrl,
+  });
+  if (sent === 0) {
+    // 토큰 미등록/일시 오류 — 5xx를 돌려줘 Apps Script가 매분 재시도하게 함(알림 유실 방지)
+    return res.status(503).json({ error: "발송된 기기 없음", sent: 0 });
+  }
+  res.json({ ok: true, sent });
+});
+
+// ──────────────────────────────────────────
+// SNU 비교과 신규 프로그램 감시 → FCM (30분 주기)
+// ──────────────────────────────────────────
+const { fetchExtraPrograms, detailUrl } = require("./extraWatch");
+let extraLastCycle = null; // 관찰용 (/api/extra-status — Render 대시보드 없이 상태 확인)
+let extraRunning = false;
+
+async function checkNewExtraPrograms() {
+  if (extraRunning) return;
+  extraRunning = true;
+  const stat = { at: new Date().toISOString(), parsed: 0, new: 0, notified: 0, seeded: false, error: null };
+  try {
+    // Mongo 미연결이면 건너뜀(fail closed) — seen 조회 불가 상태에서 알림 폭탄 방지
+    if (!extraSeenCol) throw new Error("MongoDB 미연결 — 이번 회차 건너뜀");
+    const items = await fetchExtraPrograms();
+    stat.parsed = items.length;
+
+    // 첫 실행 가드: 기존 프로그램 전체를 알림 없이 시드
+    const seenCount = await extraSeenCol.estimatedDocumentCount();
+    if (seenCount === 0) {
+      await extraSeenCol
+        .insertMany(items.map((i) => ({ _id: i.seq, title: i.title, seededAt: new Date() })), { ordered: false })
+        .catch(() => {});
+      stat.seeded = true;
+      return;
+    }
+
+    const seenDocs = await extraSeenCol.find({}, { projection: { _id: 1 } }).toArray();
+    const seen = new Set(seenDocs.map((d) => d._id));
+    const fresh = items.filter((i) => !seen.has(i.seq));
+    stat.new = fresh.length;
+
+    for (const p of fresh.slice(0, 5)) { // 파서 오작동 시 알림 폭주 상한
+      const parts = [p.desc, p.applyPeriod && `신청 ${p.applyPeriod}`, p.mode].filter(Boolean);
+      const sent = await sendFcmToAllTokens({
+        type: "extra",
+        title: `🎓 새 비교과 · ${p.category}`,
+        body: `${p.title}\n${parts.join(" · ")}`.slice(0, 1000),
+        url: detailUrl(p.seq),
+      });
+      if (sent > 0) {
+        // 전송 성공 후에만 seen 기록 → 실패분은 다음 회차 재시도 (크래시 시 드문 중복은 허용)
+        await extraSeenCol.updateOne(
+          { _id: p.seq },
+          { $setOnInsert: { _id: p.seq, title: p.title, notifiedAt: new Date() } },
+          { upsert: true }
+        );
+        stat.notified++;
+      }
+    }
+  } catch (err) {
+    stat.error = err.message;
+  } finally {
+    extraRunning = false;
+    extraLastCycle = stat;
+    console.log(
+      `[extra] parsed=${stat.parsed} new=${stat.new} notified=${stat.notified}` +
+      `${stat.seeded ? " (seeded)" : ""}${stat.error ? " err=" + stat.error : ""}`
+    );
+  }
+}
+setTimeout(checkNewExtraPrograms, 60 * 1000); // 기동 1분 후 첫 검사 (Mongo 연결 대기)
+setInterval(checkNewExtraPrograms, 30 * 60 * 1000);
+
+app.get("/api/extra-status", (req, res) => res.json({ last: extraLastCycle }));
 
 // sentKeys 주기적 정리 (7일마다 전체 초기화 — 이미 발송된 만료 과제 키 제거)
 setInterval(() => {
