@@ -1508,8 +1508,14 @@ app.post("/api/email-notify", async (req, res) => {
     url: safeUrl,
   });
   if (sent === 0) {
-    // 토큰 미등록/일시 오류 — 5xx를 돌려줘 Apps Script가 매분 재시도하게 함(알림 유실 방지)
-    return res.status(503).json({ error: "발송된 기기 없음", sent: 0 });
+    // 토큰 미등록/일시 오류 — 5xx를 돌려줘 Apps Script가 매분 재시도하게 함(알림 유실 방지).
+    // fcmReady/tokens는 원격 진단용(Render 로그 접근 없이 원인 구분)
+    return res.status(503).json({
+      error: "발송된 기기 없음",
+      sent: 0,
+      fcmReady: !!fcmAdmin,
+      tokens: fcmTokenStore.size,
+    });
   }
   res.json({ ok: true, sent });
 });
