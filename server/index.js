@@ -781,6 +781,8 @@ app.get("/api/route/odsay/transit", async (req, res) => {
     try { data = await resp.json(); }
     catch { throw new Error("ODSAY 응답이 JSON이 아닙니다"); }
 
+    // -98: 출·도착지 700m 이내로 대중교통 경로를 제공하지 않는 정상 결과.
+    if (String(data.error?.code) === "-98") return res.json({ routes: [] });
     if (data.error) throw new Error(`ODSAY 오류: ${JSON.stringify(data.error)}`);
 
     const rawPaths = data.result?.path || [];

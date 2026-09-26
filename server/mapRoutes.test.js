@@ -1,5 +1,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
 const { createMapRoutes } = require("./mapRoutes");
 
 const POINT = { olat: 37.4607, olng: 126.9526, dlat: 37.4631, dlng: 126.9512 };
@@ -184,4 +187,39 @@ test("공급자 타임아웃과 HTTP 오류는 안전한 한국어 응답으로 
     assert.equal(result.body.code, "ROUTE_PROVIDER_UNAVAILABLE");
     assert.doesNotMatch(result.body.error, /upstream/);
   }
+});
+
+async function invokeOdsayHandler(data, upstreamStatus = 200) {
+  const source = fs.readFileSync(path.join(__dirname, "index.js"), "utf8");
+  const start = source.indexOf('app.get("/api/route/odsay/transit",');
+  const end = source.indexOf('// 장소 검색 (카카오 로컬 API 프록시)', start);
+  assert.ok(start >= 0 && end > start);
+  let handler;
+  vm.runInNewContext(source.slice(start, end), {
+    app: { get: (_, callback) => { handler = callback; } },
+    process: { env: { ODSAY_API_KEY: "test-only-key" } },
+    URLSearchParams, AbortSignal,
+    fetch: async () => ({ ...response(data, upstreamStatus), text: async () => JSON.stringify(data) }),
+  });
+  let status = 200;
+  let body;
+  await handler({ query: { olat: "37.45016", olng: "126.95259", dlat: "37.44887", dlng: "126.95265" } }, {
+    status(value) { status = value; return this; },
+    json(value) { body = JSON.parse(JSON.stringify(value)); },
+  });
+  return { status, body };
+}
+
+test("실제 ODSAY handler는 확인된 근거리 -98 응답을 정상 빈 경로로 처리한다", async () => {
+  const result = await invokeOdsayHandler({ error: { msg: "출, 도착지가 700m이내입니다.", code: "-98" } });
+  assert.deepEqual(result, { status: 200, body: { routes: [] } });
+});
+
+test("실제 ODSAY handler는 다른 공급자 오류와 HTTP 실패를 숨기지 않는다", async () => {
+  const providerError = await invokeOdsayHandler({ error: { code: "MOCK_FAILURE", msg: "모의 공급자 장애" } });
+  assert.equal(providerError.status, 500);
+  assert.match(providerError.body.error, /MOCK_FAILURE/);
+  const httpError = await invokeOdsayHandler({ message: "모의 호출 제한" }, 429);
+  assert.equal(httpError.status, 500);
+  assert.match(httpError.body.error, /ODSAY HTTP 429/);
 });
