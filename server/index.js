@@ -10,6 +10,7 @@ const cheerio = require("cheerio");
 const rateLimit = require("express-rate-limit");
 // SSRF 가드(사설 IP 차단 + DNS rebinding 방지) — deptNotices의 검증된 구현 재사용.
 const { isPrivateAddr, safeLookup } = require("./deptNotices");
+const { createMapRoutes } = require("./mapRoutes");
 
 // VAPID 설정 (없으면 Push 비활성화, 나머지 기능은 정상 동작)
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
@@ -579,38 +580,11 @@ async function fetchTmapRoute(tmapUrl, body) {
 }
 
 // ── 도보 경로 (T Map pedestrian) ──────────────────────────────────────────────
-app.post("/api/route/tmap/pedestrian", async (req, res) => {
-  const { olat, olng, dlat, dlng } = req.body;
-  if (olat == null || olng == null || dlat == null || dlng == null)
-    return res.status(400).json({ error: "파라미터 필요" });
-  try {
-    const result = await fetchTmapRoute(
-      "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1",
-      { startX: String(olng), startY: String(olat), endX: String(dlng), endY: String(dlat),
-        reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO", startName: "start", endName: "end" }
-    );
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+const mapRoutes = createMapRoutes();
+app.post("/api/route/tmap/pedestrian", mapRoutes.handler("walk"));
 
 // ── 자동차 경로 (T Map car) ───────────────────────────────────────────────────
-app.post("/api/route/tmap/car", async (req, res) => {
-  const { olat, olng, dlat, dlng } = req.body;
-  if (olat == null || olng == null || dlat == null || dlng == null)
-    return res.status(400).json({ error: "파라미터 필요" });
-  try {
-    const result = await fetchTmapRoute(
-      "https://apis.openapi.sk.com/tmap/routes?version=1",
-      { startX: String(olng), startY: String(olat), endX: String(dlng), endY: String(dlat),
-        reqCoordType: "WGS84GEO", resCoordType: "WGS84GEO", startName: "start", endName: "end" }
-    );
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+app.post("/api/route/tmap/car", mapRoutes.handler("car"));
 
 // ── 버스/지하철 실시간 도착 정보 ──────────────────────────────────────────────
 async function fetchBusArrival(stId, busRouteId, ord) {
@@ -730,23 +704,7 @@ app.post("/api/transit/arrival", async (req, res) => {
 });
 
 // ── 자전거 경로 (OSRM) ────────────────────────────────────────────────────────
-app.post("/api/route/osrm/bike", async (req, res) => {
-  const { olat, olng, dlat, dlng } = req.body;
-  if (olat == null || olng == null || dlat == null || dlng == null)
-    return res.status(400).json({ error: "파라미터 필요" });
-  try {
-    const url = `https://routing.openstreetmap.de/routed-bike/route/v1/bike/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
-    const data = JSON.parse(await fetchText(url));
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0)
-      return res.status(404).json({ error: `자전거 경로 없음 (${data.code ?? "unknown"})` });
-    const route = data.routes[0];
-    const coords = route.geometry?.coordinates ?? [];
-    const path = coords.map(([lng, lat]) => [lat, lng]); // OSRM은 [lng,lat] → [lat,lng]으로 변환
-    res.json({ duration: route.duration, distance: route.distance, path });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+app.post("/api/route/osrm/bike", mapRoutes.handler("bike"));
 
 // ── ODSAY 단일 경로 객체 → 클라이언트 shape 변환 ─────────────────────────────
 function buildOdsayRoute(pathObj) {
